@@ -25,7 +25,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 | # | Critère | Résultat attendu |
 |---|---|---|
-| CA-1 | Le serveur démarre sans erreur avec `npm start` | Le process ne crash pas (exit code 0) |
+| CA-1 | Le serveur démarre sans erreur avec `npm start` | Le serveur démarre et reste en écoute sans erreur |
 | CA-2 | La console affiche l'heure de lancement au format `HH:mm:ss` | Ex : `🚀 Server started at 14:32:07` |
 | CA-3 | La console affiche la première adresse IPv4 locale non-loopback trouvée et le port d'écoute | Ex : `📡 Listening on http://192.168.1.42:3000` |
 | CA-4 | Si aucune interface réseau IPv4 non-loopback n'est trouvée, un message de fallback est affiché | Ex : `⚠️ No network interface found, listening on http://localhost:3000` |
@@ -50,7 +50,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "test": "jest --coverage"
+    "test": "node --experimental-vm-modules ./node_modules/.bin/jest --coverage"
   }
 }
 ```
