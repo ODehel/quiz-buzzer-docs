@@ -35,7 +35,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 | CA-6 | Le champ `type` doit valoir `"MCQ"` ou `"SPEED"` | Sinon → `400 VALIDATION_ERROR` |
 | CA-7 | Le champ `theme_id` doit référencer un thème existant | Sinon → `400 INVALID_THEME` |
 | CA-8 | Le champ `theme_id` doit être un UUID valide | Sinon → `400 INVALID_UUID` |
-| CA-9 | Pour une question MCQ, `choices` est obligatoire : tableau de exactement 4 chaînes non vides (1–40 caractères chacune), toutes distinctes (insensible à la casse) | Sinon → `400 VALIDATION_ERROR` |
+| CA-9 | Pour une question MCQ, `choices` est obligatoire : tableau d'exactement 4 chaînes non vides (1–40 caractères chacune), toutes distinctes (insensible à la casse) | Sinon → `400 VALIDATION_ERROR` |
 | CA-10 | Pour une question MCQ, `correct_answer` est obligatoire et doit correspondre exactement (insensible à la casse) à l'un des 4 `choices` | Sinon → `400 VALIDATION_ERROR` |
 | CA-11 | Pour une question SPEED, `choices` doit être absent du body | Présent → `400 VALIDATION_ERROR` |
 | CA-12 | Pour une question SPEED, `correct_answer` est obligatoire (1–40 caractères) | Sinon → `400 VALIDATION_ERROR` |
@@ -95,8 +95,8 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 | CA-51 | Le titre est déjà pris par une autre question | `409 QUESTION_ALREADY_EXISTS` |
 | CA-52 | ID inexistant | `404 NOT_FOUND` |
 | CA-53 | Le `Content-Type` doit être `application/json` | Sinon → `415 UNSUPPORTED_MEDIA_TYPE` |
-| CA-54 | Le body ne doit contenir que les champs autorisés (tous les champs métier requis, `id` optionnel) | Champs inconnus → `400 UNKNOWN_FIELDS` |
-| CA-55 | Le PUT exige tous les champs métier : `type`, `theme_id`, `title`, `correct_answer`, `level`, `time_limit`, `points` (+ `choices` si MCQ) | Champ manquant → `400 VALIDATION_ERROR` |
+| CA-54 | Le body ne doit contenir que les champs autorisés (tous les champs métier requis, `id` optionnel ; **`image_path` et `audio_path` ne sont pas gérés par ce endpoint**) | Champs inconnus (dont `image_path`/`audio_path`) → `400 UNKNOWN_FIELDS` |
+| CA-55 | Le PUT exige tous les champs métier : `type`, `theme_id`, `title`, `correct_answer`, `level`, `time_limit`, `points` (+ `choices` si MCQ). **Les champs médias `image_path` et `audio_path` ne sont ni créés, ni modifiés, ni réinitialisés par ce PUT et conservent leur valeur actuelle**. | Champ métier manquant → `400 VALIDATION_ERROR` |
 
 ### Modification partielle — `PATCH /api/v1/questions/:id`
 
@@ -112,6 +112,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 | CA-63 | Modification du `theme_id` vers un thème inexistant | `400 INVALID_THEME` |
 | CA-64 | Modification du `title` : mêmes règles de validation que le POST | Trim, collapse, majuscule, longueur, unicité |
 | CA-65 | Modification de `choices` : mêmes règles que le POST (4 éléments, 1–40 car., distincts) | Validation complète |
+| CA-65b | PATCH avec `choices` sur une question SPEED | `400 VALIDATION_ERROR` (une question SPEED ne peut pas avoir de `choices`) |
 | CA-66 | Modification de `correct_answer` : doit correspondre à un des `choices` actuels (ou des nouveaux `choices` si fournis dans le même PATCH) | Sinon → `400 VALIDATION_ERROR` |
 | CA-67 | Modification de `level`, `time_limit`, `points` : mêmes règles que le POST | Plages respectées |
 | CA-68 | Modification de `image_path` : doit être une chaîne non vide ou `null` (pour supprimer) | Chaîne vide → `400 VALIDATION_ERROR` |
@@ -206,7 +207,7 @@ correct_answer :
   → 2. Vérification non vide (1–40 caractères)
 
 choices (MCQ uniquement) :
-  → 1. Tableau de exactement 4 éléments
+  → 1. Tableau d'exactement 4 éléments
   → 2. Chaque élément : trim, non vide, 1–40 caractères
   → 3. Unicité des 4 choix (insensible à la casse)
   → 4. correct_answer doit correspondre à l'un des 4 choices (insensible à la casse)
@@ -402,7 +403,7 @@ router.delete('/api/v1/questions/:id', authenticate, authorize('admin'), deleteQ
 | Code erreur | Code HTTP | Message | Contexte |
 |---|---|---|---|
 | `VALIDATION_ERROR` | `400` | _(dynamique selon le cas)_ | Titre manquant/invalide, choices invalides, correct_answer invalide, level/time_limit/points hors plage, champ obligatoire à null en PATCH |
-| `INVALID_UUID` | `400` | `"The provided ID is not a valid UUID."` | ID mal formé dans l'URL |
+| `INVALID_UUID` | `400` | `"The provided ID is not a valid UUID."` | ID mal formé dans l'URL ou `theme_id` invalide dans le body |
 | `INVALID_JSON` | `400` | `"Request body must be valid JSON."` | Corps non parseable |
 | `UNKNOWN_FIELDS` | `400` | `"Unknown field(s): foo, bar."` | Champs non reconnus dans le body |
 | `ID_MISMATCH` | `400` | `"The ID in the request body does not match the URL parameter."` | ID body ≠ ID URL |
@@ -473,7 +474,7 @@ Pour les questions MCQ, le `correct_answer` doit correspondre exactement (insens
 
 Le champ `type` ne peut pas être modifié après la création, ni par PUT ni par PATCH. En PUT, le `type` doit être fourni mais doit correspondre au type actuel. En PATCH, le `type` ne doit pas être présent dans le body.
 
-### PUT sans changement réel
+### PUT/PATCH sans changement réel
 
 Lorsqu'un `PUT` ou `PATCH` est effectué avec des données identiques à l'existant, la colonne `QST_LAST_UPDATED_AT` ne doit **pas** être mise à jour. Le serveur doit comparer l'état normalisé entrant avec l'état stocké avant de décider de mettre à jour l'horodatage.
 
