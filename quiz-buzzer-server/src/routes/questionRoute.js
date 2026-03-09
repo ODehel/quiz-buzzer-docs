@@ -46,7 +46,7 @@ export function createQuestionsCollectionHandler(db, config, authenticate, autho
       const ip = req.socket.remoteAddress || "unknown";
       const rateCheck = rateLimiter.check(ip);
       if (!rateCheck.allowed) {
-        const retryAfter = rateCheck.retryAfter || 60;
+        const retryAfter = rateCheck.retryAfter ?? 60;
         sendJson(res, 429, {
           status: 429,
           error: "RATE_LIMIT_EXCEEDED",

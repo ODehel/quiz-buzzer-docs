@@ -99,10 +99,12 @@ function validateChoices(choices) {
 }
 
 /**
- * Valide le correct_answer pour MCQ (CA-10) ou SPEED (CA-12).
+ * Valide le correct_answer.
+ * - CA-10 (MCQ) : doit correspondre à l'un des 4 choix (insensible à la casse).
+ * - CA-12 (SPEED) : chaîne non vide, 1–40 caractères.
  * @param {unknown} correctAnswer
- * @param {string[]|null} choices - null for SPEED
- * @returns {string} Normalized correct_answer
+ * @param {string[]|null} choices - Tableau des 4 choix pour MCQ, null pour SPEED
+ * @returns {string} correct_answer normalisé (trimmed)
  * @throws {AppError} 400 VALIDATION_ERROR
  */
 function validateCorrectAnswer(correctAnswer, choices) {
@@ -473,20 +475,23 @@ export function listQuestions(db, filters, page, limit) {
 
 /**
  * Détecte si deux états de question sont identiques (pour éviter une mise à jour inutile).
- * Comparaison insensible à la casse pour les champs texte.
+ * - Champs texte non-nuls (themeId, title, correctAnswer, choices) : comparaison insensible à la casse.
+ * - Champs entiers (level, timeLimit, points) : égalité stricte.
+ * - Champs optionnels (imagePath, audioPath) : égalité stricte avec gestion explicite de null.
  */
 function isIdentical(row, fields) {
-  const lower = (s) => (s ?? "").toLowerCase();
-  if (fields.themeId !== undefined && lower(row.QST_THEME_ID) !== lower(fields.themeId)) return false;
-  if (fields.title !== undefined && lower(row.QST_TITLE) !== lower(fields.title)) return false;
-  if (fields.correctAnswer !== undefined && lower(row.QST_CORRECT_ANSWER) !== lower(fields.correctAnswer)) return false;
+  const lowerOf = (s) => (s ?? "").toLowerCase();
+  if (fields.themeId !== undefined && lowerOf(row.QST_THEME_ID) !== lowerOf(fields.themeId)) return false;
+  if (fields.title !== undefined && lowerOf(row.QST_TITLE) !== lowerOf(fields.title)) return false;
+  if (fields.correctAnswer !== undefined && lowerOf(row.QST_CORRECT_ANSWER) !== lowerOf(fields.correctAnswer)) return false;
   if (fields.level !== undefined && row.QST_LEVEL !== fields.level) return false;
   if (fields.timeLimit !== undefined && row.QST_TIME_LIMIT !== fields.timeLimit) return false;
   if (fields.points !== undefined && row.QST_POINTS !== fields.points) return false;
-  if (fields.choiceA !== undefined && lower(row.QST_CHOICE_A) !== lower(fields.choiceA)) return false;
-  if (fields.choiceB !== undefined && lower(row.QST_CHOICE_B) !== lower(fields.choiceB)) return false;
-  if (fields.choiceC !== undefined && lower(row.QST_CHOICE_C) !== lower(fields.choiceC)) return false;
-  if (fields.choiceD !== undefined && lower(row.QST_CHOICE_D) !== lower(fields.choiceD)) return false;
+  if (fields.choiceA !== undefined && lowerOf(row.QST_CHOICE_A) !== lowerOf(fields.choiceA)) return false;
+  if (fields.choiceB !== undefined && lowerOf(row.QST_CHOICE_B) !== lowerOf(fields.choiceB)) return false;
+  if (fields.choiceC !== undefined && lowerOf(row.QST_CHOICE_C) !== lowerOf(fields.choiceC)) return false;
+  if (fields.choiceD !== undefined && lowerOf(row.QST_CHOICE_D) !== lowerOf(fields.choiceD)) return false;
+  // Optional path fields: null must compare equal to null (not masked by string conversion)
   if (fields.imagePath !== undefined) {
     const stored = row.QST_IMAGE_PATH ?? null;
     if (stored !== fields.imagePath) return false;
