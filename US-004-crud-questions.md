@@ -151,6 +151,1030 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 ---
 
+## 🧪 Cas de tests — requêtes cURL
+
+> **Variables** à définir avant d'exécuter les commandes :
+> ```bash
+> BASE_URL=http://localhost:3000
+> TOKEN=<votre_token_JWT_admin>                              # Obtenu via POST /api/v1/token (US-002)
+> THEME_ID=018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a            # UUID d'un thème existant en base
+> THEME_EMPTY_ID=018e4f5b-1a2b-7c3d-8e4f-5a6b7c8d9e0f      # UUID d'un thème sans question liée
+> TOKEN_USER=<token_JWT_avec_role_user>                      # Token non-admin (pour CA-81)
+> QUESTION_MCQ_ID=018e4f5c-2b3c-7d4e-9f5a-6b7c8d9e0f1a     # UUID d'une question MCQ existante
+> QUESTION_SPD_ID=018e4f5d-3c4d-7e5f-0a6b-7c8d9e0f1a2b     # UUID d'une question SPEED existante
+> ```
+
+### Création — `POST /api/v1/questions`
+
+**CA-1** — Créer une question MCQ avec tous les champs valides → `201 Created`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X POST "$BASE_URL/api/v1/questions" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "MCQ",
+    "theme_id": "018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a",
+    "title": "Quelle est la capitale de la France ?",
+    "choices": ["Paris", "Lyon", "Marseille", "Toulouse"],
+    "correct_answer": "Paris",
+    "level": 1,
+    "time_limit": 30,
+    "points": 10
+  }'
+```
+
+**CA-2** — Créer une question SPEED avec tous les champs valides → `201 Created` (`choices` absent de la réponse)
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X POST "$BASE_URL/api/v1/questions" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "SPEED",
+    "theme_id": "018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a",
+    "title": "Quel est le plus grand océan du monde ?",
+    "correct_answer": "Pacifique",
+    "level": 2,
+    "time_limit": 15,
+    "points": 20
+  }'
+```
+
+**CA-3** — Titre normalisé (trim + collapse des espaces multiples) → `201 Created` avec titre normalisé
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X POST "$BASE_URL/api/v1/questions" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "SPEED",
+    "theme_id": "018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a",
+    "title": "  Quel est   le plus long   fleuve du monde  ?",
+    "correct_answer": "Nil",
+    "level": 2,
+    "time_limit": 20,
+    "points": 15
+  }'
+# Vérifier que "title" dans la réponse vaut "Quel est le plus long fleuve du monde ?"
+```
+
+**CA-4** — Titre ne commençant pas par une majuscule Unicode → `400 VALIDATION_ERROR`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X POST "$BASE_URL/api/v1/questions" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "SPEED",
+    "theme_id": "018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a",
+    "title": "quel est le plus long fleuve du monde ?",
+    "correct_answer": "Nil",
+    "level": 2,
+    "time_limit": 20,
+    "points": 15
+  }'
+```
+
+**CA-5** — Doublon de titre (insensible à la casse) → `409 QUESTION_ALREADY_EXISTS`
+
+```bash
+# Prérequis : la question "Quelle est la capitale de la France ?" existe déjà (cf. CA-1)
+curl -s -w "\n→ HTTP %{http_code}\n" -X POST "$BASE_URL/api/v1/questions" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "MCQ",
+    "theme_id": "018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a",
+    "title": "QUELLE EST LA CAPITALE DE LA FRANCE ?",
+    "choices": ["Paris", "Lyon", "Marseille", "Toulouse"],
+    "correct_answer": "Paris",
+    "level": 1,
+    "time_limit": 30,
+    "points": 10
+  }'
+```
+
+**CA-6** — Type invalide → `400 VALIDATION_ERROR`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X POST "$BASE_URL/api/v1/questions" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "OPEN",
+    "theme_id": "018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a",
+    "title": "Qui a peint la Joconde ?",
+    "correct_answer": "Léonard de Vinci",
+    "level": 3,
+    "time_limit": 30,
+    "points": 10
+  }'
+```
+
+**CA-7** — `theme_id` inexistant → `400 INVALID_THEME`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X POST "$BASE_URL/api/v1/questions" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "SPEED",
+    "theme_id": "018e4f5a-0000-0000-0000-000000000000",
+    "title": "Qui a peint la Joconde ?",
+    "correct_answer": "Léonard de Vinci",
+    "level": 3,
+    "time_limit": 30,
+    "points": 10
+  }'
+```
+
+**CA-8** — `theme_id` mal formé (pas un UUID valide) → `400 INVALID_UUID`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X POST "$BASE_URL/api/v1/questions" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "SPEED",
+    "theme_id": "not-a-valid-uuid",
+    "title": "Qui a peint la Joconde ?",
+    "correct_answer": "Léonard de Vinci",
+    "level": 3,
+    "time_limit": 30,
+    "points": 10
+  }'
+```
+
+**CA-9** — MCQ avec `choices` invalide (3 éléments au lieu de 4) → `400 VALIDATION_ERROR`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X POST "$BASE_URL/api/v1/questions" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "MCQ",
+    "theme_id": "018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a",
+    "title": "Dans quel pays se trouve la Tour Eiffel ?",
+    "choices": ["France", "Italie", "Espagne"],
+    "correct_answer": "France",
+    "level": 1,
+    "time_limit": 30,
+    "points": 10
+  }'
+```
+
+**CA-10** — MCQ avec `correct_answer` absent des `choices` → `400 VALIDATION_ERROR`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X POST "$BASE_URL/api/v1/questions" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "MCQ",
+    "theme_id": "018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a",
+    "title": "Dans quel pays se trouve la Tour Eiffel ?",
+    "choices": ["France", "Italie", "Espagne", "Portugal"],
+    "correct_answer": "Allemagne",
+    "level": 1,
+    "time_limit": 30,
+    "points": 10
+  }'
+```
+
+**CA-11** — SPEED avec `choices` présent → `400 VALIDATION_ERROR`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X POST "$BASE_URL/api/v1/questions" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "SPEED",
+    "theme_id": "018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a",
+    "title": "Dans quel pays se trouve la Tour Eiffel ?",
+    "choices": ["France", "Italie", "Espagne", "Portugal"],
+    "correct_answer": "France",
+    "level": 1,
+    "time_limit": 30,
+    "points": 10
+  }'
+```
+
+**CA-12** — SPEED sans `correct_answer` → `400 VALIDATION_ERROR`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X POST "$BASE_URL/api/v1/questions" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "SPEED",
+    "theme_id": "018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a",
+    "title": "Dans quel pays se trouve la Tour Eiffel ?",
+    "level": 1,
+    "time_limit": 30,
+    "points": 10
+  }'
+```
+
+**CA-13** — `level` hors plage (valeur > 5) → `400 VALIDATION_ERROR`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X POST "$BASE_URL/api/v1/questions" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "SPEED",
+    "theme_id": "018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a",
+    "title": "Quelle est la vitesse de la lumière ?",
+    "correct_answer": "300 000 km/s",
+    "level": 6,
+    "time_limit": 30,
+    "points": 10
+  }'
+```
+
+**CA-14** — `time_limit` hors plage (valeur < 5) → `400 VALIDATION_ERROR`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X POST "$BASE_URL/api/v1/questions" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "SPEED",
+    "theme_id": "018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a",
+    "title": "Quelle est la vitesse de la lumière ?",
+    "correct_answer": "300 000 km/s",
+    "level": 3,
+    "time_limit": 2,
+    "points": 10
+  }'
+```
+
+**CA-15** — `points` hors plage (valeur > 50) → `400 VALIDATION_ERROR`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X POST "$BASE_URL/api/v1/questions" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "SPEED",
+    "theme_id": "018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a",
+    "title": "Quelle est la vitesse de la lumière ?",
+    "correct_answer": "300 000 km/s",
+    "level": 3,
+    "time_limit": 30,
+    "points": 100
+  }'
+```
+
+**CA-16** — L'ID retourné est un UUIDv7 → vérifier le format dans la réponse `201`
+
+```bash
+curl -s -X POST "$BASE_URL/api/v1/questions" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "SPEED",
+    "theme_id": "018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a",
+    "title": "Combien de planètes compte le système solaire ?",
+    "correct_answer": "8",
+    "level": 1,
+    "time_limit": 10,
+    "points": 5
+  }'
+# Vérifier que le champ "id" de la réponse respecte le format UUID (8-4-4-4-12)
+# et que le 4ème bloc commence par "7" (version UUIDv7)
+```
+
+**CA-17** — Horodatages ISO 8601 UTC → `created_at` rempli, `last_updated_at` à `null`
+
+```bash
+curl -s -X POST "$BASE_URL/api/v1/questions" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "SPEED",
+    "theme_id": "018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a",
+    "title": "Quel est le symbole chimique de l'\''or ?",
+    "correct_answer": "Au",
+    "level": 2,
+    "time_limit": 15,
+    "points": 10
+  }'
+# Vérifier : "created_at" est une date ISO 8601 UTC (ex. "2026-03-09T14:30:00.000Z")
+# et "last_updated_at" vaut null
+```
+
+**CA-18** — `image_path` ou `audio_path` dans le body du POST → `400 UNKNOWN_FIELDS`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X POST "$BASE_URL/api/v1/questions" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "SPEED",
+    "theme_id": "018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a",
+    "title": "Quel est le symbole chimique de l'\''argent ?",
+    "correct_answer": "Ag",
+    "level": 2,
+    "time_limit": 15,
+    "points": 10,
+    "image_path": "/images/argent.jpg"
+  }'
+```
+
+**CA-19** — Champ inconnu dans le body → `400 UNKNOWN_FIELDS`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X POST "$BASE_URL/api/v1/questions" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "SPEED",
+    "theme_id": "018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a",
+    "title": "Quel est le symbole chimique de l'\''argent ?",
+    "correct_answer": "Ag",
+    "level": 2,
+    "time_limit": 15,
+    "points": 10,
+    "difficulty": "easy"
+  }'
+```
+
+**CA-20** — `Content-Type` incorrect → `415 UNSUPPORTED_MEDIA_TYPE`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X POST "$BASE_URL/api/v1/questions" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: text/plain" \
+  -d '{"type":"SPEED","theme_id":"018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a","title":"Test du content type post","correct_answer":"Test","level":1,"time_limit":10,"points":5}'
+```
+
+### Lecture d'une question — `GET /api/v1/questions/:id`
+
+**CA-21** — Récupérer une question MCQ → `200 OK` avec `choices`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions/$QUESTION_MCQ_ID" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**CA-22** — Récupérer une question SPEED → `200 OK` sans `choices`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**CA-23** — ID inexistant → `404 NOT_FOUND`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions/018e4f5a-0000-0000-0000-000000000000" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**CA-24** — ID mal formé → `400 INVALID_UUID`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions/not-a-valid-uuid" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**CA-25** — Body éventuel ignoré silencieusement → aucune erreur
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions/$QUESTION_MCQ_ID" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"ignored": "body"}'
+```
+
+### Lecture de la liste — `GET /api/v1/questions`
+
+**CA-26** — Récupérer la liste paginée → `200 OK` avec `{ data, page, limit, total, total_pages }`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**CA-27** — Tri par date de création descendant → vérifier que `data[0].created_at` ≥ `data[1].created_at`
+
+```bash
+curl -s -X GET "$BASE_URL/api/v1/questions" \
+  -H "Authorization: Bearer $TOKEN"
+# Inspecter la réponse : data[0].created_at doit être >= data[1].created_at
+```
+
+**CA-28** — Paramètres de pagination par défaut (`page=1`, `limit=20`) appliqués si non fournis
+
+```bash
+curl -s -X GET "$BASE_URL/api/v1/questions" \
+  -H "Authorization: Bearer $TOKEN"
+# Vérifier "page": 1 et "limit": 20 dans la réponse
+```
+
+**CA-29** — `limit` > 100 → `400 INVALID_PAGINATION`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions?limit=200" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**CA-30** — `page` invalide (valeur négative) → `400 INVALID_PAGINATION`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions?page=-1" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**CA-31** — Page au-delà du total → `200 OK` avec `data: []` et métadonnées correctes
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions?page=9999" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**CA-32** — Aucune question en base → `200 OK` avec `{ "data": [], "page": 1, "limit": 20, "total": 0, "total_pages": 0 }`
+
+```bash
+# À exécuter sur une base vide (ou après avoir supprimé toutes les questions)
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**CA-33** — Filtrage par `theme_id` → seules les questions du thème retournées
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions?theme_id=$THEME_ID" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**CA-34** — Filtrage par `type=MCQ` → seules les questions MCQ retournées
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions?type=MCQ" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**CA-35** — Filtrage par `level` exact → seules les questions du niveau retournées
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions?level=3" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**CA-36** — Filtrage par plage `level_min`/`level_max` (bornes incluses)
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions?level_min=2&level_max=4" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**CA-37** — Filtrage par plage `time_limit_min`/`time_limit_max`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions?time_limit_min=10&time_limit_max=30" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**CA-38** — Filtrage par plage `points_min`/`points_max`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions?points_min=5&points_max=20" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**CA-39** — Combinaison de plusieurs filtres (ET logique)
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions?type=MCQ&level_min=1&level_max=3&theme_id=$THEME_ID" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**CA-40** — `theme_id` inexistant en base → `400 INVALID_FILTER`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions?theme_id=018e4f5a-0000-0000-0000-000000000000" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**CA-41** — `type` invalide → `400 INVALID_FILTER`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions?type=INVALID" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**CA-42** — Valeur numérique invalide pour un filtre → `400 INVALID_FILTER`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions?level=abc" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**CA-43** — Plage incohérente (`level_min` > `level_max`) → `400 INVALID_FILTER`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions?level_min=4&level_max=2" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**CA-44** — `level` et `level_min`/`level_max` présents simultanément → `400 INVALID_FILTER`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions?level=3&level_min=1&level_max=4" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+### Modification complète — `PUT /api/v1/questions/:id`
+
+**CA-45** — Modifier une question MCQ avec tous les champs valides → `200 OK`, `last_updated_at` mis à jour
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X PUT "$BASE_URL/api/v1/questions/$QUESTION_MCQ_ID" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "MCQ",
+    "theme_id": "018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a",
+    "title": "Quelle est la capitale de la France (mise à jour) ?",
+    "choices": ["Paris", "Lyon", "Bordeaux", "Toulouse"],
+    "correct_answer": "Paris",
+    "level": 2,
+    "time_limit": 20,
+    "points": 15
+  }'
+```
+
+**CA-46** — Modifier une question SPEED avec tous les champs valides → `200 OK`, `last_updated_at` mis à jour
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X PUT "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "SPEED",
+    "theme_id": "018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a",
+    "title": "Quel est le plus grand océan du monde (mise à jour) ?",
+    "correct_answer": "Pacifique",
+    "level": 3,
+    "time_limit": 20,
+    "points": 25
+  }'
+```
+
+**CA-47** — Règles de validation du POST s'appliquent (ex. titre trop court) → `400 VALIDATION_ERROR`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X PUT "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "SPEED",
+    "theme_id": "018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a",
+    "title": "Court",
+    "correct_answer": "Test",
+    "level": 1,
+    "time_limit": 30,
+    "points": 10
+  }'
+```
+
+**CA-48** — Changement de type → `400 TYPE_CHANGE_NOT_ALLOWED`
+
+```bash
+# QUESTION_MCQ_ID est de type MCQ, on tente de la passer en SPEED
+curl -s -w "\n→ HTTP %{http_code}\n" -X PUT "$BASE_URL/api/v1/questions/$QUESTION_MCQ_ID" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "SPEED",
+    "theme_id": "018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a",
+    "title": "Quelle est la capitale de la France ?",
+    "correct_answer": "Paris",
+    "level": 1,
+    "time_limit": 30,
+    "points": 10
+  }'
+```
+
+**CA-49** — Données identiques à l'existant → `200 OK`, `last_updated_at` non modifié
+
+```bash
+# Envoyer exactement les mêmes données que la question actuelle
+curl -s -w "\n→ HTTP %{http_code}\n" -X PUT "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "SPEED",
+    "theme_id": "018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a",
+    "title": "Quel est le plus grand océan du monde ?",
+    "correct_answer": "Pacifique",
+    "level": 2,
+    "time_limit": 15,
+    "points": 20
+  }'
+# Vérifier que last_updated_at n'a pas changé par rapport à avant l'appel
+```
+
+**CA-50** — `id` dans le body ne correspond pas à l'URL → `400 ID_MISMATCH`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X PUT "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "018e4f5a-0000-0000-0000-000000000001",
+    "type": "SPEED",
+    "theme_id": "018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a",
+    "title": "Quel est le plus grand océan du monde ?",
+    "correct_answer": "Pacifique",
+    "level": 2,
+    "time_limit": 15,
+    "points": 20
+  }'
+```
+
+**CA-51** — Titre déjà pris par une autre question → `409 QUESTION_ALREADY_EXISTS`
+
+```bash
+# QUESTION_SPD_ID est SPEED, tenter de lui donner le titre de la MCQ (QUESTION_MCQ_ID)
+curl -s -w "\n→ HTTP %{http_code}\n" -X PUT "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "SPEED",
+    "theme_id": "018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a",
+    "title": "Quelle est la capitale de la France ?",
+    "correct_answer": "Paris",
+    "level": 2,
+    "time_limit": 15,
+    "points": 20
+  }'
+```
+
+**CA-52** — ID inexistant → `404 NOT_FOUND`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X PUT "$BASE_URL/api/v1/questions/018e4f5a-0000-0000-0000-000000000000" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "SPEED",
+    "theme_id": "018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a",
+    "title": "Question inexistante à modifier ?",
+    "correct_answer": "Test",
+    "level": 1,
+    "time_limit": 30,
+    "points": 10
+  }'
+```
+
+**CA-53** — `Content-Type` incorrect → `415 UNSUPPORTED_MEDIA_TYPE`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X PUT "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: text/plain" \
+  -d '{"type":"SPEED","theme_id":"018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a","title":"Test du content type put","correct_answer":"Test","level":1,"time_limit":30,"points":10}'
+```
+
+**CA-54** — `image_path` dans le body du PUT → `400 UNKNOWN_FIELDS`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X PUT "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "SPEED",
+    "theme_id": "018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a",
+    "title": "Quel est le plus grand océan du monde ?",
+    "correct_answer": "Pacifique",
+    "level": 2,
+    "time_limit": 15,
+    "points": 20,
+    "image_path": "/images/ocean.jpg"
+  }'
+```
+
+**CA-55** — Champ métier manquant dans le PUT → `400 VALIDATION_ERROR`
+
+```bash
+# correct_answer, level, time_limit et points sont absents
+curl -s -w "\n→ HTTP %{http_code}\n" -X PUT "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "SPEED",
+    "theme_id": "018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a",
+    "title": "Quel est le plus grand océan du monde ?"
+  }'
+```
+
+### Modification partielle — `PATCH /api/v1/questions/:id`
+
+**CA-56** — Modifier partiellement une question (un champ) → `200 OK`, `last_updated_at` mis à jour
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"level": 3}'
+```
+
+**CA-57** — Champ absent du body = non modifié (JSON Merge Patch RFC 7396)
+
+```bash
+# Envoyer uniquement "points" et vérifier que les autres champs sont inchangés
+curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"points": 25}'
+# Vérifier que title, level, time_limit, correct_answer n'ont pas changé
+```
+
+**CA-58** — Champ obligatoire envoyé à `null` → `400 VALIDATION_ERROR`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"correct_answer": null}'
+```
+
+**CA-59** — `choices` à `null` sur une question MCQ → `400 VALIDATION_ERROR`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_MCQ_ID" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"choices": null}'
+```
+
+**CA-60** — Tentative de modification du `type` via PATCH → `400 TYPE_CHANGE_NOT_ALLOWED`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"type": "MCQ"}'
+```
+
+**CA-61** — Tentative de modification de l'`id` via PATCH → `400 UNKNOWN_FIELDS`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"id": "018e4f5a-0000-0000-0000-000000000001"}'
+```
+
+**CA-62** — Modification du `theme_id` vers un thème existant → `200 OK`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"theme_id": "018e4f5b-1a2b-7c3d-8e4f-5a6b7c8d9e0f"}'
+```
+
+**CA-63** — Modification du `theme_id` vers un thème inexistant → `400 INVALID_THEME`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"theme_id": "018e4f5a-0000-0000-0000-000000000000"}'
+```
+
+**CA-64** — Modification du `title` : règles de validation invalides → `400 VALIDATION_ERROR`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"title": "trop court"}'
+```
+
+**CA-65** — Modification de `choices` : 4 éléments valides et distincts → `200 OK`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_MCQ_ID" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"choices": ["Paris", "Berlin", "Madrid", "Rome"], "correct_answer": "Paris"}'
+```
+
+**CA-65b** — `choices` sur une question SPEED → `400 VALIDATION_ERROR`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"choices": ["A", "B", "C", "D"]}'
+```
+
+**CA-66** — `correct_answer` ne correspondant pas aux `choices` actuels → `400 VALIDATION_ERROR`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_MCQ_ID" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"correct_answer": "Nairobi"}'
+# "Nairobi" n'est pas dans les choices actuels de la question
+```
+
+**CA-67** — Modification de `level` hors plage → `400 VALIDATION_ERROR`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"level": 10}'
+```
+
+**CA-68** — `image_path` : chaîne vide → `400 VALIDATION_ERROR` ; `null` → `200 OK` (suppression)
+
+```bash
+# Chaîne vide → 400
+curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"image_path": ""}'
+
+# null → 200 (supprime image_path)
+curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"image_path": null}'
+```
+
+**CA-69** — `audio_path` : chaîne vide → `400 VALIDATION_ERROR` ; `null` → `200 OK` (suppression)
+
+```bash
+# Chaîne vide → 400
+curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"audio_path": ""}'
+
+# null → 200 (supprime audio_path)
+curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"audio_path": null}'
+```
+
+**CA-70** — Données identiques à l'existant → `200 OK`, `last_updated_at` non modifié
+
+```bash
+# Si "Pacifique" est déjà la valeur actuelle de correct_answer, last_updated_at ne doit pas changer
+curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"correct_answer": "Pacifique"}'
+```
+
+**CA-71** — ID inexistant → `404 NOT_FOUND`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/018e4f5a-0000-0000-0000-000000000000" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"level": 2}'
+```
+
+**CA-72** — `Content-Type` incorrect → `415 UNSUPPORTED_MEDIA_TYPE`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: text/plain" \
+  -d '{"level": 2}'
+```
+
+**CA-73** — Body vide `{}` → `200 OK` question inchangée
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+### Suppression — `DELETE /api/v1/questions/:id`
+
+**CA-74** — Supprimer une question existante → `204 No Content`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X DELETE "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**CA-75** — ID inexistant → `404 NOT_FOUND`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X DELETE "$BASE_URL/api/v1/questions/018e4f5a-0000-0000-0000-000000000000" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**CA-76** — ID mal formé → `400 INVALID_UUID`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X DELETE "$BASE_URL/api/v1/questions/not-a-valid-uuid" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**CA-77** — Body éventuel ignoré silencieusement → aucune erreur
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X DELETE "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"ignored": "body"}'
+```
+
+### Garde de suppression des thèmes
+
+**CA-78** — Suppression d'un thème avec questions associées → `409 THEME_HAS_QUESTIONS`
+
+```bash
+# THEME_ID doit référencer un thème ayant au moins une question liée
+curl -s -w "\n→ HTTP %{http_code}\n" -X DELETE "$BASE_URL/api/v1/themes/$THEME_ID" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**CA-79** — Suppression d'un thème sans questions → `204 No Content`
+
+```bash
+# THEME_EMPTY_ID référence un thème sans aucune question liée
+curl -s -w "\n→ HTTP %{http_code}\n" -X DELETE "$BASE_URL/api/v1/themes/$THEME_EMPTY_ID" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+### Sécurité et transversalité
+
+**CA-80a** — Token absent → `401 UNAUTHORIZED`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions"
+```
+
+**CA-80b** — Token invalide → `401 UNAUTHORIZED`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions" \
+  -H "Authorization: Bearer token_invalide"
+```
+
+**CA-81** — Rôle insuffisant (non admin) → `403 FORBIDDEN`
+
+```bash
+# TOKEN_USER est un token JWT valide avec rôle "user" (non admin)
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions" \
+  -H "Authorization: Bearer $TOKEN_USER"
+```
+
+**CA-82** — Rate limiting dépassé (> 100 req/min) → `429 RATE_LIMIT_EXCEEDED` avec header `Retry-After: 30`
+
+```bash
+for i in $(seq 1 101); do
+  curl -s -o /dev/null -w "%{http_code}\n" -X GET "$BASE_URL/api/v1/questions" \
+    -H "Authorization: Bearer $TOKEN"
+done
+# La 101ème requête doit retourner 429 avec le header Retry-After: 30
+```
+
+**CA-83** — Méthode HTTP non supportée → `405 METHOD_NOT_ALLOWED` avec header `Allow` adapté
+
+```bash
+# DELETE sur la collection /api/v1/questions n'est pas supporté
+curl -s -v -w "\n→ HTTP %{http_code}\n" -X DELETE "$BASE_URL/api/v1/questions" \
+  -H "Authorization: Bearer $TOKEN"
+# Vérifier : code 405 et header "Allow: GET, POST"
+```
+
+**CA-84** — Erreur serveur inattendue → `500 INTERNAL_SERVER_ERROR` sans détail technique
+
+```bash
+# Simuler une panne (ex. arrêter la base de données) puis envoyer une requête valide
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions" \
+  -H "Authorization: Bearer $TOKEN"
+# Résultat attendu : {"status":500,"error":"INTERNAL_SERVER_ERROR","message":"An unexpected error occurred. Please try again later."}
+# Aucun détail technique (stack trace, message SQL, etc.) ne doit être exposé
+```
+
+**CA-85** — Couverture de tests ≥ 90%
+
+```bash
+# Depuis le répertoire du serveur Node.js
+npm run test -- --coverage
+# Inspecter le rapport Jest : lignes, fonctions et branches couvertes ≥ 90%
+```
+
+---
+
 ## 🔧 Spécifications techniques
 
 | Élément | Choix |
