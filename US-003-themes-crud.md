@@ -92,6 +92,208 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 ---
 
+## 🧪 Cas de tests — requêtes cURL
+
+> **Variables** à définir avant d'exécuter les commandes :
+> ```bash
+> BASE_URL=http://localhost:3000
+> TOKEN=<votre_token_JWT_admin>           # Obtenu via POST /api/v1/token (US-002)
+> TOKEN_BUZZER=<token_JWT_buzzer>         # Token avec rôle buzzer (pour CA-33)
+> THEME_ID=<uuid_theme_créé>             # Renseigné après CA-1
+> ```
+
+### Création — `POST /api/v1/themes`
+
+**CA-1** — Créer un thème avec un nom valide → `201 Created`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X POST "$BASE_URL/api/v1/themes" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Musique"}'
+```
+
+**CA-2** — Nom normalisé (trim + collapse) → `201 Created` avec nom normalisé
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X POST "$BASE_URL/api/v1/themes" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "  Science   fiction  "}'
+# Vérifier que "name" dans la réponse vaut "Science fiction"
+```
+
+**CA-3** — Nom ne respectant pas la regex → `400 VALIDATION_ERROR`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X POST "$BASE_URL/api/v1/themes" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "m"}'
+```
+
+**CA-4** — Doublon de nom (insensible à la casse) → `409 THEME_ALREADY_EXISTS`
+
+```bash
+# Prérequis : le thème "Musique" existe déjà (cf. CA-1)
+curl -s -w "\n→ HTTP %{http_code}\n" -X POST "$BASE_URL/api/v1/themes" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "MUSIQUE"}'
+```
+
+**CA-7** — Champ inconnu dans le body → `400 UNKNOWN_FIELDS`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X POST "$BASE_URL/api/v1/themes" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Sport", "couleur": "rouge"}'
+```
+
+**CA-8** — Content-Type incorrect → `415 UNSUPPORTED_MEDIA_TYPE`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X POST "$BASE_URL/api/v1/themes" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: text/plain" \
+  -d '{"name": "Sport"}'
+```
+
+### Lecture d'un thème — `GET /api/v1/themes/:id`
+
+**CA-9** — Récupérer un thème par son ID → `200 OK`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/themes/$THEME_ID" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**CA-10** — ID inexistant → `404 NOT_FOUND`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/themes/018e4f5a-0000-0000-0000-000000000000" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**CA-11** — ID mal formé → `400 INVALID_UUID`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/themes/not-a-uuid" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+### Lecture de la liste — `GET /api/v1/themes`
+
+**CA-13** — Lister les thèmes avec pagination → `200 OK`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/themes" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**CA-16** — `limit` > 100 → `400 INVALID_PAGINATION`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/themes?limit=200" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**CA-18** — Page au-delà du total → `200 OK` avec `data: []`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/themes?page=999" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+### Modification — `PUT /api/v1/themes/:id`
+
+**CA-20** — Modifier le nom d'un thème existant → `200 OK`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X PUT "$BASE_URL/api/v1/themes/$THEME_ID" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Musique classique"}'
+```
+
+**CA-23** — ID dans le body différent de l'URL → `400 ID_MISMATCH`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X PUT "$BASE_URL/api/v1/themes/$THEME_ID" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"id": "018e4f5a-0000-0000-0000-000000000000", "name": "Musique classique"}'
+```
+
+**CA-25** — ID inexistant → `404 NOT_FOUND`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X PUT "$BASE_URL/api/v1/themes/018e4f5a-0000-0000-0000-000000000000" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Inexistant"}'
+```
+
+### Suppression — `DELETE /api/v1/themes/:id`
+
+**CA-28** — Supprimer un thème sans questions liées → `204 No Content`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X DELETE "$BASE_URL/api/v1/themes/$THEME_ID" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**CA-29** — ID inexistant → `404 NOT_FOUND`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X DELETE "$BASE_URL/api/v1/themes/018e4f5a-0000-0000-0000-000000000000" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**CA-30** — Thème avec questions associées → `409 THEME_HAS_QUESTIONS`
+
+```bash
+# Prérequis : $THEME_ID référence un thème ayant au moins une question liée
+curl -s -w "\n→ HTTP %{http_code}\n" -X DELETE "$BASE_URL/api/v1/themes/$THEME_ID" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+### Sécurité et transversalité
+
+**CA-32** — Token absent → `401 UNAUTHORIZED`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/themes"
+```
+
+**CA-33** — Rôle buzzer → `403 FORBIDDEN`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/themes" \
+  -H "Authorization: Bearer $TOKEN_BUZZER"
+```
+
+**CA-34** — Rate limiting dépassé (> 100 req/min) → `429 RATE_LIMIT_EXCEEDED` avec header `Retry-After: 30`
+
+```bash
+for i in $(seq 1 101); do
+  curl -s -o /dev/null -w "%{http_code}\n" -X GET "$BASE_URL/api/v1/themes" \
+    -H "Authorization: Bearer $TOKEN"
+done
+# La 101ème requête doit retourner 429 avec le header Retry-After: 30
+```
+
+**CA-35** — Méthode HTTP non supportée → `405 METHOD_NOT_ALLOWED` avec header `Allow` adapté
+
+```bash
+curl -s -v -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/themes" \
+  -H "Authorization: Bearer $TOKEN"
+# Vérifier : code 405 et header "Allow: GET, POST"
+```
+
+---
+
 ## 🔧 Spécifications techniques
 
 | Élément | Choix |
