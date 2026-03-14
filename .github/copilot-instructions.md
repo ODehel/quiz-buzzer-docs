@@ -35,6 +35,8 @@ Chaque cahier des charges suit l'ordre de sections ci-dessous. Les sections marq
 ## 📋 Contexte projet
 ## 🎯 User Story
 ## ✅ Critères d'acceptance
+## 🔄 Diagramme de flux
+## 🔀 Diagramme de séquences
 ## 🧪 Cas de tests — requêtes cURL        [optionnel — API REST et WebSocket]
 ## 🔧 Spécifications techniques
 ## 📡 Endpoint(s)                         [optionnel — US avec endpoint(s) HTTP]
@@ -119,6 +121,116 @@ Format en bloc de citation :
 ```markdown
 > 🧪 **Exigence de couverture** — Chaque critère d'acceptance listé ci-dessous doit être couvert par **au moins un test automatisé** (unitaire et/ou d'intégration). Un CA non couvert par un test est considéré comme **non livré**. La couverture globale du code de l'US doit être **≥ 90%**, mesurée via `jest --coverage`.
 ```
+
+---
+
+## 🔄 Section : Diagramme de flux
+
+Présente dans toutes les US. Placée après les critères d'acceptance (`## ✅ Critères d'acceptance`).
+
+### Convention Mermaid
+
+Le diagramme de flux utilise la syntaxe `flowchart TD` (top-down) de Mermaid avec le thème `forest` :
+
+```mermaid
+%%{init: {"theme": "forest", "flowchart": {"curve": "basis"}}}%%
+flowchart TD
+    REQ(["Requête HTTP"]) --> STEP1["Étape 1"]
+    STEP1 --> DECISION{"Condition ?"}
+    DECISION -->|"Oui"| SUCCESS["Succès"]
+    DECISION -->|"Non"| ERROR["Erreur"]
+```
+
+### Fichiers source et générés
+
+| Fichier | Rôle |
+|---|---|
+| `diagrams/US-XXX-description.mmd` | Source Mermaid du diagramme de flux |
+| `diagrams/US-XXX-description.png` | Image PNG générée par `mmdc` (thème `forest`) |
+
+- La génération PNG est automatique via `bash scripts/generate-all.sh` (tous les fichiers `*.mmd` du dossier `diagrams/` sont convertis).
+- Prérequis : `@mermaid-js/mermaid-cli` installé globalement (`npm install -g @mermaid-js/mermaid-cli`).
+
+### Format dans le document
+
+```markdown
+## 🔄 Diagramme de flux
+
+![Diagramme de flux — US-XXX — Titre complet](diagrams/US-XXX-description.png)
+```
+
+### Classes de style standard
+
+| Classe | Couleur | Usage |
+|---|---|---|
+| `success` | `fill:#d4edda,stroke:#28a745,color:#155724` | Résultats de succès (2xx) |
+| `error` | `fill:#f8d7da,stroke:#dc3545,color:#721c24` | Résultats d'erreur (4xx, 5xx) |
+| `warning` | `fill:#fff3cd,stroke:#ffc107,color:#856404` | Cas intermédiaires, dégradés |
+| `info` | `fill:#cce5ff,stroke:#004085,color:#004085` | Informations, états terminaux |
+
+---
+
+## 🔀 Section : Diagramme de séquences
+
+Présente dans toutes les US. Placée après le diagramme de flux (`## 🔄 Diagramme de flux`).
+
+### Convention Mermaid
+
+Le diagramme de séquences utilise la syntaxe `sequenceDiagram` de Mermaid avec le thème `forest` :
+
+```mermaid
+%%{init: {"theme": "forest"}}%%
+sequenceDiagram
+    participant C as Client
+    participant S as Serveur
+    participant DB as SQLite
+
+    C->>S: POST /api/v1/[ressource]
+    S->>S: Validation du body
+    S->>DB: INSERT INTO T_[TABLE]
+    DB-->>S: OK
+    S-->>C: 201 Created { ... }
+```
+
+### Fichiers source et générés
+
+| Fichier | Rôle |
+|---|---|
+| `diagrams/US-XXX-description-sequence.mmd` | Source Mermaid du diagramme de séquences |
+| `diagrams/US-XXX-description-sequence.png` | Image PNG générée par `mmdc` (thème `forest`) |
+
+- Le suffixe `-sequence` permet de distinguer le fichier du diagramme de flux (`US-XXX-description.mmd`).
+- La génération PNG est automatique via `bash scripts/generate-all.sh` (tous les fichiers `*.mmd` du dossier `diagrams/` sont convertis).
+
+### Format dans le document
+
+```markdown
+## 🔀 Diagramme de séquences
+
+![Diagramme de séquences — US-XXX — Titre complet](diagrams/US-XXX-description-sequence.png)
+```
+
+### Participants standard
+
+| Alias | Participant | Usage |
+|---|---|---|
+| `C` | Client | Buzzer, Angular ou tout client HTTP |
+| `S` | Serveur | Serveur Node.js (hub) |
+| `DB` | SQLite | Base de données SQLite |
+| `WS` | WebSocket | Serveur WebSocket (si applicable) |
+
+- Des participants supplémentaires peuvent être ajoutés selon la US (ex. : `participant MW as Middleware`).
+
+### Règles
+
+- Le diagramme illustre le **flux principal** (happy path) de la US ainsi que les **cas d'erreur significatifs**.
+- Les participants sont déclarés avec un alias court (ex. `participant C as Client`).
+- Les messages utilisent les **méthodes HTTP** et **chemins d'URL** réels (ex. `POST /api/v1/themes`).
+- Les réponses incluent le **code HTTP** (ex. `201 Created`, `400 Bad Request`).
+- Les blocs `alt` / `else` sont utilisés pour les embranchements (succès / erreur).
+- Les blocs `loop` sont utilisés pour les opérations répétées.
+- Les blocs `opt` sont utilisés pour les opérations optionnelles.
+- Le thème Mermaid est toujours `forest` (cohérent avec les diagrammes de flux).
 
 ---
 
@@ -574,6 +686,8 @@ Paragraphe explicatif...
 | 📋 | Contexte projet |
 | 🎯 | User Story |
 | ✅ | Critères d'acceptance |
+| 🔄 | Diagramme de flux |
+| 🔀 | Diagramme de séquences |
 | 🧪 | Cas de tests — requêtes cURL |
 | 🔧 | Spécifications techniques |
 | 📡 | Endpoint(s) |
@@ -613,6 +727,7 @@ Avant de valider un nouveau cahier des charges, vérifier :
 - [ ] Les critères d'acceptance sont numérotés **CA-1** à **CA-N** (restart à 1 pour chaque US).
 - [ ] L'encadré **Exigence de couverture** (`> 🧪`) est présent immédiatement après le titre `## ✅ Critères d'acceptance`, avant toute sous-section `###`.
 - [ ] La section `## 🔄 Diagramme de flux` est présente après `## ✅ Critères d'acceptance`, avec le PNG du diagramme Mermaid (thème `forest`).
+- [ ] La section `## 🔀 Diagramme de séquences` est présente après `## 🔄 Diagramme de flux`, avec le PNG du diagramme Mermaid (thème `forest`, syntaxe `sequenceDiagram`).
 - [ ] La section `## 🧪 Cas de tests` est présente pour toute US avec un ou plusieurs endpoints REST.
 - [ ] Le tableau des spécifications techniques utilise les formulations complètes (`dernière version stable disponible`).
 - [ ] L'encadré **Exigence fondamentale KISS/DRY/YAGNI/SOLID** est présent immédiatement après le tableau principal des spécifications techniques.
