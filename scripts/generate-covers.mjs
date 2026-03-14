@@ -8,7 +8,7 @@
  */
 
 import { createRequire } from 'module';
-import { mkdirSync } from 'fs';
+import { accessSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -20,11 +20,12 @@ let puppeteerPath;
 try {
   // Tenter d'abord une résolution locale (node_modules du projet)
   puppeteerPath = join(ROOT, 'node_modules/puppeteer/lib/esm/puppeteer/puppeteer.js');
-  await import('fs').then(({ accessSync }) => accessSync(puppeteerPath));
+  accessSync(puppeteerPath);
 } catch {
   // Fallback : résolution depuis @mermaid-js/mermaid-cli installé globalement
+  const { execSync } = await import('child_process');
   puppeteerPath = join(
-    (await import('child_process')).execSync('npm root -g').toString().trim(),
+    execSync('npm root -g').toString().trim(),
     '@mermaid-js/mermaid-cli/node_modules/puppeteer/lib/esm/puppeteer/puppeteer.js'
   );
 }
