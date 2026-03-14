@@ -1,6 +1,6 @@
-![Page de couverture — US-005](diagrams/covers/US-005-cover.png)
+![Page de couverture — US-009](diagrams/covers/US-009-cover.png)
 
-# US-005 — Connexion WebSocket des buzzers et de l'application Angular
+# US-009 — Connexion WebSocket des buzzers et de l'application Angular
 
 ## 📋 Contexte projet
 
@@ -40,7 +40,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 | # | Critère | Résultat attendu |
 |---|---|---|
 | CA-4 | Après l'ouverture de la connexion WebSocket, le client doit envoyer un message d'authentification contenant son token JWT | Format : `{ "type": "auth", "token": "<JWT>" }` |
-| CA-5 | Le token JWT est vérifié (signature HS256, expiration, claims `sub` et `role`) | Réutilisation du secret `JWT_SECRET` existant (US-002) |
+| CA-5 | Le token JWT est vérifié (signature HS256, expiration, claims `sub` et `role`) | Réutilisation du secret `JWT_SECRET` existant (US-003) |
 | CA-6 | Si le token est valide, le serveur envoie un message de confirmation | `{ "type": "auth_success", "role": "buzzer", "username": "quiz_buzzer_01" }` |
 | CA-7 | Si le token est invalide (signature, malformé), le serveur ferme la connexion | Code de fermeture `4001` avec raison "Invalid token." |
 | CA-8 | Si le token est expiré, le serveur ferme la connexion | Code de fermeture `4002` avec raison "Token expired." |
@@ -91,7 +91,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 ## 🔄 Diagramme de flux
 
-![Diagramme de flux — US-005 — Connexion WebSocket des buzzers et de l'application Angular](diagrams/US-005-websocket-connection.png)
+![Diagramme de flux — US-009 — Connexion WebSocket des buzzers et de l'application Angular](diagrams/US-009-websocket-connection.png)
 
 ---
 

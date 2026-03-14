@@ -1,6 +1,6 @@
-![Page de couverture — US-004](diagrams/covers/US-004-cover.png)
+![Page de couverture — US-005](diagrams/covers/US-005-cover.png)
 
-# US-004 — CRUD de base des questions
+# US-005 — CRUD de base des questions
 
 ## 📋 Contexte projet
 
@@ -27,7 +27,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 > 🧪 **Exigence de couverture** — Chaque critère d'acceptance listé ci-dessous doit être couvert par **au moins un test automatisé** (unitaire et/ou d'intégration). Un CA non couvert par un test est considéré comme **non livré**. La couverture globale du code de l'US doit être **≥ 90%**, mesurée via `jest --coverage`.
 
-> **Note :** Le filtrage avancé de la liste (`theme_id`, `type`, `level`, `level_min`/`max`, `time_limit_min`/`max`, `points_min`/`max`) est spécifié dans **[US-007 — Filtrage avancé de la liste des questions](US-007-questions-filtrage.md)**. La modification partielle PATCH (JSON Merge Patch RFC 7396) est spécifiée dans **[US-008 — Modification partielle des questions](US-008-questions-patch.md)**.
+> **Note :** Le filtrage avancé de la liste (`theme_id`, `type`, `level`, `level_min`/`max`, `time_limit_min`/`max`, `points_min`/`max`) est spécifié dans **[US-006 — Filtrage avancé de la liste des questions](US-006-questions-filtrage.md)**. La modification partielle PATCH (JSON Merge Patch RFC 7396) est spécifiée dans **[US-007 — Modification partielle des questions](US-007-questions-patch.md)**.
 
 ### Création — `POST /api/v1/questions`
 
@@ -101,7 +101,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 | CA-46 | ID mal formé | `400 INVALID_UUID` |
 | CA-47 | Un body éventuel est ignoré silencieusement | Aucune erreur |
 
-### Garde de suppression des thèmes (implémentation du TODO CA-30 de l'US-003)
+### Garde de suppression des thèmes (implémentation du TODO CA-30 de l'US-004)
 
 | # | Critère | Résultat attendu |
 |---|---|---|
@@ -123,7 +123,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 ## 🔄 Diagramme de flux
 
-![Diagramme de flux — US-004 — CRUD des questions](diagrams/US-004-crud-questions.png)
+![Diagramme de flux — US-005 — CRUD des questions](diagrams/US-005-crud-questions.png)
 
 ---
 
@@ -132,7 +132,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 > **Variables** à définir avant d'exécuter les commandes :
 > ```bash
 > BASE_URL=http://localhost:3000
-> TOKEN=<votre_token_JWT_admin>                              # Obtenu via POST /api/v1/token (US-002)
+> TOKEN=<votre_token_JWT_admin>                              # Obtenu via POST /api/v1/token (US-003)
 > THEME_ID=018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a            # UUID d'un thème existant en base
 > THEME_EMPTY_ID=018e4f5b-1a2b-7c3d-8e4f-5a6b7c8d9e0f      # UUID d'un thème sans question liée
 > TOKEN_USER=<token_JWT_avec_role_user>                      # Token non-admin (pour CA-51)
@@ -527,7 +527,7 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions/$QUEST
 
 ### Lecture de la liste — `GET /api/v1/questions`
 
-> **Note :** Les cas de tests de filtrage avancé (CA-1 à CA-12 de l'US-007) sont documentés dans **[US-007 — Filtrage avancé de la liste des questions](US-007-questions-filtrage.md)**.
+> **Note :** Les cas de tests de filtrage avancé (CA-1 à CA-12 de l'US-006) sont documentés dans **[US-006 — Filtrage avancé de la liste des questions](US-006-questions-filtrage.md)**.
 
 **CA-26** — Récupérer la liste paginée → `200 OK` avec `{ data, page, limit, total, total_pages }`
 
@@ -1043,7 +1043,7 @@ Base URL : /api/v1
 | `PUT` | `/api/v1/questions/:id` | Modifier entièrement une question | Bearer (admin) | `200 OK` |
 | `DELETE` | `/api/v1/questions/:id` | Supprimer une question | Bearer (admin) | `204 No Content` |
 
-> **Note :** Le filtrage avancé (`theme_id`, `type`, `level`, plages) est spécifié dans **[US-007](US-007-questions-filtrage.md)**. La modification partielle PATCH est spécifiée dans **[US-008](US-008-questions-patch.md)**.
+> **Note :** Le filtrage avancé (`theme_id`, `type`, `level`, plages) est spécifié dans **[US-006](US-006-questions-filtrage.md)**. La modification partielle PATCH est spécifiée dans **[US-007](US-007-questions-patch.md)**.
 
 ### Headers `Allow` par ressource
 
@@ -1074,7 +1074,7 @@ Toutes les routes de cette US sont protégées par un **JSON Web Token (JWT)** t
 | Transmission | Header `Authorization: Bearer <token>` |
 | Secret de signature | Variable d'environnement `JWT_SECRET` (min 32 caractères) |
 | Durée de validité | 1 heure (3600s), configurable via variable d'environnement `JWT_EXPIRATION` |
-| Renouvellement | Reconnexion via `POST /api/v1/token` (US-002) |
+| Renouvellement | Reconnexion via `POST /api/v1/token` (US-003) |
 
 ### Structure du payload JWT
 
@@ -1094,9 +1094,9 @@ Toutes les routes de cette US sont protégées par un **JSON Web Token (JWT)** t
 | `iat` (issued at) | `number` | Timestamp Unix de l'émission (automatique) |
 | `exp` (expiration) | `number` | Timestamp Unix d'expiration (automatique) |
 
-### Architecture middleware — Réutilisation de l'US-003
+### Architecture middleware — Réutilisation de l'US-004
 
-Les middlewares `authenticate` et `authorize('admin')` créés dans l'US-003 sont réutilisés tels quels sur toutes les routes de cette US, conformément aux principes DRY et Open/Closed (SOLID).
+Les middlewares `authenticate` et `authorize('admin')` créés dans l'US-004 sont réutilisés tels quels sur toutes les routes de cette US, conformément aux principes DRY et Open/Closed (SOLID).
 
 **Application sur les routes :**
 
@@ -1127,7 +1127,7 @@ router.delete('/api/v1/questions/:id', authenticate, authorize('admin'), deleteQ
 | `NOT_FOUND` | `404` | `"The requested question was not found."` | Ressource inexistante |
 | `METHOD_NOT_ALLOWED` | `405` | _(dynamique : ex. `"HTTP method DELETE is not allowed on this resource."`)_ | Méthode non supportée (message dynamique) |
 | `QUESTION_ALREADY_EXISTS` | `409` | `"A question with this title already exists."` | Doublon de titre |
-| `THEME_HAS_QUESTIONS` | `409` | `"Cannot delete this theme: questions are still associated with it."` | Suppression d'un thème avec questions liées (garde US-003 CA-30) |
+| `THEME_HAS_QUESTIONS` | `409` | `"Cannot delete this theme: questions are still associated with it."` | Suppression d'un thème avec questions liées (garde US-004 CA-30) |
 | `UNSUPPORTED_MEDIA_TYPE` | `415` | `"Content-Type must be 'application/json'."` | Content-Type incorrect |
 | `RATE_LIMIT_EXCEEDED` | `429` | `"Too many requests. Please retry in 30 seconds."` | Dépassement rate limit (header `Retry-After: 30`) |
 | `INTERNAL_SERVER_ERROR` | `500` | `"An unexpected error occurred. Please try again later."` | Erreur serveur (aucun détail technique exposé) |
@@ -1148,14 +1148,14 @@ router.delete('/api/v1/questions/:id', authenticate, authorize('admin'), deleteQ
 
 | Inclus | Exclu |
 |---|---|
-| CRUD de base des questions (POST, GET, GET list, PUT, DELETE) | Filtrage avancé de la liste (→ **US-007**) |
-| Validation et normalisation du titre | Modification partielle PATCH (→ **US-008**) |
+| CRUD de base des questions (POST, GET, GET list, PUT, DELETE) | Filtrage avancé de la liste (→ **US-006**) |
+| Validation et normalisation du titre | Modification partielle PATCH (→ **US-007**) |
 | Validation des choices, correct_answer, level, time_limit, points | Upload et gestion des fichiers médias (US dédiée) |
 | Cohérence type/champs (MCQ vs SPEED) | Interface Angular de gestion des questions |
 | Pagination de la liste (page, limit) | Recherche full-text dans les questions |
-| Garde de suppression des thèmes (implémentation TODO CA-30 US-003) | Déploiement / CI-CD |
+| Garde de suppression des thèmes (implémentation TODO CA-30 US-004) | Déploiement / CI-CD |
 | Création de la table `T_QUESTION_QST` dans le schéma de la base | |
-| Champs `image_path` et `audio_path` (null par défaut, modifiables via US-008) | |
+| Champs `image_path` et `audio_path` (null par défaut, modifiables via US-007) | |
 | Gestion complète des erreurs | |
 | Réutilisation des middlewares `authenticate` et `authorize` | |
 | Rate limiting (100 req/min) | |
@@ -1193,7 +1193,7 @@ Le champ `QST_THEME_ID` est une clé étrangère vers `T_THEME_THM.THM_ID`. La v
 
 ### Garde de suppression des thèmes
 
-L'implémentation du TODO CA-30 de l'US-003 consiste à vérifier, avant toute suppression d'un thème, s'il existe des questions associées via une requête `SELECT COUNT(*) FROM T_QUESTION_QST WHERE QST_THEME_ID = ?`. Si le compteur est > 0, la suppression est refusée avec une erreur `409 THEME_HAS_QUESTIONS`.
+L'implémentation du TODO CA-30 de l'US-004 consiste à vérifier, avant toute suppression d'un thème, s'il existe des questions associées via une requête `SELECT COUNT(*) FROM T_QUESTION_QST WHERE QST_THEME_ID = ?`. Si le compteur est > 0, la suppression est refusée avec une erreur `409 THEME_HAS_QUESTIONS`.
 
 ### Cohérence UUIDv7 et horodatage
 
@@ -1205,5 +1205,5 @@ Les erreurs internes ne doivent jamais exposer de détails techniques (stack tra
 
 ### US de complétion
 
-- **Filtrage avancé** de la liste (`theme_id`, `type`, `level`, plages) : voir **[US-007](US-007-questions-filtrage.md)**.
-- **Modification partielle** PATCH (JSON Merge Patch RFC 7396, `image_path`, `audio_path`) : voir **[US-008](US-008-questions-patch.md)**.
+- **Filtrage avancé** de la liste (`theme_id`, `type`, `level`, plages) : voir **[US-006](US-006-questions-filtrage.md)**.
+- **Modification partielle** PATCH (JSON Merge Patch RFC 7396, `image_path`, `audio_path`) : voir **[US-007](US-007-questions-patch.md)**.

@@ -1,6 +1,6 @@
-![Page de couverture — US-009](diagrams/covers/US-009-cover.png)
+![Page de couverture — US-002](diagrams/covers/US-002-cover.png)
 
-# US-009 — Seed des comptes utilisateurs
+# US-002 — Seed des comptes utilisateurs
 
 ## 📋 Contexte projet
 
@@ -46,7 +46,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 ## 🔄 Diagramme de flux
 
-![Diagramme de flux — US-009 — Seed des comptes utilisateurs](diagrams/US-009-seed-users.png)
+![Diagramme de flux — US-002 — Seed des comptes utilisateurs](diagrams/US-002-seed-users.png)
 
 ---
 
@@ -64,9 +64,9 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 > ⚠️ **Exigence fondamentale** — Toute implémentation de cette US doit scrupuleusement respecter les principes **KISS** (solutions simples), **DRY** (pas de duplication), **YAGNI** (pas de fonctionnalité prématurée) et **SOLID** (architecture modulaire et responsabilités séparées). Ces principes prévalent sur toute optimisation prématurée ou généralisation non justifiée par un besoin immédiat documenté.
 
-### Dépendance avec US-002
+### Dépendance avec US-003
 
-La table `T_USER_USR` est définie dans l'**US-002** (authentification par token). Cette US-009 ne crée pas la table : elle suppose que la base de données a déjà été initialisée (migration exécutée via l'US-002). Le script de seed s'appuie sur le schéma existant.
+La table `T_USER_USR` est définie dans l'**US-003** (authentification par token). Cette US-002 ne crée pas la table : elle suppose que la base de données a déjà été initialisée (migration exécutée via l'US-003). Le script de seed s'appuie sur le schéma existant.
 
 ### Script npm
 
@@ -174,7 +174,7 @@ SEED_PASSWORD_BUZZER_10=<mot_de_passe_buzzer_10_min_12_car>
 | Lecture des mots de passe depuis les variables d'environnement | Interface de gestion des utilisateurs |
 | Validation de la politique de mot de passe (OWASP, ≥ 12 caractères) | Modification des comptes après création |
 | Hachage bcrypt (facteur de coût : 12) | Suppression des comptes |
-| Idempotence (pas de doublon si le seed est rejoué) | Authentification (gérée par US-002) |
+| Idempotence (pas de doublon si le seed est rejoué) | Authentification (gérée par US-003) |
 | Génération des UUIDv7 | Déploiement / CI-CD |
 | Tests unitaires et d'intégration (couverture ≥ 90%) | |
 
@@ -194,9 +194,9 @@ Les mots de passe ne doivent **jamais** apparaître dans les logs, les messages 
 
 bcrypt tronque silencieusement les mots de passe à 72 octets. La validation doit donc imposer une longueur maximale de 72 caractères pour éviter que deux mots de passe distincts (mais partageant les 72 premiers caractères) produisent le même hash.
 
-### Dépendance avec US-002
+### Dépendance avec US-003
 
-La table `T_USER_USR` et son schéma sont définis dans l'US-002. Le script de seed doit s'exécuter **après** l'initialisation de la base de données. L'ordre d'exécution recommandé est : `npm run migrate && npm run seed`.
+La table `T_USER_USR` et son schéma sont définis dans l'US-003. Le script de seed doit s'exécuter **après** l'initialisation de la base de données. L'ordre d'exécution recommandé est : `npm run migrate && npm run seed`.
 
 ### Facteur de coût bcrypt
 

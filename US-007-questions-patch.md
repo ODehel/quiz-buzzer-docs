@@ -1,6 +1,6 @@
-![Page de couverture — US-008](diagrams/covers/US-008-cover.png)
+![Page de couverture — US-007](diagrams/covers/US-007-cover.png)
 
-# US-008 — Modification partielle des questions (PATCH)
+# US-007 — Modification partielle des questions (PATCH)
 
 ## 📋 Contexte projet
 
@@ -66,7 +66,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 ## 🔄 Diagramme de flux
 
-![Diagramme de flux — US-008 — Modification partielle des questions (PATCH)](diagrams/US-008-questions-patch.png)
+![Diagramme de flux — US-007 — Modification partielle des questions (PATCH)](diagrams/US-007-questions-patch.png)
 
 ---
 
@@ -75,9 +75,9 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 > **Variables** à définir avant d'exécuter les commandes :
 > ```bash
 > BASE_URL=http://localhost:3000
-> TOKEN=<votre_token_JWT_admin>           # Obtenu via POST /api/v1/token (US-002)
+> TOKEN=<votre_token_JWT_admin>           # Obtenu via POST /api/v1/token (US-003)
 > TOKEN_BUZZER=<token_JWT_buzzer>         # Token avec rôle buzzer (pour CA-21)
-> QUESTION_ID=<uuid_question_créée>      # Renseigné après création via POST (US-004)
+> QUESTION_ID=<uuid_question_créée>      # Renseigné après création via POST (US-005)
 > THEME_ID=018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a
 > ```
 
@@ -303,7 +303,7 @@ Base URL : /api/v1
 ```
 src/
   routes/
-    questionRoute.js         ← endpoint PATCH /api/v1/questions/:id (ajouté par US-008)
+    questionRoute.js         ← endpoint PATCH /api/v1/questions/:id (ajouté par US-007)
   routes/__tests__/
     questionRoute.test.js    ← tests d'intégration CA-1 à CA-25
   utils/
@@ -342,7 +342,7 @@ Toutes les routes de cette US sont protégées par un **JSON Web Token (JWT)** t
 | Transmission | Header `Authorization: Bearer <token>` |
 | Secret de signature | Variable d'environnement `JWT_SECRET` (min 32 caractères) |
 | Durée de validité | 1 heure (3600s), configurable via variable d'environnement `JWT_EXPIRATION` |
-| Renouvellement | Reconnexion via `POST /api/v1/token` (US-002) |
+| Renouvellement | Reconnexion via `POST /api/v1/token` (US-003) |
 
 ### Structure du payload JWT
 
@@ -362,9 +362,9 @@ Toutes les routes de cette US sont protégées par un **JSON Web Token (JWT)** t
 | `iat` (issued at) | `number` | Timestamp Unix de l'émission (automatique) |
 | `exp` (expiration) | `number` | Timestamp Unix d'expiration (automatique) |
 
-### Architecture middleware — Réutilisation de l'US-003
+### Architecture middleware — Réutilisation de l'US-004
 
-Les middlewares `authenticate` et `authorize` définis dans l'US-003 sont réutilisés tels quels sur l'endpoint de cette US, conformément au principe **DRY** :
+Les middlewares `authenticate` et `authorize` définis dans l'US-004 sont réutilisés tels quels sur l'endpoint de cette US, conformément au principe **DRY** :
 
 ```javascript
 router.patch('/api/v1/questions/:id', authenticate, authorize('admin'), patchQuestion);
@@ -409,8 +409,8 @@ router.patch('/api/v1/questions/:id', authenticate, authorize('admin'), patchQue
 
 | Inclus | Exclu |
 |---|---|
-| Modification partielle via PATCH (RFC 7396 JSON Merge Patch) | CRUD complet des questions (US-004) |
-| Validation des champs présents dans le body uniquement | Filtrage avancé de la liste (US-007) |
+| Modification partielle via PATCH (RFC 7396 JSON Merge Patch) | CRUD complet des questions (US-005) |
+| Validation des champs présents dans le body uniquement | Filtrage avancé de la liste (US-006) |
 | Validation croisée `correct_answer`/`choices` sur l'état résultant | Interface Angular |
 | Immutabilité du `type` via PATCH | Déploiement / CI-CD |
 | Suppression de `image_path`/`audio_path` via `null` | |
@@ -443,8 +443,8 @@ Le champ `type` est immutable après création. Sa présence dans le body PATCH 
 
 Lorsque les données résultantes de la fusion sont identiques aux données existantes, aucun `UPDATE` SQL ne doit être exécuté et `last_updated_at` ne doit **pas** être mis à jour. Cela garantit que `last_updated_at` reflète toujours une modification effective.
 
-### Dépendance avec US-004
+### Dépendance avec US-005
 
-Cette US étend l'infrastructure de l'US-004 (table `T_QUESTION_QST`, middlewares, validateurs). La logique de fusion PATCH doit être isolée dans un utilitaire dédié (`mergeQuestion.js`) pour respecter le **principe de responsabilité unique (SRP — SOLID)** et permettre la réutilisation.
+Cette US étend l'infrastructure de l'US-005 (table `T_QUESTION_QST`, middlewares, validateurs). La logique de fusion PATCH doit être isolée dans un utilitaire dédié (`mergeQuestion.js`) pour respecter le **principe de responsabilité unique (SRP — SOLID)** et permettre la réutilisation.
 
 ---

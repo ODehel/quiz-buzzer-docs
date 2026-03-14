@@ -1,6 +1,6 @@
-![Page de couverture — US-006](diagrams/covers/US-006-cover.png)
+![Page de couverture — US-008](diagrams/covers/US-008-cover.png)
 
-# US-006 — CRUD des quiz
+# US-008 — CRUD des quiz
 
 ## 📋 Contexte projet
 
@@ -82,14 +82,14 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 | CA-34 | ID mal formé | `400 INVALID_UUID` |
 | CA-35 | Un body éventuel est ignoré silencieusement | Aucune erreur |
 
-### Garde de suppression des questions (implémentation transversale — dépend de US-004)
+### Garde de suppression des questions (implémentation transversale — dépend de US-005)
 
-> ⚠️ **Dépendance d'implémentation** — Ces critères modifient le comportement de `DELETE /api/v1/questions/:id` défini dans **[US-004 — CRUD de base des questions](US-004-crud-questions.md)**. Ils doivent être implémentés **après** US-004, en ajoutant une vérification dans le handler de suppression de questions existant.
+> ⚠️ **Dépendance d'implémentation** — Ces critères modifient le comportement de `DELETE /api/v1/questions/:id` défini dans **[US-005 — CRUD de base des questions](US-005-crud-questions.md)**. Ils doivent être implémentés **après** US-005, en ajoutant une vérification dans le handler de suppression de questions existant.
 
 | # | Critère | Résultat attendu |
 |---|---|---|
 | CA-36 | Suppression d'une question appartenant à au moins un quiz | `409 QUESTION_IN_QUIZ` avec message `"Cannot delete this question: it belongs to one or more quizzes."` |
-| CA-37 | Suppression d'une question n'appartenant à aucun quiz | `204 No Content` (comportement inchangé, US-004) |
+| CA-37 | Suppression d'une question n'appartenant à aucun quiz | `204 No Content` (comportement inchangé, US-005) |
 
 ### Sécurité et transversalité
 
@@ -106,7 +106,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 ## 🔄 Diagramme de flux
 
-![Diagramme de flux — US-006 — CRUD des quiz](diagrams/US-006-quiz-crud.png)
+![Diagramme de flux — US-008 — CRUD des quiz](diagrams/US-008-quiz-crud.png)
 
 ---
 
@@ -115,7 +115,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 > **Variables** à définir avant d'exécuter les commandes :
 > ```bash
 > BASE_URL=http://localhost:3000
-> TOKEN=<votre_token_JWT_admin>           # Obtenu via POST /api/v1/token (US-002)
+> TOKEN=<votre_token_JWT_admin>           # Obtenu via POST /api/v1/token (US-003)
 > TOKEN_BUZZER=<token_JWT_buzzer>         # Token avec rôle buzzer (pour CA-39)
 > Q1=018e4f5a-0001-7000-8000-000000000001 # UUID de question existante n°1
 > Q2=018e4f5a-0002-7000-8000-000000000002 # UUID de question existante n°2
@@ -385,7 +385,7 @@ Toutes les routes de cette US sont protégées par un **JSON Web Token (JWT)** t
 | Transmission | Header `Authorization: Bearer <token>` |
 | Secret de signature | Variable d'environnement `JWT_SECRET` (min 32 caractères) |
 | Durée de validité | 1 heure (3600s), configurable via variable d'environnement `JWT_EXPIRATION` |
-| Renouvellement | Reconnexion via `POST /api/v1/token` (US-002) |
+| Renouvellement | Reconnexion via `POST /api/v1/token` (US-003) |
 
 ### Structure du payload JWT
 
@@ -405,9 +405,9 @@ Toutes les routes de cette US sont protégées par un **JSON Web Token (JWT)** t
 | `iat` (issued at) | `number` | Timestamp Unix de l'émission (automatique) |
 | `exp` (expiration) | `number` | Timestamp Unix d'expiration (automatique) |
 
-### Architecture middleware — Réutilisation de l'US-003
+### Architecture middleware — Réutilisation de l'US-004
 
-Les middlewares `authenticate` et `authorize('admin')` créés dans l'US-003 sont réutilisés tels quels sur toutes les routes de cette US, conformément aux principes DRY et Open/Closed (SOLID).
+Les middlewares `authenticate` et `authorize('admin')` créés dans l'US-004 sont réutilisés tels quels sur toutes les routes de cette US, conformément aux principes DRY et Open/Closed (SOLID).
 
 **Application sur les routes :**
 
@@ -478,9 +478,9 @@ Le résumé des questions par niveau et type est calculé via une jointure SQL a
 
 ### Garde sur `DELETE /api/v1/questions/:id`
 
-La contrainte de CA-36 est implémentée dans le handler `DELETE /api/v1/questions/:id` existant (**US-004**). Une vérification `SELECT COUNT(*) FROM T_QUIZ_QUESTION_QQN WHERE QQN_QUESTION_ID = ?` doit être ajoutée avant la suppression. **Cette US-006 doit être implémentée avant que CA-36 puisse être actif** : sans la table `T_QUIZ_QUESTION_QQN`, la vérification n'est pas possible.
+La contrainte de CA-36 est implémentée dans le handler `DELETE /api/v1/questions/:id` existant (**US-005**). Une vérification `SELECT COUNT(*) FROM T_QUIZ_QUESTION_QQN WHERE QQN_QUESTION_ID = ?` doit être ajoutée avant la suppression. **Cette US-008 doit être implémentée avant que CA-36 puisse être actif** : sans la table `T_QUIZ_QUESTION_QQN`, la vérification n'est pas possible.
 
 > **Ordre d'implémentation recommandé :**
-> 1. Implémenter **US-004** (CRUD questions, sans la garde CA-36/CA-37)
-> 2. Implémenter **US-006** (CRUD quiz, création de la table `T_QUIZ_QUESTION_QQN`)
+> 1. Implémenter **US-005** (CRUD questions, sans la garde CA-36/CA-37)
+> 2. Implémenter **US-008** (CRUD quiz, création de la table `T_QUIZ_QUESTION_QQN`)
 > 3. Ajouter la garde CA-36/CA-37 dans le handler `DELETE /api/v1/questions/:id`

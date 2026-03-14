@@ -71,7 +71,7 @@ flowchart TD
         DEL_ID -->|"Non"| DE400["400 INVALID_UUID"]
         DEL_ID -->|"Oui"| DEL_FIND{"Question trouvée ?"}
         DEL_FIND -->|"Non"| DE404["404 NOT_FOUND"]
-        DEL_FIND -->|"Oui"| DEL_QUIZ{"Question dans\nun quiz ? (US-006)"}
+        DEL_FIND -->|"Oui"| DEL_QUIZ{"Question dans\nun quiz ? (US-008)"}
         DEL_QUIZ -->|"Oui"| DE409a["409 QUESTION_IN_QUIZ"]
         DEL_QUIZ -->|"Non"| DEL_SQL["DELETE FROM T_QUESTION_QST"]
         DEL_SQL --> D204(["204 No Content"])

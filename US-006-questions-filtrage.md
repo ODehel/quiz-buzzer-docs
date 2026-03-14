@@ -1,6 +1,6 @@
-![Page de couverture — US-007](diagrams/covers/US-007-cover.png)
+![Page de couverture — US-006](diagrams/covers/US-006-cover.png)
 
-# US-007 — Filtrage avancé de la liste des questions
+# US-006 — Filtrage avancé de la liste des questions
 
 ## 📋 Contexte projet
 
@@ -59,7 +59,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 ## 🔄 Diagramme de flux
 
-![Diagramme de flux — US-007 — Filtrage avancé de la liste des questions](diagrams/US-007-questions-filtrage.png)
+![Diagramme de flux — US-006 — Filtrage avancé de la liste des questions](diagrams/US-006-questions-filtrage.png)
 
 ---
 
@@ -68,7 +68,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 > **Variables** à définir avant d'exécuter les commandes :
 > ```bash
 > BASE_URL=http://localhost:3000
-> TOKEN=<votre_token_JWT_admin>           # Obtenu via POST /api/v1/token (US-002)
+> TOKEN=<votre_token_JWT_admin>           # Obtenu via POST /api/v1/token (US-003)
 > TOKEN_BUZZER=<token_JWT_buzzer>         # Token avec rôle buzzer (pour CA-14)
 > THEME_ID=018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a
 > ```
@@ -246,7 +246,7 @@ Base URL : /api/v1
 ```
 src/
   routes/
-    questionRoute.js      ← endpoint GET /api/v1/questions (complété par l'US-007)
+    questionRoute.js      ← endpoint GET /api/v1/questions (complété par l'US-006)
   routes/__tests__/
     questionRoute.test.js ← tests d'intégration CA-1 à CA-18
   utils/
@@ -285,7 +285,7 @@ Toutes les routes de cette US sont protégées par un **JSON Web Token (JWT)** t
 | Transmission | Header `Authorization: Bearer <token>` |
 | Secret de signature | Variable d'environnement `JWT_SECRET` (min 32 caractères) |
 | Durée de validité | 1 heure (3600s), configurable via variable d'environnement `JWT_EXPIRATION` |
-| Renouvellement | Reconnexion via `POST /api/v1/token` (US-002) |
+| Renouvellement | Reconnexion via `POST /api/v1/token` (US-003) |
 
 ### Structure du payload JWT
 
@@ -305,9 +305,9 @@ Toutes les routes de cette US sont protégées par un **JSON Web Token (JWT)** t
 | `iat` (issued at) | `number` | Timestamp Unix de l'émission (automatique) |
 | `exp` (expiration) | `number` | Timestamp Unix d'expiration (automatique) |
 
-### Architecture middleware — Réutilisation de l'US-003
+### Architecture middleware — Réutilisation de l'US-004
 
-Les middlewares `authenticate` et `authorize` définis dans l'US-003 sont réutilisés tels quels sur l'endpoint de cette US, conformément au principe **DRY** :
+Les middlewares `authenticate` et `authorize` définis dans l'US-004 sont réutilisés tels quels sur l'endpoint de cette US, conformément au principe **DRY** :
 
 ```javascript
 router.get('/api/v1/questions', authenticate, authorize('admin'), listQuestions);
@@ -344,11 +344,11 @@ router.get('/api/v1/questions', authenticate, authorize('admin'), listQuestions)
 
 | Inclus | Exclu |
 |---|---|
-| Filtrage de la liste des questions par 7 critères combinables | Pagination (gérée par US-004) |
-| Validation stricte des paramètres de filtrage | Tri (géré par US-004) |
+| Filtrage de la liste des questions par 7 critères combinables | Pagination (gérée par US-005) |
+| Validation stricte des paramètres de filtrage | Tri (géré par US-005) |
 | ET logique entre les filtres | Recherche full-text |
 | Bornes incluses pour les plages numériques | Interface Angular |
-| Réutilisation des middlewares `authenticate` et `authorize` | CRUD des questions (US-004) |
+| Réutilisation des middlewares `authenticate` et `authorize` | CRUD des questions (US-005) |
 | Rate limiting (100 req/min) | Déploiement / CI-CD |
 | Tests unitaires et d'intégration (couverture ≥ 90%) | |
 
@@ -376,8 +376,8 @@ Les paramètres `level` (valeur exacte) et `level_min`/`level_max` (plage) sont 
 
 Toutes les plages (`level_min`/`level_max`, `time_limit_min`/`time_limit_max`, `points_min`/`points_max`) utilisent des bornes **incluses** (opérateur `>=` et `<=` en SQL).
 
-### Dépendance avec US-004
+### Dépendance avec US-005
 
-Cette US complète l'endpoint `GET /api/v1/questions` défini dans l'US-004. Elle s'appuie sur la même table `T_QUESTION_QST` et les mêmes middlewares. La logique de filtrage doit être isolée dans un utilitaire dédié (`filterQuestions.js`) pour respecter le **principe de responsabilité unique (SRP — SOLID)**.
+Cette US complète l'endpoint `GET /api/v1/questions` défini dans l'US-005. Elle s'appuie sur la même table `T_QUESTION_QST` et les mêmes middlewares. La logique de filtrage doit être isolée dans un utilitaire dédié (`filterQuestions.js`) pour respecter le **principe de responsabilité unique (SRP — SOLID)**.
 
 ---

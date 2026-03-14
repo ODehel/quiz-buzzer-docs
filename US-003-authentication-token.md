@@ -1,6 +1,6 @@
-![Page de couverture — US-002](diagrams/covers/US-002-cover.png)
+![Page de couverture — US-003](diagrams/covers/US-003-cover.png)
 
-# US-002 — Authentification et émission du token JWT
+# US-003 — Authentification et émission du token JWT
 
 ## 📋 Contexte projet
 
@@ -75,13 +75,13 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 | CA-17 | Erreur serveur inattendue | `500 INTERNAL_SERVER_ERROR` (aucun détail technique exposé) |
 | CA-18 | Tests unitaires et d'intégration | Couverture de tests ≥ 90% |
 
-> **Note :** Les critères relatifs au seed des comptes utilisateurs (`npm run seed`) ont été extraits vers la **[US-009 — Seed des comptes utilisateurs](US-009-seed-users.md)**.
+> **Note :** Les critères relatifs au seed des comptes utilisateurs (`npm run seed`) ont été extraits vers la **[US-002 — Seed des comptes utilisateurs](US-002-seed-users.md)**.
 
 ---
 
 ## 🔄 Diagramme de flux
 
-![Diagramme de flux — US-002 — Authentification et émission du token JWT](diagrams/US-002-authentication-token.png)
+![Diagramme de flux — US-003 — Authentification et émission du token JWT](diagrams/US-003-authentication-token.png)
 
 ---
 
@@ -239,7 +239,7 @@ Le token émis par cet endpoint est utilisé dans deux contextes :
 
 | Contexte | Mécanisme | US associée |
 |---|---|---|
-| **API REST** | Header `Authorization: Bearer <token>` à chaque requête | US-003 et suivantes |
+| **API REST** | Header `Authorization: Bearer <token>` à chaque requête | US-004 et suivantes |
 | **WebSocket** | Authentification post-connexion (premier message) | US dédiée (à définir) |
 
 > **Note :** L'authentification WebSocket sera spécifiée dans une US dédiée. Le token JWT émis ici sera réutilisé tel quel pour l'authentification WebSocket.
@@ -303,9 +303,9 @@ Le token émis par cet endpoint est utilisé dans deux contextes :
 
 ## 🌱 Seed — Initialisation des comptes
 
-> **Cette section est désormais couverte par la [US-009 — Seed des comptes utilisateurs](US-009-seed-users.md).** La table `T_USER_USR` et son schéma sont définis dans la présente US, mais le script d'initialisation des comptes (`npm run seed`) est spécifié dans l'US-009.
+> **Cette section est désormais couverte par la [US-002 — Seed des comptes utilisateurs](US-002-seed-users.md).** La table `T_USER_USR` et son schéma sont définis dans la présente US, mais le script d'initialisation des comptes (`npm run seed`) est spécifié dans l'US-002.
 
-Le fichier `.env` doit inclure les variables de mots de passe suivantes (définies dans l'US-009) :
+Le fichier `.env` doit inclure les variables de mots de passe suivantes (définies dans l'US-002) :
 
 ```env
 JWT_SECRET=un-secret-long-et-aleatoire-de-min-32-caracteres
@@ -323,7 +323,7 @@ BUZZER_01_PASSWORD=... à BUZZER_10_PASSWORD=...
 |---|---|
 | Endpoint `POST /api/v1/token` (émission JWT) | Refresh token (YAGNI) |
 | Table `T_USER_USR` et schéma | Endpoint de création de comptes utilisateurs |
-| Hachage bcrypt des mots de passe | Seed des comptes (→ **US-009**) |
+| Hachage bcrypt des mots de passe | Seed des comptes (→ **US-002**) |
 | Logging structuré JSON (succès + échecs) | Changement de mot de passe (US dédiée) |
 | Rate limiting spécifique 5 req/min par IP | Déconnexion (gérée côté client) |
 | Gestion complète des erreurs | Authentification WebSocket (US dédiée) |
@@ -356,8 +356,8 @@ Le rate limiting de 5 req/min est **par adresse IP**, contrairement au rate limi
 
 ### Middlewares réutilisables (DRY / SOLID)
 
-Les middlewares `authenticate` et `authorize` définis dans cette US sont les mêmes que ceux utilisés par l'US-003 et toutes les futures US. Ils sont conçus comme des composants indépendants conformément au principe de responsabilité unique (SRP). Le middleware `authorize` est paramétrable par rôle (Open/Closed Principle).
+Les middlewares `authenticate` et `authorize` définis dans cette US sont les mêmes que ceux utilisés par l'US-004 et toutes les futures US. Ils sont conçus comme des composants indépendants conformément au principe de responsabilité unique (SRP). Le middleware `authorize` est paramétrable par rôle (Open/Closed Principle).
 
-### Seed des comptes (US-009)
+### Seed des comptes (US-002)
 
-L'initialisation des 11 comptes utilisateurs (1 admin + 10 buzzers) est gérée par un script dédié spécifié dans **[US-009 — Seed des comptes utilisateurs](US-009-seed-users.md)**. Le schéma de la table `T_USER_USR` défini dans cette US est requis avant d'exécuter le seed.
+L'initialisation des 11 comptes utilisateurs (1 admin + 10 buzzers) est gérée par un script dédié spécifié dans **[US-002 — Seed des comptes utilisateurs](US-002-seed-users.md)**. Le schéma de la table `T_USER_USR` défini dans cette US est requis avant d'exécuter le seed.

@@ -1,6 +1,6 @@
-![Page de couverture — US-003](diagrams/covers/US-003-cover.png)
+![Page de couverture — US-004](diagrams/covers/US-004-cover.png)
 
-# US-003 — CRUD des thèmes de questions
+# US-004 — CRUD des thèmes de questions
 
 ## 📋 Contexte projet
 
@@ -98,7 +98,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 ## 🔄 Diagramme de flux
 
-![Diagramme de flux — US-003 — CRUD des thèmes de questions](diagrams/US-003-themes-crud.png)
+![Diagramme de flux — US-004 — CRUD des thèmes de questions](diagrams/US-004-themes-crud.png)
 
 ---
 
@@ -107,7 +107,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 > **Variables** à définir avant d'exécuter les commandes :
 > ```bash
 > BASE_URL=http://localhost:3000
-> TOKEN=<votre_token_JWT_admin>           # Obtenu via POST /api/v1/token (US-002)
+> TOKEN=<votre_token_JWT_admin>           # Obtenu via POST /api/v1/token (US-003)
 > TOKEN_BUZZER=<token_JWT_buzzer>         # Token avec rôle buzzer (pour CA-33)
 > THEME_ID=<uuid_theme_créé>             # Renseigné après CA-1
 > ```
@@ -419,7 +419,7 @@ Toutes les routes de cette US sont protégées par un **JSON Web Token (JWT)** t
 | Transmission | Header `Authorization: Bearer <token>` |
 | Secret de signature | Variable d'environnement `JWT_SECRET` (min 32 caractères) |
 | Durée de validité | 1 heure (3600s), configurable via variable d'environnement `JWT_EXPIRATION` |
-| Renouvellement | Reconnexion via `POST /api/v1/token` (US-002) |
+| Renouvellement | Reconnexion via `POST /api/v1/token` (US-003) |
 
 ### Structure du payload JWT
 
@@ -519,7 +519,7 @@ router.delete('/api/v1/themes/:id', authenticate, authorize('admin'), deleteThem
 | CRUD complet des thèmes (POST, GET, GET list, PUT, DELETE) | CRUD des questions (US dédiée) |
 | Validation et normalisation du nom | Interface Angular de gestion des thèmes |
 | Pagination de la liste | Recherche / filtrage des thèmes |
-| Gestion complète des erreurs | Émission du token / endpoint `/token` (US-002) |
+| Gestion complète des erreurs | Émission du token / endpoint `/token` (US-003) |
 | Middlewares `authenticate` et `authorize` (réutilisables) | Déploiement / CI-CD |
 | Rate limiting (100 req/min) | |
 | Tests unitaires et d'intégration (couverture ≥ 90%) | |
