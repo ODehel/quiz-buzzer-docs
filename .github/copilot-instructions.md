@@ -114,6 +114,11 @@ Format en bloc de citation :
   - `### Suppression — \`DELETE /api/v1/[ressource]/:id\``
   - `### Sécurité et transversalité`
 - Le critère de couverture de tests appartient toujours à `### Sécurité et transversalité` avec le libellé : `Tests unitaires et d'intégration` / `Couverture de tests ≥ 90%`.
+- Immédiatement après le titre `## ✅ Critères d'acceptance`, avant toute sous-section `###`, insérer l'encadré suivant :
+
+```markdown
+> 🧪 **Exigence de couverture** — Chaque critère d'acceptance listé ci-dessous doit être couvert par **au moins un test automatisé** (unitaire et/ou d'intégration). Un CA non couvert par un test est considéré comme **non livré**. La couverture globale du code de l'US doit être **≥ 90%**, mesurée via `jest --coverage`.
+```
 
 ---
 
@@ -274,6 +279,83 @@ Chaque `## 🔧 Spécifications techniques` doit inclure, immédiatement après 
 
 ```markdown
 > ⚠️ **Exigence fondamentale** — Toute implémentation de cette US doit scrupuleusement respecter les principes **KISS** (solutions simples), **DRY** (pas de duplication), **YAGNI** (pas de fonctionnalité prématurée) et **SOLID** (architecture modulaire et responsabilités séparées). Ces principes prévalent sur toute optimisation prématurée ou généralisation non justifiée par un besoin immédiat documenté.
+```
+
+---
+
+## 🧪 Exigence de couverture des tests
+
+> **Exigence non négociable** — Tout développement livré dans le cadre du projet Quiz Buzzer doit être couvert par des tests automatisés. Chaque critère d'acceptance est la spécification d'un test ; s'il n'est pas couvert, la fonctionnalité n'est pas livrée.
+
+---
+
+### Règle fondamentale : un CA = au moins un test
+
+Chaque ligne du tableau `## ✅ Critères d'acceptance` doit correspondre à **au moins un cas de test automatisé** (unitaire ou d'intégration). La traçabilité est explicite : le nom du test doit référencer le numéro du CA (ex. : `CA-3 — retourne 400 si le name est absent`).
+
+| Type de test | Cas d'usage | Outil |
+|---|---|---|
+| **Unitaire** | Logique de validation, normalisation de chaînes, génération UUID, formatage de réponses | Jest |
+| **Intégration** | Cycle requête/réponse HTTP complet (middleware → route → base de données → réponse) | Jest + supertest |
+| **WebSocket** | Flux de connexion, authentification, timeouts, déconnexion | Jest + `ws` client |
+
+---
+
+### Seuil de couverture : ≥ 90%
+
+La couverture globale du code de chaque US doit être **≥ 90%**, mesurée par Jest avec l'option `--coverage` sur les quatre métriques suivantes :
+
+| Métrique | Seuil minimal |
+|---|---|
+| Lignes (*lines*) | ≥ 90% |
+| Branches (*branches*) | ≥ 90% |
+| Fonctions (*functions*) | ≥ 90% |
+| Instructions (*statements*) | ≥ 90% |
+
+Configuration Jest à inclure dans `jest.config.js` :
+
+```js
+export default {
+  coverageThreshold: {
+    global: {
+      lines: 90,
+      branches: 90,
+      functions: 90,
+      statements: 90,
+    },
+  },
+};
+```
+
+---
+
+### Organisation des fichiers de tests
+
+```
+src/
+  routes/
+    themeRoute.js
+  routes/__tests__/
+    themeRoute.test.js   ← tests d'intégration CA-1 à CA-37
+  utils/
+    normalize.js
+  utils/__tests__/
+    normalize.test.js    ← tests unitaires
+```
+
+- Les fichiers de tests sont placés dans un répertoire `__tests__/` au même niveau que le fichier testé.
+- Le nom du fichier de test reprend le nom du fichier source avec le suffixe `.test.js`.
+- Chaque `describe` block correspond à une sous-section des critères d'acceptance.
+- Chaque `it` / `test` référence explicitement le numéro CA concerné.
+
+---
+
+### Rappel dans chaque US
+
+Immédiatement après le titre `## ✅ Critères d'acceptance` et avant toute sous-section `###`, insérer :
+
+```markdown
+> 🧪 **Exigence de couverture** — Chaque critère d'acceptance listé ci-dessous doit être couvert par **au moins un test automatisé** (unitaire et/ou d'intégration). Un CA non couvert par un test est considéré comme **non livré**. La couverture globale du code de l'US doit être **≥ 90%**, mesurée via `jest --coverage`.
 ```
 
 ---
@@ -529,6 +611,7 @@ Avant de valider un nouveau cahier des charges, vérifier :
 - [ ] La section `## 📋 Contexte projet` contient le tableau des 4 applications (contenu identique à tous les autres US).
 - [ ] La User Story est en bloc de citation (`>`) avec **En tant qu'**, **je veux**, **afin de**.
 - [ ] Les critères d'acceptance sont numérotés **CA-1** à **CA-N** (restart à 1 pour chaque US).
+- [ ] L'encadré **Exigence de couverture** (`> 🧪`) est présent immédiatement après le titre `## ✅ Critères d'acceptance`, avant toute sous-section `###`.
 - [ ] La section `## 🔄 Diagramme de flux` est présente après `## ✅ Critères d'acceptance`, avec le PNG du diagramme Mermaid (thème `forest`).
 - [ ] La section `## 🧪 Cas de tests` est présente pour toute US avec un ou plusieurs endpoints REST.
 - [ ] Le tableau des spécifications techniques utilise les formulations complètes (`dernière version stable disponible`).
