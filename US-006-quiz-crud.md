@@ -1,3 +1,5 @@
+![Page de couverture — US-006](diagrams/covers/US-006-cover.png)
+
 # US-006 — CRUD des quiz
 
 ## 📋 Contexte projet
@@ -95,6 +97,12 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 | CA-41 | Méthode HTTP non supportée | `405 METHOD_NOT_ALLOWED` avec header `Allow` adapté |
 | CA-42 | Erreur serveur inattendue | `500 INTERNAL_SERVER_ERROR` (aucun détail technique exposé) |
 | CA-43 | Tests unitaires et d'intégration | Couverture ≥ 90% |
+
+---
+
+## 🔄 Diagramme de flux
+
+![Diagramme de flux — US-006 — CRUD des quiz](diagrams/US-006-quiz-crud.png)
 
 ---
 
@@ -282,6 +290,8 @@ curl -s -v -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/quizzes" \
 | Identifiants | UUIDv7 généré côté Node.js |
 | Horodatage | ISO 8601 UTC (millisecondes), généré côté Node.js |
 | Principes d'architecture | YAGNI, KISS, DRY, SOLID |
+
+> ⚠️ **Exigence fondamentale** — Toute implémentation de cette US doit scrupuleusement respecter les principes **KISS** (solutions simples), **DRY** (pas de duplication), **YAGNI** (pas de fonctionnalité prématurée) et **SOLID** (architecture modulaire et responsabilités séparées). Ces principes prévalent sur toute optimisation prématurée ou généralisation non justifiée par un besoin immédiat documenté.
 
 ### Schéma des tables
 

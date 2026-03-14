@@ -1,4 +1,4 @@
-%%{init: {"theme": "neutral", "flowchart": {"curve": "basis"}}}%%
+%%{init: {"theme": "forest", "flowchart": {"curve": "basis"}}}%%
 flowchart TD
     REQ(["Requête HTTP"]) --> MW_AUTH["Middleware : authenticate\nVérifier le JWT dans Authorization: Bearer"]
     MW_AUTH --> AUTH_OK{"Token JWT\nvalide ?"}

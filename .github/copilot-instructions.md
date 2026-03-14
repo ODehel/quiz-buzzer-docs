@@ -201,6 +201,83 @@ Base URL : /api/v1
 
 ---
 
+## ⚙️ Principes d'architecture fondamentaux : KISS, DRY, YAGNI et SOLID
+
+> **Exigence non négociable** — Toute implémentation d'une US doit **scrupuleusement** respecter ces quatre principes. Ils prévalent sur toute optimisation prématurée, généralisation non justifiée ou complexité inutile.
+
+Ces principes sont rappelés dans chaque US via un encadré visible dans la section `## 🔧 Spécifications techniques`.
+
+---
+
+### KISS — *Keep It Simple, Stupid*
+
+**Règle** : Choisir systématiquement la solution la plus simple qui satisfait le besoin.
+
+| ✅ À faire | ❌ À éviter |
+|---|---|
+| Une fonction unique par responsabilité | Des fonctions « couteaux suisses » multi-rôles |
+| Un middleware `authenticate` qui vérifie le JWT | Un middleware qui authentifie ET autorise ET rate-limite |
+| Des réponses d'erreur avec un format JSON fixe `{ status, error, message }` | Des structures d'erreur variables selon le contexte |
+| Un handler de route plat et lisible | Des abstractions en couches non justifiées |
+
+**Dans le projet** : chaque route handler reçoit ses dépendances par injection (db, config, authenticate, authorize, RateLimiter) et ne fait qu'une seule chose — traiter un endpoint précis.
+
+---
+
+### DRY — *Don't Repeat Yourself*
+
+**Règle** : Toute logique dupliquée doit être extraite dans une fonction ou un module partagé.
+
+| ✅ À faire | ❌ À éviter |
+|---|---|
+| Middlewares `authenticate` et `authorize` définis une fois dans l'US-003, réutilisés dans toutes les US suivantes | Réécrire la vérification JWT dans chaque route handler |
+| Fonction utilitaire `normalizeString(str)` pour trim + collapse | Répéter `str.trim().replace(/\s+/g, ' ')` dans chaque route |
+| Format d'erreur JSON centralisé dans un helper `sendError(res, status, code, message)` | Construire la réponse d'erreur manuellement dans chaque handler |
+| Constante `UUID_REGEX` importée depuis un module commun | Redéfinir la regex UUID dans chaque fichier de validation |
+
+**Dans le projet** : les middlewares, helpers de validation et utilitaires UUIDv7/horodatage sont **définis une seule fois** et importés partout.
+
+---
+
+### YAGNI — *You Ain't Gonna Need It*
+
+**Règle** : Ne pas implémenter de fonctionnalité qui n'est pas explicitement demandée dans la US courante.
+
+| ✅ À faire | ❌ À éviter |
+|---|---|
+| Implémenter uniquement les endpoints décrits dans `## 📡 Endpoints` | Ajouter `GET /api/v1/quizzes/:id` parce que « ça sera sûrement utile » |
+| Pagination simple (page + limit) | Un moteur de recherche full-text non demandé |
+| Stocker les tokens en mémoire pour le WebSocket | Implémenter un système de refresh token non spécifié |
+| Filtres listés dans `## 📡 Endpoints — Paramètres de filtrage` | Ajouter des filtres supplémentaires « par anticipation » |
+
+**Dans le projet** : la colonne **Exclu** de chaque `## 📐 Périmètre` documente explicitement ce qui est hors périmètre YAGNI.
+
+---
+
+### SOLID — *Five object-oriented design principles*
+
+**Règle** : Appliquer les cinq principes de conception orientée objet/module.
+
+| Principe | Application dans le projet |
+|---|---|
+| **S** — Single Responsibility | Chaque middleware, handler, helper a une responsabilité unique. `authenticate` = vérifier le JWT. `authorize(role)` = vérifier le rôle. Séparés, jamais fusionnés. |
+| **O** — Open/Closed | `authorize(role)` est paramétré par rôle : ouvert à l'extension (nouveaux rôles) sans modification de son code. |
+| **L** — Liskov Substitution | Les handlers de routes respectent la même signature `(req, res, next)` : interchangeables dans la chaîne Express. |
+| **I** — Interface Segregation | Les dépendances sont injectées précisément (db, config, authenticate…). Un handler ne reçoit pas un objet global monolithique. |
+| **D** — Dependency Inversion | Les routes dépendent d'abstractions (les middlewares injectés), pas d'implémentations concrètes importées directement. |
+
+---
+
+### Rappel dans chaque US
+
+Chaque `## 🔧 Spécifications techniques` doit inclure, immédiatement après le tableau principal :
+
+```markdown
+> ⚠️ **Exigence fondamentale** — Toute implémentation de cette US doit scrupuleusement respecter les principes **KISS** (solutions simples), **DRY** (pas de duplication), **YAGNI** (pas de fonctionnalité prématurée) et **SOLID** (architecture modulaire et responsabilités séparées). Ces principes prévalent sur toute optimisation prématurée ou généralisation non justifiée par un besoin immédiat documenté.
+```
+
+---
+
 ## 📡 Section : Endpoint(s)
 
 ### Tableau principal
@@ -448,11 +525,14 @@ Paragraphe explicatif...
 Avant de valider un nouveau cahier des charges, vérifier :
 
 - [ ] Le fichier est nommé `US-XXX-description.md` avec le bon numéro séquentiel.
+- [ ] La page de couverture (`diagrams/covers/US-XXX-cover.png`) est présente et référencée **avant** le titre `# US-XXX`.
 - [ ] La section `## 📋 Contexte projet` contient le tableau des 4 applications (contenu identique à tous les autres US).
 - [ ] La User Story est en bloc de citation (`>`) avec **En tant qu'**, **je veux**, **afin de**.
 - [ ] Les critères d'acceptance sont numérotés **CA-1** à **CA-N** (restart à 1 pour chaque US).
+- [ ] La section `## 🔄 Diagramme de flux` est présente après `## ✅ Critères d'acceptance`, avec le PNG du diagramme Mermaid (thème `forest`).
 - [ ] La section `## 🧪 Cas de tests` est présente pour toute US avec un ou plusieurs endpoints REST.
 - [ ] Le tableau des spécifications techniques utilise les formulations complètes (`dernière version stable disponible`).
+- [ ] L'encadré **Exigence fondamentale KISS/DRY/YAGNI/SOLID** est présent immédiatement après le tableau principal des spécifications techniques.
 - [ ] La colonne du catalogue des erreurs s'appelle **`Code HTTP`**.
 - [ ] La section `## 🔐 Authentification et autorisation` est présente pour toute US avec des routes protégées par JWT.
 - [ ] Un `---` est présent après chaque section H2.

@@ -1,3 +1,5 @@
+![Page de couverture — US-005](diagrams/covers/US-005-cover.png)
+
 # US-005 — Connexion WebSocket des buzzers et de l'application Angular
 
 ## 📋 Contexte projet
@@ -85,6 +87,12 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 ---
 
+## 🔄 Diagramme de flux
+
+![Diagramme de flux — US-005 — Connexion WebSocket des buzzers et de l'application Angular](diagrams/US-005-websocket-connection.png)
+
+---
+
 ## 🔧 Spécifications techniques
 
 | Élément | Choix |
@@ -95,6 +103,8 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 | Tests | Jest (dernière version stable disponible) |
 | État des connexions | En mémoire (`Map`) — pas de persistance en base |
 | Principes d'architecture | YAGNI, KISS, DRY, SOLID |
+
+> ⚠️ **Exigence fondamentale** — Toute implémentation de cette US doit scrupuleusement respecter les principes **KISS** (solutions simples), **DRY** (pas de duplication), **YAGNI** (pas de fonctionnalité prématurée) et **SOLID** (architecture modulaire et responsabilités séparées). Ces principes prévalent sur toute optimisation prématurée ou généralisation non justifiée par un besoin immédiat documenté.
 
 ### Endpoint WebSocket
 
