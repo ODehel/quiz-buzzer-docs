@@ -135,7 +135,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 > TOKEN=<votre_token_JWT_admin>                              # Obtenu via POST /api/v1/token (US-002)
 > THEME_ID=018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a            # UUID d'un thème existant en base
 > THEME_EMPTY_ID=018e4f5b-1a2b-7c3d-8e4f-5a6b7c8d9e0f      # UUID d'un thème sans question liée
-> TOKEN_USER=<token_JWT_avec_role_user>                      # Token non-admin (pour CA-81)
+> TOKEN_USER=<token_JWT_avec_role_user>                      # Token non-admin (pour CA-51)
 > QUESTION_MCQ_ID=018e4f5c-2b3c-7d4e-9f5a-6b7c8d9e0f1a     # UUID d'une question MCQ existante
 > QUESTION_SPD_ID=018e4f5d-3c4d-7e5f-0a6b-7c8d9e0f1a2b     # UUID d'une question SPEED existante
 > ```
