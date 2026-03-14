@@ -85,6 +85,12 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 ---
 
+## 🔀 Diagramme de séquences
+
+![Diagramme de séquences — US-003 — Authentification et émission du token JWT](diagrams/US-003-authentication-token-sequence.png)
+
+---
+
 ## 🔧 Spécifications techniques
 
 | Élément | Choix |

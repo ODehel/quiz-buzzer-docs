@@ -1,0 +1,30 @@
+%%{init: {"theme": "forest"}}%%
+sequenceDiagram
+    participant U as Administrateur
+    participant S as Script seed.js
+    participant ENV as Environnement (.env)
+    participant DB as SQLite
+
+    U->>S: npm run seed
+    S->>DB: SELECT COUNT(*) FROM T_USER_USR
+
+    alt Table vide
+        DB-->>S: count = 0
+        S->>ENV: Lire SEED_PASSWORD_ADMIN, SEED_PASSWORD_BUZZER_01..10
+        ENV-->>S: Mots de passe (12-72 caractères)
+
+        alt Mot de passe invalide
+            S->>U: ❌ Erreur : mot de passe invalide pour le compte concerné
+        else Mots de passe valides
+            loop Pour chaque compte (1 admin + 10 buzzers)
+                S->>S: Générer UUIDv7
+                S->>S: Hasher le mot de passe (bcrypt, cost 12)
+                S->>DB: INSERT INTO T_USER_USR (id, username, password_hash, role)
+                DB-->>S: OK
+            end
+            S->>U: ✅ 11 comptes créés (1 admin + 10 buzzers)
+        end
+    else Table non vide
+        DB-->>S: count > 0
+        S->>U: ⚠️ Table non vide — aucune action (idempotence)
+    end

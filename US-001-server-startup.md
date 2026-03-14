@@ -44,6 +44,12 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 ---
 
+## 🔀 Diagramme de séquences
+
+![Diagramme de séquences — US-001 — Démarrage du serveur Quiz Buzzer](diagrams/US-001-server-startup-sequence.png)
+
+---
+
 ## 🔧 Spécifications techniques
 
 | Élément | Choix |

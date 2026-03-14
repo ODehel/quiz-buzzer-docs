@@ -50,6 +50,12 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 ---
 
+## 🔀 Diagramme de séquences
+
+![Diagramme de séquences — US-002 — Seed des comptes utilisateurs](diagrams/US-002-seed-users-sequence.png)
+
+---
+
 ## 🔧 Spécifications techniques
 
 | Élément | Choix |

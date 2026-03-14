@@ -1,0 +1,74 @@
+%%{init: {"theme": "forest"}}%%
+sequenceDiagram
+    participant C as Client
+    participant S as Serveur
+    participant DB as SQLite
+
+    Note over C,DB: Création — POST /api/v1/themes
+    C->>S: POST /api/v1/themes<br/>Authorization: Bearer TOKEN<br/>{ "name": "Sciences" }
+    S->>S: Authentification + Autorisation (admin)
+    S->>S: Valider et normaliser le nom (trim, collapse, regex 3-40 car.)
+    S->>DB: SELECT … WHERE LOWER(name) = LOWER(?)
+    alt Nom déjà existant
+        DB-->>S: Thème trouvé
+        S-->>C: 409 CONFLICT
+    else Nom disponible
+        DB-->>S: Aucun résultat
+        S->>DB: INSERT INTO T_THEME_THM (id, name, created_at)
+        DB-->>S: OK
+        S-->>C: 201 Created { id, name, created_at, last_updated_at: null }
+    end
+
+    Note over C,DB: Lecture — GET /api/v1/themes/:id
+    C->>S: GET /api/v1/themes/:id<br/>Authorization: Bearer TOKEN
+    S->>S: Authentification + Autorisation (admin)
+    S->>DB: SELECT * FROM T_THEME_THM WHERE id = ?
+    alt Thème trouvé
+        DB-->>S: Thème
+        S-->>C: 200 OK { id, name, created_at, last_updated_at }
+    else Thème introuvable
+        DB-->>S: Aucun résultat
+        S-->>C: 404 NOT_FOUND
+    end
+
+    Note over C,DB: Liste paginée — GET /api/v1/themes
+    C->>S: GET /api/v1/themes?page=1&limit=20<br/>Authorization: Bearer TOKEN
+    S->>S: Authentification + Autorisation (admin)
+    S->>DB: SELECT * FROM T_THEME_THM ORDER BY created_at DESC LIMIT ? OFFSET ?
+    DB-->>S: Résultats
+    S-->>C: 200 OK { data, page, limit, total }
+
+    Note over C,DB: Modification — PUT /api/v1/themes/:id
+    C->>S: PUT /api/v1/themes/:id<br/>Authorization: Bearer TOKEN<br/>{ "name": "Nouveau nom" }
+    S->>S: Authentification + Autorisation (admin)
+    S->>S: Valider et normaliser le nom
+    S->>DB: SELECT * FROM T_THEME_THM WHERE id = ?
+    alt Thème introuvable
+        S-->>C: 404 NOT_FOUND
+    else Thème trouvé
+        S->>DB: Vérifier unicité du nom (case-insensitive)
+        alt Nom déjà pris
+            S-->>C: 409 THEME_ALREADY_EXISTS
+        else Données identiques
+            S-->>C: 200 OK (inchangé, last_updated_at non modifié)
+        else Données modifiées
+            S->>DB: UPDATE T_THEME_THM SET name = ?, last_updated_at = ?
+            S-->>C: 200 OK { id, name, created_at, last_updated_at }
+        end
+    end
+
+    Note over C,DB: Suppression — DELETE /api/v1/themes/:id
+    C->>S: DELETE /api/v1/themes/:id<br/>Authorization: Bearer TOKEN
+    S->>S: Authentification + Autorisation (admin)
+    S->>DB: SELECT * FROM T_THEME_THM WHERE id = ?
+    alt Thème introuvable
+        S-->>C: 404 NOT_FOUND
+    else Thème trouvé
+        S->>DB: SELECT COUNT(*) FROM T_QUESTION_QST WHERE theme_id = ?
+        alt Questions liées au thème
+            S-->>C: 409 THEME_HAS_QUESTIONS
+        else Aucune question liée
+            S->>DB: DELETE FROM T_THEME_THM WHERE id = ?
+            S-->>C: 204 No Content
+        end
+    end

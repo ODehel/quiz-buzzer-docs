@@ -15,13 +15,20 @@ import { fileURLToPath } from 'url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
 
-// Résolution de puppeteer depuis @mermaid-js/mermaid-cli (installé globalement)
-const { default: puppeteer } = await import(
-  join(
+// Résolution de puppeteer depuis le node_modules local ou global
+let puppeteerPath;
+try {
+  // Tenter d'abord une résolution locale (node_modules du projet)
+  puppeteerPath = join(ROOT, 'node_modules/puppeteer/lib/esm/puppeteer/puppeteer.js');
+  await import('fs').then(({ accessSync }) => accessSync(puppeteerPath));
+} catch {
+  // Fallback : résolution depuis @mermaid-js/mermaid-cli installé globalement
+  puppeteerPath = join(
     (await import('child_process')).execSync('npm root -g').toString().trim(),
     '@mermaid-js/mermaid-cli/node_modules/puppeteer/lib/esm/puppeteer/puppeteer.js'
-  )
-);
+  );
+}
+const { default: puppeteer } = await import(puppeteerPath);
 
 // ---------------------------------------------------------------------------
 // Données des US

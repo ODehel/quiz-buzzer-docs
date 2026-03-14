@@ -1,0 +1,37 @@
+%%{init: {"theme": "forest"}}%%
+sequenceDiagram
+    participant C as Client
+    participant S as Serveur
+    participant DB as SQLite
+
+    C->>S: PATCH /api/v1/questions/:id<br/>Authorization: Bearer TOKEN<br/>{ "title": "Nouveau titre", "level": 4 }
+    S->>S: Authentification + Autorisation (admin)
+
+    alt Content-Type invalide
+        S-->>C: 415 UNSUPPORTED_MEDIA_TYPE
+    else JSON invalide
+        S-->>C: 400 INVALID_JSON
+    else Requête valide
+        S->>DB: SELECT * FROM T_QUESTION_QST WHERE id = ?
+        alt Question introuvable
+            S-->>C: 404 NOT_FOUND
+        else Question trouvée
+            S->>S: Fusionner le body avec la question existante (JSON Merge Patch)
+
+            alt Champ "type" présent dans le body
+                S-->>C: 400 TYPE_CHANGE_NOT_ALLOWED
+            else Champ "id" présent dans le body
+                S-->>C: 400 UNKNOWN_FIELDS
+            else Champ requis à null
+                S-->>C: 400 VALIDATION_ERROR
+            else Validation échouée (titre, choices, level, etc.)
+                S-->>C: 400 VALIDATION_ERROR
+            else Données identiques après fusion
+                S-->>C: 200 OK (inchangé, last_updated_at non modifié)
+            else Données modifiées
+                S->>DB: UPDATE T_QUESTION_QST SET ... last_updated_at = ?
+                DB-->>S: OK
+                S-->>C: 200 OK { id, type, theme_id, title, ... }
+            end
+        end
+    end

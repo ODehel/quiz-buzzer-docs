@@ -1,0 +1,25 @@
+%%{init: {"theme": "forest"}}%%
+sequenceDiagram
+    participant U as Maître du jeu
+    participant S as Serveur Node.js
+    participant ENV as Environnement
+    participant NET as Interfaces réseau
+
+    U->>S: npm start
+    S->>ENV: Lire PORT (défaut : 3000)
+    ENV-->>S: PORT
+
+    S->>S: Créer le serveur HTTP
+    S->>S: Mettre en écoute sur PORT
+
+    S->>NET: Détecter la première IPv4 non-loopback
+
+    alt Interface réseau trouvée
+        NET-->>S: Adresse IP (ex. 192.168.1.42)
+        S->>U: 🚀 Server started at HH:mm:ss
+        S->>U: 📡 Listening on http://192.168.1.42:PORT
+    else Aucune interface réseau
+        NET-->>S: Aucune interface
+        S->>U: 🚀 Server started at HH:mm:ss
+        S->>U: ⚠️ No network interface found, listening on http://localhost:PORT
+    end
