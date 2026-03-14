@@ -82,7 +82,9 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 | CA-34 | ID mal formé | `400 INVALID_UUID` |
 | CA-35 | Un body éventuel est ignoré silencieusement | Aucune erreur |
 
-### Garde de suppression des questions (implémentation transversale)
+### Garde de suppression des questions (implémentation transversale — dépend de US-004)
+
+> ⚠️ **Dépendance d'implémentation** — Ces critères modifient le comportement de `DELETE /api/v1/questions/:id` défini dans **[US-004 — CRUD de base des questions](US-004-crud-questions.md)**. Ils doivent être implémentés **après** US-004, en ajoutant une vérification dans le handler de suppression de questions existant.
 
 | # | Critère | Résultat attendu |
 |---|---|---|
@@ -476,4 +478,9 @@ Le résumé des questions par niveau et type est calculé via une jointure SQL a
 
 ### Garde sur `DELETE /api/v1/questions/:id`
 
-La contrainte de CA-36 est implémentée dans le handler `DELETE /api/v1/questions/:id` existant (US-004). Une vérification `SELECT COUNT(*) FROM T_QUIZ_QUESTION_QQN WHERE QQN_QUESTION_ID = ?` doit être ajoutée avant la suppression.
+La contrainte de CA-36 est implémentée dans le handler `DELETE /api/v1/questions/:id` existant (**US-004**). Une vérification `SELECT COUNT(*) FROM T_QUIZ_QUESTION_QQN WHERE QQN_QUESTION_ID = ?` doit être ajoutée avant la suppression. **Cette US-006 doit être implémentée avant que CA-36 puisse être actif** : sans la table `T_QUIZ_QUESTION_QQN`, la vérification n'est pas possible.
+
+> **Ordre d'implémentation recommandé :**
+> 1. Implémenter **US-004** (CRUD questions, sans la garde CA-36/CA-37)
+> 2. Implémenter **US-006** (CRUD quiz, création de la table `T_QUIZ_QUESTION_QQN`)
+> 3. Ajouter la garde CA-36/CA-37 dans le handler `DELETE /api/v1/questions/:id`

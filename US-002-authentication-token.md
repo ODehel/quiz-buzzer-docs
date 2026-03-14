@@ -68,21 +68,14 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 |---|---|---|
 | CA-16 | Méthode HTTP non supportée sur `/api/v1/token` | `405 METHOD_NOT_ALLOWED` avec header `Allow: POST` |
 
-### Seed des utilisateurs
-
-| # | Critère | Résultat attendu |
-|---|---|---|
-| CA-17 | Au premier démarrage, si la table `T_USER_USR` est vide, les 11 comptes sont créés automatiquement | 1 admin + 10 buzzers (quiz_buzzer_01 à quiz_buzzer_10) |
-| CA-18 | Les mots de passe sont lus depuis des variables d'environnement (fichier `.env` non versionné) | Hashés avec bcrypt avant insertion |
-| CA-19 | Le seed est idempotent | Si les comptes existent déjà, le script ne fait rien |
-| CA-20 | Les mots de passe respectent la politique OWASP : 12 caractères minimum | Le seed refuse de s'exécuter si un mot de passe ne respecte pas la politique |
-
 ### Sécurité et transversalité
 
 | # | Critère | Résultat attendu |
 |---|---|---|
-| CA-21 | Erreur serveur inattendue | `500 INTERNAL_SERVER_ERROR` (aucun détail technique exposé) |
-| CA-22 | Tests unitaires et d'intégration | Couverture de tests ≥ 90% |
+| CA-17 | Erreur serveur inattendue | `500 INTERNAL_SERVER_ERROR` (aucun détail technique exposé) |
+| CA-18 | Tests unitaires et d'intégration | Couverture de tests ≥ 90% |
+
+> **Note :** Les critères relatifs au seed des comptes utilisateurs (`npm run seed`) ont été extraits vers la **[US-009 — Seed des comptes utilisateurs](US-009-seed-users.md)**.
 
 ---
 
@@ -310,57 +303,16 @@ Le token émis par cet endpoint est utilisé dans deux contextes :
 
 ## 🌱 Seed — Initialisation des comptes
 
-### Fonctionnement
+> **Cette section est désormais couverte par la [US-009 — Seed des comptes utilisateurs](US-009-seed-users.md).** La table `T_USER_USR` et son schéma sont définis dans la présente US, mais le script d'initialisation des comptes (`npm run seed`) est spécifié dans l'US-009.
 
-```
-npm run seed
-  → 1. Vérifie si la table T_USER_USR contient des données
-    → Si oui → Affiche un message et s'arrête (idempotent)
-  → 2. Lit les mots de passe depuis les variables d'environnement (fichier .env)
-  → 3. Vérifie que tous les mots de passe sont fournis et respectent la politique (≥ 12 caractères)
-    → Si non → Affiche une erreur explicite et s'arrête
-  → 4. Hashe chaque mot de passe avec bcrypt (sel automatique)
-  → 5. Génère un UUIDv7 pour chaque utilisateur
-  → 6. Insère les 11 comptes en base
-  → 7. Affiche un message de confirmation
-```
-
-### Fichier `.env` (non versionné — dans `.gitignore`)
+Le fichier `.env` doit inclure les variables de mots de passe suivantes (définies dans l'US-009) :
 
 ```env
 JWT_SECRET=un-secret-long-et-aleatoire-de-min-32-caracteres
 JWT_EXPIRATION=3600
 
-ADMIN_PASSWORD=MonSuperMotDePasse!
-BUZZER_01_PASSWORD=BuzzerPassword01!
-BUZZER_02_PASSWORD=BuzzerPassword02!
-BUZZER_03_PASSWORD=BuzzerPassword03!
-BUZZER_04_PASSWORD=BuzzerPassword04!
-BUZZER_05_PASSWORD=BuzzerPassword05!
-BUZZER_06_PASSWORD=BuzzerPassword06!
-BUZZER_07_PASSWORD=BuzzerPassword07!
-BUZZER_08_PASSWORD=BuzzerPassword08!
-BUZZER_09_PASSWORD=BuzzerPassword09!
-BUZZER_10_PASSWORD=BuzzerPassword10!
-```
-
-### Fichier `.env.example` (versionné — template)
-
-```env
-JWT_SECRET=
-JWT_EXPIRATION=3600
-
-ADMIN_PASSWORD=
-BUZZER_01_PASSWORD=
-BUZZER_02_PASSWORD=
-BUZZER_03_PASSWORD=
-BUZZER_04_PASSWORD=
-BUZZER_05_PASSWORD=
-BUZZER_06_PASSWORD=
-BUZZER_07_PASSWORD=
-BUZZER_08_PASSWORD=
-BUZZER_09_PASSWORD=
-BUZZER_10_PASSWORD=
+ADMIN_PASSWORD=...
+BUZZER_01_PASSWORD=... à BUZZER_10_PASSWORD=...
 ```
 
 ---
@@ -371,13 +323,12 @@ BUZZER_10_PASSWORD=
 |---|---|
 | Endpoint `POST /api/v1/token` (émission JWT) | Refresh token (YAGNI) |
 | Table `T_USER_USR` et schéma | Endpoint de création de comptes utilisateurs |
-| Seed des 11 comptes (idempotent) | Changement de mot de passe (US dédiée) |
-| Hachage bcrypt des mots de passe | Déconnexion (gérée côté client) |
-| Logging structuré JSON (succès + échecs) | Authentification WebSocket (US dédiée) |
-| Rate limiting spécifique 5 req/min par IP | CRUD des utilisateurs |
-| Gestion complète des erreurs | Interface Angular de connexion |
-| Middlewares `authenticate` et `authorize` (réutilisables) | Déploiement / CI-CD |
-| Tests unitaires et d'intégration (couverture ≥ 90%) | |
+| Hachage bcrypt des mots de passe | Seed des comptes (→ **US-009**) |
+| Logging structuré JSON (succès + échecs) | Changement de mot de passe (US dédiée) |
+| Rate limiting spécifique 5 req/min par IP | Déconnexion (gérée côté client) |
+| Gestion complète des erreurs | Authentification WebSocket (US dédiée) |
+| Middlewares `authenticate` et `authorize` (réutilisables) | CRUD des utilisateurs |
+| Tests unitaires et d'intégration (couverture ≥ 90%) | Interface Angular de connexion |
 
 ---
 
@@ -399,10 +350,6 @@ bcrypt tronque les mots de passe à **72 bytes**. La politique impose un maximum
 
 Le fichier `.env` contient des mots de passe en clair et le secret JWT. Il **ne doit jamais** être versionné dans Git. Le fichier `.gitignore` doit inclure `.env`. Un fichier `.env.example` (sans valeurs) est versionné comme template.
 
-### Seed idempotent
-
-Le script de seed vérifie si la table contient déjà des données avant d'insérer. Cela permet de relancer le seed sans risque de doublon ni de réinitialisation des mots de passe modifiés ultérieurement.
-
 ### Rate limiting par IP sur `/token`
 
 Le rate limiting de 5 req/min est **par adresse IP**, contrairement au rate limiting global de 100 req/min des autres endpoints. Cela permet à plusieurs clients de s'authentifier simultanément (ex : 10 buzzers + 1 admin au démarrage d'une partie) tout en limitant les tentatives de brute force depuis une même IP.
@@ -410,3 +357,7 @@ Le rate limiting de 5 req/min est **par adresse IP**, contrairement au rate limi
 ### Middlewares réutilisables (DRY / SOLID)
 
 Les middlewares `authenticate` et `authorize` définis dans cette US sont les mêmes que ceux utilisés par l'US-003 et toutes les futures US. Ils sont conçus comme des composants indépendants conformément au principe de responsabilité unique (SRP). Le middleware `authorize` est paramétrable par rôle (Open/Closed Principle).
+
+### Seed des comptes (US-009)
+
+L'initialisation des 11 comptes utilisateurs (1 admin + 10 buzzers) est gérée par un script dédié spécifié dans **[US-009 — Seed des comptes utilisateurs](US-009-seed-users.md)**. Le schéma de la table `T_USER_USR` défini dans cette US est requis avant d'exécuter le seed.

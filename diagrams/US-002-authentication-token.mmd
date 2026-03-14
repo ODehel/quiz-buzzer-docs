@@ -26,23 +26,7 @@ flowchart TD
         LOGOK --> OK(["200 OK\n{ token, expires_in, token_type: Bearer }"])
     end
 
-    subgraph SEED["🌱 Flux du seed — npm run seed"]
-        direction TB
-        NS(["npm run seed"]) --> SC{"T_USER_USR\nvide ?"}
-        SC -->|"Non"| SKIP(["Arrêt — idempotent\n(comptes déjà présents)"])
-        SC -->|"Oui"| LOAD["Lire les 11 mots de passe\ndepuis les variables d'environnement"]
-        LOAD --> PWD{"Tous présents\net ≥ 12 caractères ?"}
-        PWD -->|"Non"| PERR(["Erreur — arrêt\n(mot de passe invalide/manquant)"])
-        PWD -->|"Oui"| HASH["Hasher chaque mot de passe\nbcrypt (sel automatique)"]
-        HASH --> UUID["Générer 11 UUIDv7\n(1 admin + 10 buzzers)"]
-        UUID --> INSERT["INSERT INTO T_USER_USR\n11 comptes"]
-        INSERT --> DONE(["✅ Seed terminé"])
-    end
-
     classDef error fill:#f8d7da,stroke:#dc3545,color:#721c24
     classDef success fill:#d4edda,stroke:#28a745,color:#155724
-    classDef info fill:#cce5ff,stroke:#004085,color:#004085
-    classDef warning fill:#fff3cd,stroke:#ffc107,color:#856404
     class E429,E415,E400a,E400b,E400c,E401 error
-    class OK,DONE success
-    class SKIP,PERR warning
+    class OK success
