@@ -1,0 +1,85 @@
+%%{init: {"theme": "forest"}}%%
+sequenceDiagram
+    participant C as Client
+    participant S as Serveur
+    participant DB as SQLite
+
+    Note over C,DB: Création — POST /api/v1/questions
+    C->>S: POST /api/v1/questions<br/>Authorization: Bearer TOKEN<br/>{ type, theme_id, title, choices, correct_answer, level, time_limit, points }
+    S->>S: Authentification + Autorisation (admin)
+    S->>S: Valider le type (MCQ ou SPEED)
+    S->>S: Normaliser et valider le titre (10-250 car.)
+    S->>DB: Vérifier l'existence du thème (theme_id)
+    alt Thème introuvable
+        S-->>C: 400 INVALID_THEME
+    else Thème valide
+        S->>DB: Vérifier unicité du titre (case-insensitive)
+        alt Titre déjà existant
+            S-->>C: 409 QUESTION_ALREADY_EXISTS
+        else Titre disponible
+            alt Type MCQ
+                S->>S: Valider choices (4 éléments distincts) + correct_answer ∈ choices
+            else Type SPEED
+                S->>S: Valider correct_answer (1-40 car.), pas de choices
+            end
+            S->>S: Valider level (1-5), time_limit (5-60), points (1-50)
+            S->>DB: INSERT INTO T_QUESTION_QST
+            DB-->>S: OK
+            S-->>C: 201 Created { id, type, theme_id, title, ... }
+        end
+    end
+
+    Note over C,DB: Lecture — GET /api/v1/questions/:id
+    C->>S: GET /api/v1/questions/:id<br/>Authorization: Bearer TOKEN
+    S->>S: Authentification + Autorisation (admin)
+    S->>DB: SELECT * FROM T_QUESTION_QST WHERE id = ?
+    alt Question trouvée
+        DB-->>S: Question
+        S-->>C: 200 OK (MCQ avec choices / SPEED sans choices)
+    else Question introuvable
+        S-->>C: 404 NOT_FOUND
+    end
+
+    Note over C,DB: Liste paginée — GET /api/v1/questions
+    C->>S: GET /api/v1/questions?page=1&limit=20<br/>Authorization: Bearer TOKEN
+    S->>S: Authentification + Autorisation (admin)
+    S->>DB: SELECT * ORDER BY created_at DESC LIMIT ? OFFSET ?
+    DB-->>S: Résultats
+    S-->>C: 200 OK { data, page, limit, total }
+
+    Note over C,DB: Modification — PUT /api/v1/questions/:id
+    C->>S: PUT /api/v1/questions/:id<br/>Authorization: Bearer TOKEN<br/>{ type, theme_id, title, ... }
+    S->>S: Authentification + Autorisation (admin)
+    S->>DB: SELECT * FROM T_QUESTION_QST WHERE id = ?
+    alt Question introuvable
+        S-->>C: 404 NOT_FOUND
+    else Question trouvée
+        S->>S: Vérifier que le type n'a pas changé
+        alt Changement de type
+            S-->>C: 400 TYPE_CHANGE_NOT_ALLOWED
+        else Même type
+            S->>S: Mêmes validations que POST
+            alt Données identiques
+                S-->>C: 200 OK (inchangé, last_updated_at non modifié)
+            else Données modifiées
+                S->>DB: UPDATE T_QUESTION_QST SET ... last_updated_at = ?
+                S-->>C: 200 OK { id, type, theme_id, title, ... }
+            end
+        end
+    end
+
+    Note over C,DB: Suppression — DELETE /api/v1/questions/:id
+    C->>S: DELETE /api/v1/questions/:id<br/>Authorization: Bearer TOKEN
+    S->>S: Authentification + Autorisation (admin)
+    S->>DB: SELECT * FROM T_QUESTION_QST WHERE id = ?
+    alt Question introuvable
+        S-->>C: 404 NOT_FOUND
+    else Question trouvée
+        S->>DB: Vérifier si la question est dans un quiz
+        alt Question liée à un quiz
+            S-->>C: 409 QUESTION_IN_QUIZ
+        else Aucun quiz lié
+            S->>DB: DELETE FROM T_QUESTION_QST WHERE id = ?
+            S-->>C: 204 No Content
+        end
+    end

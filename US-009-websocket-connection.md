@@ -95,6 +95,12 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 ---
 
+## 🔀 Diagramme de séquences
+
+![Diagramme de séquences — US-009 — Connexion WebSocket des buzzers et de l'application Angular](diagrams/US-009-websocket-connection-sequence.png)
+
+---
+
 ## 🔧 Spécifications techniques
 
 | Élément | Choix |

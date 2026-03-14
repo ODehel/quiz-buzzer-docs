@@ -63,6 +63,12 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 ---
 
+## 🔀 Diagramme de séquences
+
+![Diagramme de séquences — US-006 — Filtrage avancé de la liste des questions](diagrams/US-006-questions-filtrage-sequence.png)
+
+---
+
 ## 🧪 Cas de tests — requêtes cURL
 
 > **Variables** à définir avant d'exécuter les commandes :

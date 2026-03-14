@@ -1,0 +1,27 @@
+%%{init: {"theme": "forest"}}%%
+sequenceDiagram
+    participant C as Client
+    participant S as Serveur
+    participant DB as SQLite
+
+    C->>S: GET /api/v1/questions?theme_id=...&type=MCQ&level=3&page=1&limit=20<br/>Authorization: Bearer TOKEN
+    S->>S: Authentification + Autorisation (admin)
+
+    S->>S: Parser les query parameters de filtrage
+
+    alt Filtres invalides (type inconnu, level hors 1-5, min > max, etc.)
+        S-->>C: 400 INVALID_FILTER
+    else Conflit level + level_min/level_max
+        S-->>C: 400 INVALID_FILTER
+    else Filtres valides
+        opt theme_id présent
+            S->>DB: Vérifier l'existence du thème
+            alt Thème introuvable
+                S-->>C: 400 INVALID_FILTER
+            end
+        end
+
+        S->>DB: SELECT * FROM T_QUESTION_QST<br/>WHERE theme_id = ? AND type = ? AND level = ?<br/>AND time_limit BETWEEN ? AND ?<br/>AND points BETWEEN ? AND ?<br/>ORDER BY created_at DESC LIMIT ? OFFSET ?
+        DB-->>S: Résultats filtrés
+        S-->>C: 200 OK { data, page, limit, total }
+    end

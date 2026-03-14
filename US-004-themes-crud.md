@@ -102,6 +102,12 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 ---
 
+## 🔀 Diagramme de séquences
+
+![Diagramme de séquences — US-004 — CRUD des thèmes de questions](diagrams/US-004-themes-crud-sequence.png)
+
+---
+
 ## 🧪 Cas de tests — requêtes cURL
 
 > **Variables** à définir avant d'exécuter les commandes :

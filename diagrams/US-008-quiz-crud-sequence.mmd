@@ -1,0 +1,64 @@
+%%{init: {"theme": "forest"}}%%
+sequenceDiagram
+    participant C as Client
+    participant S as Serveur
+    participant DB as SQLite
+
+    Note over C,DB: Création — POST /api/v1/quizzes
+    C->>S: POST /api/v1/quizzes<br/>Authorization: Bearer TOKEN<br/>{ "name": "Quiz Géo", "question_ids": ["id1", "id2", ...] }
+    S->>S: Authentification + Autorisation (admin)
+    S->>S: Valider et normaliser le nom (3-40 car.)
+    S->>DB: Vérifier unicité du nom (case-insensitive)
+    alt Nom déjà existant
+        S-->>C: 409 CONFLICT
+    else Nom disponible
+        S->>S: Valider question_ids (≥ 10, pas de doublons)
+        loop Pour chaque question_id
+            S->>DB: Vérifier l'existence de la question
+            alt Question introuvable
+                S-->>C: 404 QUESTION_NOT_FOUND
+            end
+        end
+        S->>DB: INSERT INTO T_QUIZ_QZZ + T_QUIZ_QUESTION_QQN (ordre préservé)
+        DB-->>S: OK
+        S-->>C: 201 Created { id, name, question_count, created_at, last_updated_at: null }
+    end
+
+    Note over C,DB: Liste — GET /api/v1/quizzes
+    C->>S: GET /api/v1/quizzes?name=Géo<br/>Authorization: Bearer TOKEN
+    S->>S: Authentification + Autorisation (admin)
+    S->>DB: SELECT * FROM T_QUIZ_QZZ (+ filtre optionnel sur name, tri par created_at DESC)
+    DB-->>S: Résultats avec question_summary
+    S-->>C: 200 OK [ { id, name, question_count, question_summary, ... } ]
+
+    Note over C,DB: Modification — PUT /api/v1/quizzes/:id
+    C->>S: PUT /api/v1/quizzes/:id<br/>Authorization: Bearer TOKEN<br/>{ "name": "Quiz Géo v2", "question_ids": [...] }
+    S->>S: Authentification + Autorisation (admin)
+    S->>DB: SELECT * FROM T_QUIZ_QZZ WHERE id = ?
+    alt Quiz introuvable
+        S-->>C: 404 NOT_FOUND
+    else Quiz trouvé
+        S->>S: Mêmes validations que POST (nom, questions)
+        alt Données identiques
+            S-->>C: 200 OK (inchangé, last_updated_at non modifié)
+        else Données modifiées
+            S->>DB: UPDATE T_QUIZ_QZZ + remplacer T_QUIZ_QUESTION_QQN
+            S-->>C: 200 OK { id, name, question_count, created_at, last_updated_at }
+        end
+    end
+
+    Note over C,DB: Suppression — DELETE /api/v1/quizzes/:id
+    C->>S: DELETE /api/v1/quizzes/:id<br/>Authorization: Bearer TOKEN
+    S->>S: Authentification + Autorisation (admin)
+    S->>DB: SELECT * FROM T_QUIZ_QZZ WHERE id = ?
+    alt Quiz introuvable
+        S-->>C: 404 NOT_FOUND
+    else Quiz trouvé
+        S->>DB: Vérifier si le quiz est utilisé dans une partie active
+        alt Quiz utilisé (partie non COMPLETED)
+            S-->>C: 403 QUIZ_IN_USE
+        else Quiz libre ou parties terminées
+            S->>DB: DELETE FROM T_QUIZ_QZZ + T_QUIZ_QUESTION_QQN
+            S-->>C: 204 No Content
+        end
+    end

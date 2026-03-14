@@ -1,0 +1,58 @@
+%%{init: {"theme": "forest"}}%%
+sequenceDiagram
+    participant C as Client
+    participant S as Serveur WebSocket
+    participant DB as SQLite
+
+    C->>S: HTTP Upgrade → ws://host:port/ws
+
+    alt Chemin différent de /ws
+        S-->>C: Connexion détruite
+    else Chemin /ws
+        S-->>C: 101 Switching Protocols
+        S->>S: Log WEBSOCKET_CONNECTED (IP)
+        S->>S: Démarrer timer authentification (60 s)
+
+        C->>S: { "type": "auth", "token": "<JWT>" }
+
+        alt Message non-JSON
+            S-->>C: Fermeture code 4001 "Invalid token."
+        else Champs auth manquants
+            S-->>C: Fermeture code 4001 "Invalid token."
+        else Token invalide (signature)
+            S->>S: Log WEBSOCKET_AUTH_FAILED (reason, IP)
+            S-->>C: Fermeture code 4001 "Invalid token."
+        else Token expiré
+            S->>S: Log WEBSOCKET_AUTH_FAILED (reason, IP)
+            S-->>C: Fermeture code 4002 "Token expired."
+        else Token valide
+            S->>S: Annuler timer authentification
+            S->>S: Extraire sub, role du JWT
+            S->>DB: Résoudre username via sub
+
+            alt Rôle buzzer
+                S->>S: Vérifier si le buzzer est déjà connecté
+                opt Session existante
+                    S-->>C: Fermeture ancienne connexion code 4004 "Session replaced."
+                end
+                S->>S: Enregistrer dans le registre (max 10 buzzers)
+            else Rôle admin
+                S->>S: Vérifier si un admin est déjà connecté
+                opt Session existante
+                    S-->>C: Fermeture ancienne connexion code 4004 "Session replaced."
+                end
+                S->>S: Enregistrer dans le registre (max 1 admin)
+            end
+
+            S-->>C: { "type": "auth_success", "role": "...", "username": "..." }
+            S->>S: Log WEBSOCKET_AUTHENTICATED (username, role, IP, connexions)
+        end
+
+        Note over C,S: Déconnexion
+        C->>S: Fermeture WebSocket
+        S->>S: Libérer le slot dans le registre
+        S->>S: Log WEBSOCKET_DISCONNECTED (username, role, IP, connexions)
+    end
+
+    Note over C,S: Timeout authentification (60 s sans message auth)
+    S-->>C: Fermeture code 4003 "Authentication timeout."

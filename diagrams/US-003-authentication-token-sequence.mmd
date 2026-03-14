@@ -1,0 +1,36 @@
+%%{init: {"theme": "forest"}}%%
+sequenceDiagram
+    participant C as Client
+    participant S as Serveur
+    participant DB as SQLite
+
+    C->>S: POST /api/v1/token<br/>{ "username": "admin", "password": "***" }
+
+    alt Content-Type invalide
+        S-->>C: 415 UNSUPPORTED_MEDIA_TYPE
+    else Méthode non autorisée
+        S-->>C: 405 METHOD_NOT_ALLOWED (Allow: POST)
+    else Rate limit dépassé (> 5 req/min)
+        S-->>C: 429 RATE_LIMIT_EXCEEDED (Retry-After: 60)
+    else JSON invalide
+        S-->>C: 400 INVALID_JSON
+    else Champs manquants ou vides
+        S-->>C: 400 VALIDATION_ERROR
+    else Champs inconnus
+        S-->>C: 400 UNKNOWN_FIELDS
+    else Requête valide
+        S->>DB: SELECT * FROM T_USER_USR WHERE username = ?
+        alt Utilisateur introuvable
+            DB-->>S: Aucun résultat
+            S-->>C: 401 INVALID_CREDENTIALS
+        else Utilisateur trouvé
+            DB-->>S: Utilisateur (id, username, password_hash, role)
+            S->>S: bcrypt.compare(password, password_hash)
+            alt Mot de passe incorrect
+                S-->>C: 401 INVALID_CREDENTIALS
+            else Mot de passe correct
+                S->>S: Signer JWT (HS256)<br/>payload: { sub, role, iat, exp }
+                S-->>C: 200 OK { token, expires_in, token_type: "Bearer" }
+            end
+        end
+    end
