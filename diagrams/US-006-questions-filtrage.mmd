@@ -1,0 +1,26 @@
+%%{init: {"theme": "forest", "flowchart": {"curve": "basis"}}}%%
+flowchart TD
+    REQ(["GET /api/v1/questions?[filtres]"]) --> MW_AUTH["Middleware : authenticate\nVérifier le JWT"]
+    MW_AUTH --> AUTH_OK{"Token JWT\nvalide ?"}
+    AUTH_OK -->|"Non"| E401["401 UNAUTHORIZED"]
+    AUTH_OK -->|"Oui"| MW_ROLE["Middleware : authorize admin"]
+    MW_ROLE --> ROLE_OK{"Rôle = admin ?"}
+    ROLE_OK -->|"Non"| E403["403 FORBIDDEN"]
+    ROLE_OK -->|"Oui"| MW_RL{"> 100 req/min\npar IP ?"}
+    MW_RL -->|"Oui"| E429["429 RATE_LIMIT_EXCEEDED\nRetry-After: 30"]
+    MW_RL -->|"Non"| PARSE_FILTERS["Extraire les paramètres\nde filtrage de la query string"]
+    PARSE_FILTERS --> VALID_THEME{"theme_id présent ?\nUUID valide et existant ?"}
+    VALID_THEME -->|"Non valide"| E400a["400 INVALID_FILTER"]
+    VALID_THEME -->|"OK ou absent"| VALID_TYPE{"type présent ?\nMCQ ou SPEED ?"}
+    VALID_TYPE -->|"Non valide"| E400b["400 INVALID_FILTER"]
+    VALID_TYPE -->|"OK ou absent"| VALID_LEVEL{"Filtres level valides ?\nPas de conflit exact/plage"}
+    VALID_LEVEL -->|"Non valide"| E400c["400 INVALID_FILTER"]
+    VALID_LEVEL -->|"OK ou absent"| VALID_RANGES{"Plages time_limit / points\nvalides et cohérentes ?"}
+    VALID_RANGES -->|"Non valide"| E400d["400 INVALID_FILTER"]
+    VALID_RANGES -->|"OK ou absent"| SQL["SELECT * FROM T_QUESTION_QST\nWHERE [filtres combinés en ET]\nORDER BY created_at DESC"]
+    SQL --> OK(["200 OK\n{ data, page, limit, total, total_pages }"])
+
+    classDef error fill:#f8d7da,stroke:#dc3545,color:#721c24
+    classDef success fill:#d4edda,stroke:#28a745,color:#155724
+    class E401,E403,E429,E400a,E400b,E400c,E400d error
+    class OK success

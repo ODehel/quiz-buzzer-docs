@@ -1,0 +1,18 @@
+%%{init: {"theme": "forest", "flowchart": {"curve": "basis"}}}%%
+flowchart TD
+    START(["npm run seed"]) --> CHECK{"T_USER_USR\nvide ?"}
+    CHECK -->|"Non"| SKIP(["⏭️ Arrêt — idempotent\nComptes déjà présents"])
+    CHECK -->|"Oui"| LOAD["Lire les 11 mots de passe\ndepuis les variables d'env (.env)"]
+    LOAD --> PWD{"Tous présents\net ≥ 12 caractères ?"}
+    PWD -->|"Non"| ERR(["❌ Erreur — arrêt\nMot de passe invalide ou manquant"])
+    PWD -->|"Oui"| HASH["Hasher chaque mot de passe\nbcrypt (sel automatique)"]
+    HASH --> UUID["Générer 11 UUIDv7\n(1 admin + 10 buzzers)"]
+    UUID --> INSERT["INSERT INTO T_USER_USR\n11 comptes"]
+    INSERT --> DONE(["✅ Seed terminé"])
+
+    classDef success fill:#d4edda,stroke:#28a745,color:#155724
+    classDef error fill:#f8d7da,stroke:#dc3545,color:#721c24
+    classDef warning fill:#fff3cd,stroke:#ffc107,color:#856404
+    class DONE success
+    class ERR error
+    class SKIP warning

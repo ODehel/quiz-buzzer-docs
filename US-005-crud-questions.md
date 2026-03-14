@@ -1,6 +1,6 @@
-![Page de couverture — US-004](diagrams/covers/US-004-cover.png)
+![Page de couverture — US-005](diagrams/covers/US-005-cover.png)
 
-# US-004 — CRUD des questions
+# US-005 — CRUD de base des questions
 
 ## 📋 Contexte projet
 
@@ -18,7 +18,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 ## 🎯 User Story
 
 > **En tant qu'** administrateur,
-> **je veux** pouvoir créer, lire, modifier (totalement ou partiellement) et supprimer des questions,
+> **je veux** pouvoir créer, lire, modifier (totalement) et supprimer des questions,
 > **afin de** constituer la banque de questions du quiz.
 
 ---
@@ -26,6 +26,8 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 ## ✅ Critères d'acceptance
 
 > 🧪 **Exigence de couverture** — Chaque critère d'acceptance listé ci-dessous doit être couvert par **au moins un test automatisé** (unitaire et/ou d'intégration). Un CA non couvert par un test est considéré comme **non livré**. La couverture globale du code de l'US doit être **≥ 90%**, mesurée via `jest --coverage`.
+
+> **Note :** Le filtrage avancé de la liste (`theme_id`, `type`, `level`, `level_min`/`max`, `time_limit_min`/`max`, `points_min`/`max`) est spécifié dans **[US-006 — Filtrage avancé de la liste des questions](US-006-questions-filtrage.md)**. La modification partielle PATCH (JSON Merge Patch RFC 7396) est spécifiée dans **[US-007 — Modification partielle des questions](US-007-questions-patch.md)**.
 
 ### Création — `POST /api/v1/questions`
 
@@ -73,91 +75,55 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 | CA-30 | Paramètres de pagination invalides (négatifs, zéro, non numériques) | `400 INVALID_PAGINATION` |
 | CA-31 | Page au-delà du total | `200 OK` avec `data: []` et métadonnées correctes |
 | CA-32 | Aucune question en base | `200 OK` avec `{ "data": [], "page": 1, "limit": 20, "total": 0, "total_pages": 0 }` |
-| CA-33 | Filtrage par `theme_id` (UUID valide, thème existant) | Seules les questions du thème sont retournées |
-| CA-34 | Filtrage par `type` (`MCQ` ou `SPEED`) | Seules les questions du type sont retournées |
-| CA-35 | Filtrage par `level` (valeur exacte : `?level=3`) | Seules les questions du niveau sont retournées |
-| CA-36 | Filtrage par `level_min` et/ou `level_max` | Filtre par plage (bornes incluses) |
-| CA-37 | Filtrage par `time_limit_min` et/ou `time_limit_max` | Filtre par plage (bornes incluses) |
-| CA-38 | Filtrage par `points_min` et/ou `points_max` | Filtre par plage (bornes incluses) |
-| CA-39 | Combinaison de plusieurs filtres | Les filtres sont combinés en ET logique |
-| CA-40 | `theme_id` inexistant en base | `400 INVALID_FILTER` |
-| CA-41 | `type` invalide (ni `MCQ` ni `SPEED`) | `400 INVALID_FILTER` |
-| CA-42 | Valeurs numériques invalides pour `level`, `level_min`, `level_max`, `time_limit_min`, `time_limit_max`, `points_min`, `points_max` | `400 INVALID_FILTER` |
-| CA-43 | Plage incohérente (`level_min` > `level_max`, etc.) | `400 INVALID_FILTER` |
-| CA-44 | `level` et `level_min`/`level_max` présents simultanément | `400 INVALID_FILTER` |
 
 ### Modification complète — `PUT /api/v1/questions/:id`
 
 | # | Critère | Résultat attendu |
 |---|---|---|
-| CA-45 | Modifier une question MCQ avec tous les champs valides | `200 OK` avec la question mise à jour, `last_updated_at` mis à jour |
-| CA-46 | Modifier une question SPEED avec tous les champs valides | `200 OK` avec la question mise à jour, `last_updated_at` mis à jour |
-| CA-47 | Toutes les règles de validation du POST s'appliquent | Trim, collapse, regex, unicité, cohérence type/champs |
-| CA-48 | Le `type` envoyé doit correspondre au type actuel de la question | Changement de type → `400 TYPE_CHANGE_NOT_ALLOWED` |
-| CA-49 | Les données envoyées sont identiques à l'existant | `200 OK` avec la question inchangée, `last_updated_at` **non modifié** |
-| CA-50 | L'ID peut être présent dans le body ; s'il l'est, il doit correspondre à l'URL | Sinon → `400 ID_MISMATCH` |
-| CA-51 | Le titre est déjà pris par une autre question | `409 QUESTION_ALREADY_EXISTS` |
-| CA-52 | ID inexistant | `404 NOT_FOUND` |
-| CA-53 | Le `Content-Type` doit être `application/json` | Sinon → `415 UNSUPPORTED_MEDIA_TYPE` |
-| CA-54 | Le body ne doit contenir que les champs autorisés (tous les champs métier requis, `id` optionnel ; **`image_path` et `audio_path` ne sont pas gérés par ce endpoint**) | Champs inconnus (dont `image_path`/`audio_path`) → `400 UNKNOWN_FIELDS` |
-| CA-55 | Le PUT exige tous les champs métier : `type`, `theme_id`, `title`, `correct_answer`, `level`, `time_limit`, `points` (+ `choices` si MCQ). **Les champs médias `image_path` et `audio_path` ne sont ni créés, ni modifiés, ni réinitialisés par ce PUT et conservent leur valeur actuelle**. | Champ métier manquant → `400 VALIDATION_ERROR` |
-
-### Modification partielle — `PATCH /api/v1/questions/:id`
-
-| # | Critère | Résultat attendu |
-|---|---|---|
-| CA-56 | Modifier partiellement une question (un ou plusieurs champs) | `200 OK` avec la question mise à jour, `last_updated_at` mis à jour |
-| CA-57 | Format JSON Merge Patch (RFC 7396) : champ absent = non modifié | Seuls les champs présents dans le body sont modifiés |
-| CA-58 | Un champ obligatoire envoyé à `null` | `400 VALIDATION_ERROR` (les champs obligatoires ne peuvent pas être nullifiés) |
-| CA-59 | `choices` envoyé à `null` sur une question MCQ | `400 VALIDATION_ERROR` |
-| CA-60 | Le champ `type` n'est pas modifiable via PATCH | Présent → `400 TYPE_CHANGE_NOT_ALLOWED` |
-| CA-61 | Le champ `id` n'est pas modifiable via PATCH | Présent → `400 UNKNOWN_FIELDS` |
-| CA-62 | Modification du `theme_id` vers un thème existant | `200 OK`, le `theme_id` est mis à jour |
-| CA-63 | Modification du `theme_id` vers un thème inexistant | `400 INVALID_THEME` |
-| CA-64 | Modification du `title` : mêmes règles de validation que le POST | Trim, collapse, majuscule, longueur, unicité |
-| CA-65 | Modification de `choices` : mêmes règles que le POST (4 éléments, 1–40 car., distincts) | Validation complète |
-| CA-65b | PATCH avec `choices` sur une question SPEED | `400 VALIDATION_ERROR` (une question SPEED ne peut pas avoir de `choices`) |
-| CA-66 | Modification de `correct_answer` : doit correspondre à un des `choices` actuels (ou des nouveaux `choices` si fournis dans le même PATCH) | Sinon → `400 VALIDATION_ERROR` |
-| CA-67 | Modification de `level`, `time_limit`, `points` : mêmes règles que le POST | Plages respectées |
-| CA-68 | Modification de `image_path` : doit être une chaîne non vide ou `null` (pour supprimer) | Chaîne vide → `400 VALIDATION_ERROR` |
-| CA-69 | Modification de `audio_path` : doit être une chaîne non vide ou `null` (pour supprimer) | Chaîne vide → `400 VALIDATION_ERROR` |
-| CA-70 | Les données envoyées sont identiques à l'existant | `200 OK` avec la question inchangée, `last_updated_at` **non modifié** |
-| CA-71 | ID inexistant | `404 NOT_FOUND` |
-| CA-72 | Le `Content-Type` doit être `application/json` | Sinon → `415 UNSUPPORTED_MEDIA_TYPE` |
-| CA-73 | Body vide `{}` | `200 OK` avec la question inchangée (aucune modification) |
+| CA-33 | Modifier une question MCQ avec tous les champs valides | `200 OK` avec la question mise à jour, `last_updated_at` mis à jour |
+| CA-34 | Modifier une question SPEED avec tous les champs valides | `200 OK` avec la question mise à jour, `last_updated_at` mis à jour |
+| CA-35 | Toutes les règles de validation du POST s'appliquent | Trim, collapse, regex, unicité, cohérence type/champs |
+| CA-36 | Le `type` envoyé doit correspondre au type actuel de la question | Changement de type → `400 TYPE_CHANGE_NOT_ALLOWED` |
+| CA-37 | Les données envoyées sont identiques à l'existant | `200 OK` avec la question inchangée, `last_updated_at` **non modifié** |
+| CA-38 | L'ID peut être présent dans le body ; s'il l'est, il doit correspondre à l'URL | Sinon → `400 ID_MISMATCH` |
+| CA-39 | Le titre est déjà pris par une autre question | `409 QUESTION_ALREADY_EXISTS` |
+| CA-40 | ID inexistant | `404 NOT_FOUND` |
+| CA-41 | Le `Content-Type` doit être `application/json` | Sinon → `415 UNSUPPORTED_MEDIA_TYPE` |
+| CA-42 | Le body ne doit contenir que les champs autorisés (tous les champs métier requis, `id` optionnel ; **`image_path` et `audio_path` ne sont pas gérés par ce endpoint**) | Champs inconnus (dont `image_path`/`audio_path`) → `400 UNKNOWN_FIELDS` |
+| CA-43 | Le PUT exige tous les champs métier : `type`, `theme_id`, `title`, `correct_answer`, `level`, `time_limit`, `points` (+ `choices` si MCQ). **Les champs médias `image_path` et `audio_path` ne sont ni créés, ni modifiés, ni réinitialisés par ce PUT et conservent leur valeur actuelle**. | Champ métier manquant → `400 VALIDATION_ERROR` |
 
 ### Suppression — `DELETE /api/v1/questions/:id`
 
 | # | Critère | Résultat attendu |
 |---|---|---|
-| CA-74 | Supprimer une question existante | `204 No Content` sans body |
-| CA-75 | ID inexistant | `404 NOT_FOUND` |
-| CA-76 | ID mal formé | `400 INVALID_UUID` |
-| CA-77 | Un body éventuel est ignoré silencieusement | Aucune erreur |
+| CA-44 | Supprimer une question existante | `204 No Content` sans body |
+| CA-45 | ID inexistant | `404 NOT_FOUND` |
+| CA-46 | ID mal formé | `400 INVALID_UUID` |
+| CA-47 | Un body éventuel est ignoré silencieusement | Aucune erreur |
 
-### Garde de suppression des thèmes (implémentation du TODO CA-30 de l'US-003)
+### Garde de suppression des thèmes (implémentation du TODO CA-30 de l'US-004)
 
 | # | Critère | Résultat attendu |
 |---|---|---|
-| CA-78 | Suppression d'un thème qui a des questions associées | `409 THEME_HAS_QUESTIONS` avec message `"Cannot delete this theme: questions are still associated with it."` |
-| CA-79 | Suppression d'un thème sans questions associées | `204 No Content` (comportement inchangé) |
+| CA-48 | Suppression d'un thème qui a des questions associées | `409 THEME_HAS_QUESTIONS` avec message `"Cannot delete this theme: questions are still associated with it."` |
+| CA-49 | Suppression d'un thème sans questions associées | `204 No Content` (comportement inchangé) |
 
 ### Sécurité et transversalité
 
 | # | Critère | Résultat attendu |
 |---|---|---|
-| CA-80 | Toutes les routes sont protégées par un Bearer token | Token absent/invalide/expiré → `401 UNAUTHORIZED` |
-| CA-81 | Seul l'administrateur peut effectuer des opérations | Rôle insuffisant → `403 FORBIDDEN` |
-| CA-82 | Rate limiting : max 100 requêtes par minute | Dépassement → `429 RATE_LIMIT_EXCEEDED` avec header `Retry-After: 30` |
-| CA-83 | Méthode HTTP non supportée sur une ressource | `405 METHOD_NOT_ALLOWED` avec header `Allow` adapté à la ressource |
-| CA-84 | Erreur serveur inattendue | `500 INTERNAL_SERVER_ERROR` (aucun détail technique exposé) |
-| CA-85 | Tests unitaires et d'intégration | Couverture de tests ≥ 90% |
+| CA-50 | Toutes les routes sont protégées par un Bearer token | Token absent/invalide/expiré → `401 UNAUTHORIZED` |
+| CA-51 | Seul l'administrateur peut effectuer des opérations | Rôle insuffisant → `403 FORBIDDEN` |
+| CA-52 | Rate limiting : max 100 requêtes par minute | Dépassement → `429 RATE_LIMIT_EXCEEDED` avec header `Retry-After: 30` |
+| CA-53 | Méthode HTTP non supportée sur une ressource | `405 METHOD_NOT_ALLOWED` avec header `Allow` adapté à la ressource |
+| CA-54 | Erreur serveur inattendue | `500 INTERNAL_SERVER_ERROR` (aucun détail technique exposé) |
+| CA-55 | Tests unitaires et d'intégration | Couverture de tests ≥ 90% |
 
 ---
 
 ## 🔄 Diagramme de flux
 
-![Diagramme de flux — US-004 — CRUD des questions](diagrams/US-004-crud-questions.png)
+![Diagramme de flux — US-005 — CRUD des questions](diagrams/US-005-crud-questions.png)
 
 ---
 
@@ -166,10 +132,10 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 > **Variables** à définir avant d'exécuter les commandes :
 > ```bash
 > BASE_URL=http://localhost:3000
-> TOKEN=<votre_token_JWT_admin>                              # Obtenu via POST /api/v1/token (US-002)
+> TOKEN=<votre_token_JWT_admin>                              # Obtenu via POST /api/v1/token (US-003)
 > THEME_ID=018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a            # UUID d'un thème existant en base
 > THEME_EMPTY_ID=018e4f5b-1a2b-7c3d-8e4f-5a6b7c8d9e0f      # UUID d'un thème sans question liée
-> TOKEN_USER=<token_JWT_avec_role_user>                      # Token non-admin (pour CA-81)
+> TOKEN_USER=<token_JWT_avec_role_user>                      # Token non-admin (pour CA-51)
 > QUESTION_MCQ_ID=018e4f5c-2b3c-7d4e-9f5a-6b7c8d9e0f1a     # UUID d'une question MCQ existante
 > QUESTION_SPD_ID=018e4f5d-3c4d-7e5f-0a6b-7c8d9e0f1a2b     # UUID d'une question SPEED existante
 > ```
@@ -561,6 +527,8 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions/$QUEST
 
 ### Lecture de la liste — `GET /api/v1/questions`
 
+> **Note :** Les cas de tests de filtrage avancé (CA-1 à CA-12 de l'US-006) sont documentés dans **[US-006 — Filtrage avancé de la liste des questions](US-006-questions-filtrage.md)**.
+
 **CA-26** — Récupérer la liste paginée → `200 OK` avec `{ data, page, limit, total, total_pages }`
 
 ```bash
@@ -613,93 +581,9 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-**CA-33** — Filtrage par `theme_id` → seules les questions du thème retournées
-
-```bash
-curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions?theme_id=$THEME_ID" \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-**CA-34** — Filtrage par `type=MCQ` → seules les questions MCQ retournées
-
-```bash
-curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions?type=MCQ" \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-**CA-35** — Filtrage par `level` exact → seules les questions du niveau retournées
-
-```bash
-curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions?level=3" \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-**CA-36** — Filtrage par plage `level_min`/`level_max` (bornes incluses)
-
-```bash
-curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions?level_min=2&level_max=4" \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-**CA-37** — Filtrage par plage `time_limit_min`/`time_limit_max`
-
-```bash
-curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions?time_limit_min=10&time_limit_max=30" \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-**CA-38** — Filtrage par plage `points_min`/`points_max`
-
-```bash
-curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions?points_min=5&points_max=20" \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-**CA-39** — Combinaison de plusieurs filtres (ET logique)
-
-```bash
-curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions?type=MCQ&level_min=1&level_max=3&theme_id=$THEME_ID" \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-**CA-40** — `theme_id` inexistant en base → `400 INVALID_FILTER`
-
-```bash
-curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions?theme_id=018e4f5a-0000-0000-0000-000000000000" \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-**CA-41** — `type` invalide → `400 INVALID_FILTER`
-
-```bash
-curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions?type=INVALID" \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-**CA-42** — Valeur numérique invalide pour un filtre → `400 INVALID_FILTER`
-
-```bash
-curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions?level=abc" \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-**CA-43** — Plage incohérente (`level_min` > `level_max`) → `400 INVALID_FILTER`
-
-```bash
-curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions?level_min=4&level_max=2" \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-**CA-44** — `level` et `level_min`/`level_max` présents simultanément → `400 INVALID_FILTER`
-
-```bash
-curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions?level=3&level_min=1&level_max=4" \
-  -H "Authorization: Bearer $TOKEN"
-```
-
 ### Modification complète — `PUT /api/v1/questions/:id`
 
-**CA-45** — Modifier une question MCQ avec tous les champs valides → `200 OK`, `last_updated_at` mis à jour
+**CA-33** — Modifier une question MCQ avec tous les champs valides → `200 OK`, `last_updated_at` mis à jour
 
 ```bash
 curl -s -w "\n→ HTTP %{http_code}\n" -X PUT "$BASE_URL/api/v1/questions/$QUESTION_MCQ_ID" \
@@ -717,7 +601,7 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X PUT "$BASE_URL/api/v1/questions/$QUEST
   }'
 ```
 
-**CA-46** — Modifier une question SPEED avec tous les champs valides → `200 OK`, `last_updated_at` mis à jour
+**CA-34** — Modifier une question SPEED avec tous les champs valides → `200 OK`, `last_updated_at` mis à jour
 
 ```bash
 curl -s -w "\n→ HTTP %{http_code}\n" -X PUT "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
@@ -734,7 +618,7 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X PUT "$BASE_URL/api/v1/questions/$QUEST
   }'
 ```
 
-**CA-47** — Règles de validation du POST s'appliquent (ex. titre trop court) → `400 VALIDATION_ERROR`
+**CA-35** — Règles de validation du POST s'appliquent (ex. titre trop court) → `400 VALIDATION_ERROR`
 
 ```bash
 curl -s -w "\n→ HTTP %{http_code}\n" -X PUT "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
@@ -751,7 +635,7 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X PUT "$BASE_URL/api/v1/questions/$QUEST
   }'
 ```
 
-**CA-48** — Changement de type → `400 TYPE_CHANGE_NOT_ALLOWED`
+**CA-36** — Changement de type → `400 TYPE_CHANGE_NOT_ALLOWED`
 
 ```bash
 # QUESTION_MCQ_ID est de type MCQ, on tente de la passer en SPEED
@@ -769,7 +653,7 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X PUT "$BASE_URL/api/v1/questions/$QUEST
   }'
 ```
 
-**CA-49** — Données identiques à l'existant → `200 OK`, `last_updated_at` non modifié
+**CA-37** — Données identiques à l'existant → `200 OK`, `last_updated_at` non modifié
 
 ```bash
 # Envoyer exactement les mêmes données que la question actuelle
@@ -788,7 +672,7 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X PUT "$BASE_URL/api/v1/questions/$QUEST
 # Vérifier que last_updated_at n'a pas changé par rapport à avant l'appel
 ```
 
-**CA-50** — `id` dans le body ne correspond pas à l'URL → `400 ID_MISMATCH`
+**CA-38** — `id` dans le body ne correspond pas à l'URL → `400 ID_MISMATCH`
 
 ```bash
 curl -s -w "\n→ HTTP %{http_code}\n" -X PUT "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
@@ -806,7 +690,7 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X PUT "$BASE_URL/api/v1/questions/$QUEST
   }'
 ```
 
-**CA-51** — Titre déjà pris par une autre question → `409 QUESTION_ALREADY_EXISTS`
+**CA-39** — Titre déjà pris par une autre question → `409 QUESTION_ALREADY_EXISTS`
 
 ```bash
 # QUESTION_SPD_ID est SPEED, tenter de lui donner le titre de la MCQ (QUESTION_MCQ_ID)
@@ -824,7 +708,7 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X PUT "$BASE_URL/api/v1/questions/$QUEST
   }'
 ```
 
-**CA-52** — ID inexistant → `404 NOT_FOUND`
+**CA-40** — ID inexistant → `404 NOT_FOUND`
 
 ```bash
 curl -s -w "\n→ HTTP %{http_code}\n" -X PUT "$BASE_URL/api/v1/questions/018e4f5a-0000-0000-0000-000000000000" \
@@ -841,7 +725,7 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X PUT "$BASE_URL/api/v1/questions/018e4f
   }'
 ```
 
-**CA-53** — `Content-Type` incorrect → `415 UNSUPPORTED_MEDIA_TYPE`
+**CA-41** — `Content-Type` incorrect → `415 UNSUPPORTED_MEDIA_TYPE`
 
 ```bash
 curl -s -w "\n→ HTTP %{http_code}\n" -X PUT "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
@@ -850,7 +734,7 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X PUT "$BASE_URL/api/v1/questions/$QUEST
   -d '{"type":"SPEED","theme_id":"018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a","title":"Test du content type put","correct_answer":"Test","level":1,"time_limit":30,"points":10}'
 ```
 
-**CA-54** — `image_path` dans le body du PUT → `400 UNKNOWN_FIELDS`
+**CA-42** — `image_path` dans le body du PUT → `400 UNKNOWN_FIELDS`
 
 ```bash
 curl -s -w "\n→ HTTP %{http_code}\n" -X PUT "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
@@ -868,7 +752,7 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X PUT "$BASE_URL/api/v1/questions/$QUEST
   }'
 ```
 
-**CA-55** — Champ métier manquant dans le PUT → `400 VALIDATION_ERROR`
+**CA-43** — Champ métier manquant dans le PUT → `400 VALIDATION_ERROR`
 
 ```bash
 # correct_answer, level, time_limit et points sont absents
@@ -882,221 +766,30 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X PUT "$BASE_URL/api/v1/questions/$QUEST
   }'
 ```
 
-### Modification partielle — `PATCH /api/v1/questions/:id`
-
-**CA-56** — Modifier partiellement une question (un champ) → `200 OK`, `last_updated_at` mis à jour
-
-```bash
-curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"level": 3}'
-```
-
-**CA-57** — Champ absent du body = non modifié (JSON Merge Patch RFC 7396)
-
-```bash
-# Envoyer uniquement "points" et vérifier que les autres champs sont inchangés
-curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"points": 25}'
-# Vérifier que title, level, time_limit, correct_answer n'ont pas changé
-```
-
-**CA-58** — Champ obligatoire envoyé à `null` → `400 VALIDATION_ERROR`
-
-```bash
-curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"correct_answer": null}'
-```
-
-**CA-59** — `choices` à `null` sur une question MCQ → `400 VALIDATION_ERROR`
-
-```bash
-curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_MCQ_ID" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"choices": null}'
-```
-
-**CA-60** — Tentative de modification du `type` via PATCH → `400 TYPE_CHANGE_NOT_ALLOWED`
-
-```bash
-curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"type": "MCQ"}'
-```
-
-**CA-61** — Tentative de modification de l'`id` via PATCH → `400 UNKNOWN_FIELDS`
-
-```bash
-curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"id": "018e4f5a-0000-0000-0000-000000000001"}'
-```
-
-**CA-62** — Modification du `theme_id` vers un thème existant → `200 OK`
-
-```bash
-curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"theme_id": "018e4f5b-1a2b-7c3d-8e4f-5a6b7c8d9e0f"}'
-```
-
-**CA-63** — Modification du `theme_id` vers un thème inexistant → `400 INVALID_THEME`
-
-```bash
-curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"theme_id": "018e4f5a-0000-0000-0000-000000000000"}'
-```
-
-**CA-64** — Modification du `title` : règles de validation invalides → `400 VALIDATION_ERROR`
-
-```bash
-curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"title": "trop court"}'
-```
-
-**CA-65** — Modification de `choices` : 4 éléments valides et distincts → `200 OK`
-
-```bash
-curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_MCQ_ID" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"choices": ["Paris", "Berlin", "Madrid", "Rome"], "correct_answer": "Paris"}'
-```
-
-**CA-65b** — `choices` sur une question SPEED → `400 VALIDATION_ERROR`
-
-```bash
-curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"choices": ["A", "B", "C", "D"]}'
-```
-
-**CA-66** — `correct_answer` ne correspondant pas aux `choices` actuels → `400 VALIDATION_ERROR`
-
-```bash
-curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_MCQ_ID" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"correct_answer": "Nairobi"}'
-# "Nairobi" n'est pas dans les choices actuels de la question
-```
-
-**CA-67** — Modification de `level` hors plage → `400 VALIDATION_ERROR`
-
-```bash
-curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"level": 10}'
-```
-
-**CA-68** — `image_path` : chaîne vide → `400 VALIDATION_ERROR` ; `null` → `200 OK` (suppression)
-
-```bash
-# Chaîne vide → 400
-curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"image_path": ""}'
-
-# null → 200 (supprime image_path)
-curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"image_path": null}'
-```
-
-**CA-69** — `audio_path` : chaîne vide → `400 VALIDATION_ERROR` ; `null` → `200 OK` (suppression)
-
-```bash
-# Chaîne vide → 400
-curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"audio_path": ""}'
-
-# null → 200 (supprime audio_path)
-curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"audio_path": null}'
-```
-
-**CA-70** — Données identiques à l'existant → `200 OK`, `last_updated_at` non modifié
-
-```bash
-# Si "Pacifique" est déjà la valeur actuelle de correct_answer, last_updated_at ne doit pas changer
-curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"correct_answer": "Pacifique"}'
-```
-
-**CA-71** — ID inexistant → `404 NOT_FOUND`
-
-```bash
-curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/018e4f5a-0000-0000-0000-000000000000" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"level": 2}'
-```
-
-**CA-72** — `Content-Type` incorrect → `415 UNSUPPORTED_MEDIA_TYPE`
-
-```bash
-curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: text/plain" \
-  -d '{"level": 2}'
-```
-
-**CA-73** — Body vide `{}` → `200 OK` question inchangée
-
-```bash
-curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{}'
-```
-
 ### Suppression — `DELETE /api/v1/questions/:id`
 
-**CA-74** — Supprimer une question existante → `204 No Content`
+**CA-44** — Supprimer une question existante → `204 No Content`
 
 ```bash
 curl -s -w "\n→ HTTP %{http_code}\n" -X DELETE "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-**CA-75** — ID inexistant → `404 NOT_FOUND`
+**CA-45** — ID inexistant → `404 NOT_FOUND`
 
 ```bash
 curl -s -w "\n→ HTTP %{http_code}\n" -X DELETE "$BASE_URL/api/v1/questions/018e4f5a-0000-0000-0000-000000000000" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-**CA-76** — ID mal formé → `400 INVALID_UUID`
+**CA-46** — ID mal formé → `400 INVALID_UUID`
 
 ```bash
 curl -s -w "\n→ HTTP %{http_code}\n" -X DELETE "$BASE_URL/api/v1/questions/not-a-valid-uuid" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-**CA-77** — Body éventuel ignoré silencieusement → aucune erreur
+**CA-47** — Body éventuel ignoré silencieusement → aucune erreur
 
 ```bash
 curl -s -w "\n→ HTTP %{http_code}\n" -X DELETE "$BASE_URL/api/v1/questions/$QUESTION_SPD_ID" \
@@ -1107,7 +800,7 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X DELETE "$BASE_URL/api/v1/questions/$QU
 
 ### Garde de suppression des thèmes
 
-**CA-78** — Suppression d'un thème avec questions associées → `409 THEME_HAS_QUESTIONS`
+**CA-48** — Suppression d'un thème avec questions associées → `409 THEME_HAS_QUESTIONS`
 
 ```bash
 # THEME_ID doit référencer un thème ayant au moins une question liée
@@ -1115,7 +808,7 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X DELETE "$BASE_URL/api/v1/themes/$THEME
   -H "Authorization: Bearer $TOKEN"
 ```
 
-**CA-79** — Suppression d'un thème sans questions → `204 No Content`
+**CA-49** — Suppression d'un thème sans questions → `204 No Content`
 
 ```bash
 # THEME_EMPTY_ID référence un thème sans aucune question liée
@@ -1125,20 +818,20 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X DELETE "$BASE_URL/api/v1/themes/$THEME
 
 ### Sécurité et transversalité
 
-**CA-80a** — Token absent → `401 UNAUTHORIZED`
+**CA-50a** — Token absent → `401 UNAUTHORIZED`
 
 ```bash
 curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions"
 ```
 
-**CA-80b** — Token invalide → `401 UNAUTHORIZED`
+**CA-50b** — Token invalide → `401 UNAUTHORIZED`
 
 ```bash
 curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions" \
   -H "Authorization: Bearer token_invalide"
 ```
 
-**CA-81** — Rôle insuffisant (non admin) → `403 FORBIDDEN`
+**CA-51** — Rôle insuffisant (non admin) → `403 FORBIDDEN`
 
 ```bash
 # TOKEN_USER est un token JWT valide avec rôle "user" (non admin)
@@ -1146,7 +839,7 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions" \
   -H "Authorization: Bearer $TOKEN_USER"
 ```
 
-**CA-82** — Rate limiting dépassé (> 100 req/min) → `429 RATE_LIMIT_EXCEEDED` avec header `Retry-After: 30`
+**CA-52** — Rate limiting dépassé (> 100 req/min) → `429 RATE_LIMIT_EXCEEDED` avec header `Retry-After: 30`
 
 ```bash
 for i in $(seq 1 101); do
@@ -1156,7 +849,7 @@ done
 # La 101ème requête doit retourner 429 avec le header Retry-After: 30
 ```
 
-**CA-83** — Méthode HTTP non supportée → `405 METHOD_NOT_ALLOWED` avec header `Allow` adapté
+**CA-53** — Méthode HTTP non supportée → `405 METHOD_NOT_ALLOWED` avec header `Allow` adapté
 
 ```bash
 # DELETE sur la collection /api/v1/questions n'est pas supporté
@@ -1165,7 +858,7 @@ curl -s -v -w "\n→ HTTP %{http_code}\n" -X DELETE "$BASE_URL/api/v1/questions"
 # Vérifier : code 405 et header "Allow: GET, POST"
 ```
 
-**CA-84** — Erreur serveur inattendue → `500 INTERNAL_SERVER_ERROR` sans détail technique
+**CA-54** — Erreur serveur inattendue → `500 INTERNAL_SERVER_ERROR` sans détail technique
 
 ```bash
 # Simuler une panne (ex. arrêter la base de données) puis envoyer une requête valide
@@ -1175,7 +868,7 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions" \
 # Aucun détail technique (stack trace, message SQL, etc.) ne doit être exposé
 ```
 
-**CA-85** — Couverture de tests ≥ 90%
+**CA-55** — Couverture de tests ≥ 90%
 
 ```bash
 # Depuis le répertoire du serveur Node.js
@@ -1345,11 +1038,12 @@ Base URL : /api/v1
 | Méthode | URL | Description | Auth | Code succès |
 |---|---|---|---|---|
 | `POST` | `/api/v1/questions` | Créer une question | Bearer (admin) | `201 Created` |
-| `GET` | `/api/v1/questions` | Lister les questions (paginé, filtrable) | Bearer (admin) | `200 OK` |
+| `GET` | `/api/v1/questions` | Lister les questions (paginé) | Bearer (admin) | `200 OK` |
 | `GET` | `/api/v1/questions/:id` | Récupérer une question | Bearer (admin) | `200 OK` |
 | `PUT` | `/api/v1/questions/:id` | Modifier entièrement une question | Bearer (admin) | `200 OK` |
-| `PATCH` | `/api/v1/questions/:id` | Modifier partiellement une question | Bearer (admin) | `200 OK` |
 | `DELETE` | `/api/v1/questions/:id` | Supprimer une question | Bearer (admin) | `204 No Content` |
+
+> **Note :** Le filtrage avancé (`theme_id`, `type`, `level`, plages) est spécifié dans **[US-006](US-006-questions-filtrage.md)**. La modification partielle PATCH est spécifiée dans **[US-007](US-007-questions-patch.md)**.
 
 ### Headers `Allow` par ressource
 
@@ -1358,29 +1052,12 @@ Base URL : /api/v1
 | `/api/v1/questions` | `GET, POST` |
 | `/api/v1/questions/:id` | `GET, PUT, PATCH, DELETE` |
 
-### Paramètres de filtrage — `GET /api/v1/questions`
+### Paramètres de pagination — `GET /api/v1/questions`
 
 | Paramètre | Type | Description |
 |---|---|---|
-| `theme_id` | `string` (UUID) | Filtrer par thème (doit exister en base) |
-| `type` | `string` | Filtrer par type (`MCQ` ou `SPEED`) |
-| `level` | `integer` | Filtrer par niveau exact (1–5) |
-| `level_min` | `integer` | Niveau minimum (borne incluse) |
-| `level_max` | `integer` | Niveau maximum (borne incluse) |
-| `time_limit_min` | `integer` | Durée minimum en secondes (borne incluse) |
-| `time_limit_max` | `integer` | Durée maximum en secondes (borne incluse) |
-| `points_min` | `integer` | Points minimum (borne incluse) |
-| `points_max` | `integer` | Points maximum (borne incluse) |
 | `page` | `integer` | Numéro de page (défaut : 1) |
 | `limit` | `integer` | Nombre d'éléments par page (défaut : 20, max : 100) |
-
-> **Règles de filtrage :**
-> - Tous les filtres sont optionnels et combinables en **ET logique**.
-> - Un filtre exact (`level`) et un filtre par plage (`level_min`/`level_max`) sur le même champ sont **mutuellement exclusifs** → `400 INVALID_FILTER`.
-> - Les filtres par plage sont à **bornes incluses**.
-> - Un `theme_id` inexistant en base retourne `400 INVALID_FILTER`.
-> - Un `type` invalide retourne `400 INVALID_FILTER`.
-> - Une plage incohérente (`min` > `max`) retourne `400 INVALID_FILTER`.
 
 ---
 
@@ -1397,7 +1074,7 @@ Toutes les routes de cette US sont protégées par un **JSON Web Token (JWT)** t
 | Transmission | Header `Authorization: Bearer <token>` |
 | Secret de signature | Variable d'environnement `JWT_SECRET` (min 32 caractères) |
 | Durée de validité | 1 heure (3600s), configurable via variable d'environnement `JWT_EXPIRATION` |
-| Renouvellement | Reconnexion via `POST /api/v1/token` (US-002) |
+| Renouvellement | Reconnexion via `POST /api/v1/token` (US-003) |
 
 ### Structure du payload JWT
 
@@ -1417,9 +1094,9 @@ Toutes les routes de cette US sont protégées par un **JSON Web Token (JWT)** t
 | `iat` (issued at) | `number` | Timestamp Unix de l'émission (automatique) |
 | `exp` (expiration) | `number` | Timestamp Unix d'expiration (automatique) |
 
-### Architecture middleware — Réutilisation de l'US-003
+### Architecture middleware — Réutilisation de l'US-004
 
-Les middlewares `authenticate` et `authorize('admin')` créés dans l'US-003 sont réutilisés tels quels sur toutes les routes de cette US, conformément aux principes DRY et Open/Closed (SOLID).
+Les middlewares `authenticate` et `authorize('admin')` créés dans l'US-004 sont réutilisés tels quels sur toutes les routes de cette US, conformément aux principes DRY et Open/Closed (SOLID).
 
 **Application sur les routes :**
 
@@ -1428,7 +1105,6 @@ router.post('/api/v1/questions',       authenticate, authorize('admin'), createQ
 router.get('/api/v1/questions',        authenticate, authorize('admin'), listQuestions);
 router.get('/api/v1/questions/:id',    authenticate, authorize('admin'), getQuestion);
 router.put('/api/v1/questions/:id',    authenticate, authorize('admin'), updateQuestion);
-router.patch('/api/v1/questions/:id',  authenticate, authorize('admin'), patchQuestion);
 router.delete('/api/v1/questions/:id', authenticate, authorize('admin'), deleteQuestion);
 ```
 
@@ -1438,21 +1114,20 @@ router.delete('/api/v1/questions/:id', authenticate, authorize('admin'), deleteQ
 
 | Code erreur | Code HTTP | Message | Contexte |
 |---|---|---|---|
-| `VALIDATION_ERROR` | `400` | _(dynamique selon le cas)_ | Titre manquant/invalide, choices invalides, correct_answer invalide, level/time_limit/points hors plage, champ obligatoire à null en PATCH |
+| `VALIDATION_ERROR` | `400` | _(dynamique selon le cas)_ | Titre manquant/invalide, choices invalides, correct_answer invalide, level/time_limit/points hors plage |
 | `INVALID_UUID` | `400` | `"The provided ID is not a valid UUID."` | ID mal formé dans l'URL ou `theme_id` invalide dans le body |
 | `INVALID_JSON` | `400` | `"Request body must be valid JSON."` | Corps non parseable |
 | `UNKNOWN_FIELDS` | `400` | `"Unknown field(s): foo, bar."` | Champs non reconnus dans le body |
 | `ID_MISMATCH` | `400` | `"The ID in the request body does not match the URL parameter."` | ID body ≠ ID URL |
 | `INVALID_PAGINATION` | `400` | `"Invalid pagination parameters."` | page/limit invalides |
-| `INVALID_THEME` | `400` | `"The provided theme_id does not reference an existing theme."` | theme_id inexistant (POST/PUT/PATCH) |
-| `INVALID_FILTER` | `400` | `"Invalid filter parameters."` | Filtres invalides (type, theme_id, plages numériques incohérentes, etc.) |
-| `TYPE_CHANGE_NOT_ALLOWED` | `400` | `"The question type cannot be changed."` | Tentative de changement de type via PUT ou PATCH |
+| `INVALID_THEME` | `400` | `"The provided theme_id does not reference an existing theme."` | theme_id inexistant (POST/PUT) |
+| `TYPE_CHANGE_NOT_ALLOWED` | `400` | `"The question type cannot be changed."` | Tentative de changement de type via PUT |
 | `UNAUTHORIZED` | `401` | `"Authentication token is missing or invalid."` | Token absent/expiré/invalide |
 | `FORBIDDEN` | `403` | `"You do not have permission to perform this action."` | Rôle insuffisant |
 | `NOT_FOUND` | `404` | `"The requested question was not found."` | Ressource inexistante |
 | `METHOD_NOT_ALLOWED` | `405` | _(dynamique : ex. `"HTTP method DELETE is not allowed on this resource."`)_ | Méthode non supportée (message dynamique) |
 | `QUESTION_ALREADY_EXISTS` | `409` | `"A question with this title already exists."` | Doublon de titre |
-| `THEME_HAS_QUESTIONS` | `409` | `"Cannot delete this theme: questions are still associated with it."` | Suppression d'un thème avec questions liées (garde US-003 CA-30) |
+| `THEME_HAS_QUESTIONS` | `409` | `"Cannot delete this theme: questions are still associated with it."` | Suppression d'un thème avec questions liées (garde US-004 CA-30) |
 | `UNSUPPORTED_MEDIA_TYPE` | `415` | `"Content-Type must be 'application/json'."` | Content-Type incorrect |
 | `RATE_LIMIT_EXCEEDED` | `429` | `"Too many requests. Please retry in 30 seconds."` | Dépassement rate limit (header `Retry-After: 30`) |
 | `INTERNAL_SERVER_ERROR` | `500` | `"An unexpected error occurred. Please try again later."` | Erreur serveur (aucun détail technique exposé) |
@@ -1473,15 +1148,14 @@ router.delete('/api/v1/questions/:id', authenticate, authorize('admin'), deleteQ
 
 | Inclus | Exclu |
 |---|---|
-| CRUD complet des questions (POST, GET, GET list, PUT, PATCH, DELETE) | Upload et gestion des fichiers médias (US dédiée) |
-| Validation et normalisation du titre | Interface Angular de gestion des questions |
-| Validation des choices, correct_answer, level, time_limit, points | Recherche full-text dans les questions |
-| Cohérence type/champs (MCQ vs SPEED) | Vérification de dépendances à la suppression (parties en cours) |
-| Pagination et filtrage combiné de la liste | Déploiement / CI-CD |
-| Modification partielle via PATCH (JSON Merge Patch RFC 7396) | |
-| Garde de suppression des thèmes (implémentation TODO CA-30 US-003) | |
+| CRUD de base des questions (POST, GET, GET list, PUT, DELETE) | Filtrage avancé de la liste (→ **US-006**) |
+| Validation et normalisation du titre | Modification partielle PATCH (→ **US-007**) |
+| Validation des choices, correct_answer, level, time_limit, points | Upload et gestion des fichiers médias (US dédiée) |
+| Cohérence type/champs (MCQ vs SPEED) | Interface Angular de gestion des questions |
+| Pagination de la liste (page, limit) | Recherche full-text dans les questions |
+| Garde de suppression des thèmes (implémentation TODO CA-30 US-004) | Déploiement / CI-CD |
 | Création de la table `T_QUESTION_QST` dans le schéma de la base | |
-| Champs `image_path` et `audio_path` (null par défaut, modifiables via PATCH) | |
+| Champs `image_path` et `audio_path` (null par défaut, modifiables via US-007) | |
 | Gestion complète des erreurs | |
 | Réutilisation des middlewares `authenticate` et `authorize` | |
 | Rate limiting (100 req/min) | |
@@ -1504,21 +1178,14 @@ Le champ `choices` (4 colonnes en base) n'a de sens que pour les questions MCQ. 
 Pour les questions MCQ, le `correct_answer` doit correspondre exactement (insensible à la casse) à l'un des 4 `choices`. Cette validation s'applique :
 - Au **POST** : `correct_answer` doit être dans `choices`.
 - Au **PUT** : `correct_answer` doit être dans les nouveaux `choices`.
-- Au **PATCH** : si `correct_answer` et/ou `choices` sont modifiés, la validation croisée s'effectue sur l'état **résultant** (fusion des anciennes et nouvelles valeurs).
 
 ### Immutabilité du type
 
-Le champ `type` ne peut pas être modifié après la création, ni par PUT ni par PATCH. En PUT, le `type` doit être fourni mais doit correspondre au type actuel. En PATCH, le `type` ne doit pas être présent dans le body.
+Le champ `type` ne peut pas être modifié après la création. En PUT, le `type` doit être fourni mais doit correspondre au type actuel.
 
-### PUT/PATCH sans changement réel
+### PUT sans changement réel
 
-Lorsqu'un `PUT` ou `PATCH` est effectué avec des données identiques à l'existant, la colonne `QST_LAST_UPDATED_AT` ne doit **pas** être mise à jour. Le serveur doit comparer l'état normalisé entrant avec l'état stocké avant de décider de mettre à jour l'horodatage.
-
-### PATCH — Sémantique JSON Merge Patch (RFC 7396)
-
-- Champ **absent** du body → non modifié.
-- Champ à **`null`** → suppression de la valeur (uniquement pour `image_path` et `audio_path` qui sont nullables ; pour les champs obligatoires → `400 VALIDATION_ERROR`).
-- Body vide `{}` → aucune modification, retour `200 OK` avec la question inchangée.
+Lorsqu'un `PUT` est effectué avec des données identiques à l'existant, la colonne `QST_LAST_UPDATED_AT` ne doit **pas** être mise à jour. Le serveur doit comparer l'état normalisé entrant avec l'état stocké avant de décider de mettre à jour l'horodatage.
 
 ### Intégrité référentielle — FK vers T_THEME_THM
 
@@ -1526,7 +1193,7 @@ Le champ `QST_THEME_ID` est une clé étrangère vers `T_THEME_THM.THM_ID`. La v
 
 ### Garde de suppression des thèmes
 
-L'implémentation du TODO CA-30 de l'US-003 consiste à vérifier, avant toute suppression d'un thème, s'il existe des questions associées via une requête `SELECT COUNT(*) FROM T_QUESTION_QST WHERE QST_THEME_ID = ?`. Si le compteur est > 0, la suppression est refusée avec une erreur `409 THEME_HAS_QUESTIONS`.
+L'implémentation du TODO CA-30 de l'US-004 consiste à vérifier, avant toute suppression d'un thème, s'il existe des questions associées via une requête `SELECT COUNT(*) FROM T_QUESTION_QST WHERE QST_THEME_ID = ?`. Si le compteur est > 0, la suppression est refusée avec une erreur `409 THEME_HAS_QUESTIONS`.
 
 ### Cohérence UUIDv7 et horodatage
 
@@ -1536,6 +1203,7 @@ L'UUIDv7 et le `created_at` étant tous deux générés côté Node.js, il est r
 
 Les erreurs internes ne doivent jamais exposer de détails techniques (stack trace, message SQL, etc.) dans la réponse API. Ces informations doivent être consignées uniquement dans les logs serveur.
 
-### Filtrage — Validation stricte
+### US de complétion
 
-Tous les paramètres de filtrage doivent être validés avant l'exécution de la requête SQL. Les paramètres inconnus dans la query string doivent être **ignorés silencieusement** (seuls les paramètres de filtrage documentés et `page`/`limit` sont reconnus). Un `theme_id` doit être un UUID valide et référencer un thème existant. Les valeurs numériques doivent être des entiers dans les plages autorisées. Un filtre exact et un filtre par plage sur le même champ sont mutuellement exclusifs.
+- **Filtrage avancé** de la liste (`theme_id`, `type`, `level`, plages) : voir **[US-006](US-006-questions-filtrage.md)**.
+- **Modification partielle** PATCH (JSON Merge Patch RFC 7396, `image_path`, `audio_path`) : voir **[US-007](US-007-questions-patch.md)**.
