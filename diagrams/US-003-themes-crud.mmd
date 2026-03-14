@@ -1,0 +1,97 @@
+%%{init: {"theme": "neutral", "flowchart": {"curve": "basis"}}}%%
+flowchart TD
+    REQ(["Requête HTTP"]) --> MW_AUTH["Middleware : authenticate\nVérifier le JWT dans Authorization: Bearer"]
+    MW_AUTH --> AUTH_OK{"Token JWT\nvalide ?"}
+    AUTH_OK -->|"Non"| E401["401 UNAUTHORIZED"]
+    AUTH_OK -->|"Oui"| MW_ROLE["Middleware : authorize admin\nVérifier le rôle JWT"]
+    MW_ROLE --> ROLE_OK{"Rôle\n= admin ?"}
+    ROLE_OK -->|"Non"| E403["403 FORBIDDEN"]
+    ROLE_OK -->|"Oui"| MW_RL{"> 100 req/min\npar IP ?"}
+    MW_RL -->|"Oui"| E429["429 RATE_LIMIT_EXCEEDED\nRetry-After: 30"]
+    MW_RL -->|"Non"| ROUTE{"Méthode + Route"}
+    ROUTE -->|"Méthode non supportée"| E405["405 METHOD_NOT_ALLOWED\nAllow: GET, POST\nou GET, PUT, DELETE"]
+    ROUTE -->|"POST /themes"| POST_CT
+    ROUTE -->|"GET /themes"| LIST_PG
+    ROUTE -->|"GET /themes/:id"| READ_ID
+    ROUTE -->|"PUT /themes/:id"| PUT_ID
+    ROUTE -->|"DELETE /themes/:id"| DEL_ID
+
+    subgraph POST["➕ Création — POST /api/v1/themes"]
+        direction TB
+        POST_CT{"Content-Type\n= application/json ?"}
+        POST_CT -->|"Non"| PE415["415 UNSUPPORTED_MEDIA_TYPE"]
+        POST_CT -->|"Oui"| POST_JSON{"JSON valide ?"}
+        POST_JSON -->|"Non"| PE400a["400 INVALID_JSON"]
+        POST_JSON -->|"Oui"| POST_UF{"Champs inconnus\n(hors name) ?"}
+        POST_UF -->|"Oui"| PE400b["400 UNKNOWN_FIELDS"]
+        POST_UF -->|"Non"| POST_NORM["Trim + Collapse du nom"]
+        POST_NORM --> POST_REGEX{"Regex valide ?\n3–40 car., majuscule,\nlettre/chiffre à la fin"}
+        POST_REGEX -->|"Non"| PE400c["400 VALIDATION_ERROR"]
+        POST_REGEX -->|"Oui"| POST_UNIQ{"Nom déjà existant ?\nCOLLATE NOCASE"}
+        POST_UNIQ -->|"Oui"| PE409["409 THEME_ALREADY_EXISTS"]
+        POST_UNIQ -->|"Non"| POST_INS["Générer UUIDv7 + created_at\nINSERT INTO T_THEME_THM"]
+        POST_INS --> P201(["201 Created\n{ id, name, created_at,\nlast_updated_at: null }"])
+    end
+
+    subgraph LIST["📋 Liste paginée — GET /api/v1/themes"]
+        direction TB
+        LIST_PG{"Paramètres page/limit\nvalides ? limit ≤ 100"}
+        LIST_PG -->|"Non"| LE400["400 INVALID_PAGINATION"]
+        LIST_PG -->|"Oui"| LIST_SQL["SELECT * FROM T_THEME_THM\nOFFSET/LIMIT — Tri created_at DESC"]
+        LIST_SQL --> L200(["200 OK\n{ data, page, limit, total, total_pages }"])
+    end
+
+    subgraph READ["🔍 Lecture unitaire — GET /api/v1/themes/:id"]
+        direction TB
+        READ_ID{"UUID valide ?"}
+        READ_ID -->|"Non"| RE400["400 INVALID_UUID"]
+        READ_ID -->|"Oui"| READ_FIND{"Thème trouvé\nen base ?"}
+        READ_FIND -->|"Non"| RE404["404 NOT_FOUND"]
+        READ_FIND -->|"Oui"| R200(["200 OK\n{ id, name, created_at, last_updated_at }"])
+    end
+
+    subgraph PUT["✏️ Modification complète — PUT /api/v1/themes/:id"]
+        direction TB
+        PUT_ID{"UUID valide ?"}
+        PUT_ID -->|"Non"| PUE400a["400 INVALID_UUID"]
+        PUT_ID -->|"Oui"| PUT_FIND{"Thème trouvé ?"}
+        PUT_FIND -->|"Non"| PUE404["404 NOT_FOUND"]
+        PUT_FIND -->|"Oui"| PUT_CT{"Content-Type\n= application/json ?"}
+        PUT_CT -->|"Non"| PUE415["415 UNSUPPORTED_MEDIA_TYPE"]
+        PUT_CT -->|"Oui"| PUT_JSON{"JSON valide ?"}
+        PUT_JSON -->|"Non"| PUE400b["400 INVALID_JSON"]
+        PUT_JSON -->|"Oui"| PUT_UF{"Champs inconnus ?\n(seuls name et id acceptés)"}
+        PUT_UF -->|"Oui"| PUE400c["400 UNKNOWN_FIELDS"]
+        PUT_UF -->|"Non"| PUT_IDM{"id présent dans body\net ≠ id URL ?"}
+        PUT_IDM -->|"Oui"| PUE400d["400 ID_MISMATCH"]
+        PUT_IDM -->|"Non"| PUT_NORM["Trim + Collapse + Regex"]
+        PUT_NORM -->|"Invalide"| PUE400e["400 VALIDATION_ERROR"]
+        PUT_NORM -->|"Valide"| PUT_SAME{"Nom identique\nà l'existant ?\nCOLLATE NOCASE"}
+        PUT_SAME -->|"Oui"| PU200a(["200 OK — Aucune modification\nlast_updated_at non modifié"])
+        PUT_SAME -->|"Non"| PUT_UNIQ{"Nom déjà pris\npar un autre thème ?"}
+        PUT_UNIQ -->|"Oui"| PUE409["409 THEME_ALREADY_EXISTS"]
+        PUT_UNIQ -->|"Non"| PUT_UPD["UPDATE T_THEME_THM\nSET last_updated_at = now"]
+        PUT_UPD --> PU200b(["200 OK\n{ id, name, created_at, last_updated_at }"])
+    end
+
+    subgraph DEL["🗑️ Suppression — DELETE /api/v1/themes/:id"]
+        direction TB
+        DEL_ID{"UUID valide ?"}
+        DEL_ID -->|"Non"| DE400["400 INVALID_UUID"]
+        DEL_ID -->|"Oui"| DEL_FIND{"Thème trouvé ?"}
+        DEL_FIND -->|"Non"| DE404["404 NOT_FOUND"]
+        DEL_FIND -->|"Oui"| DEL_QST{"Questions associées\nau thème ?"}
+        DEL_QST -->|"Oui"| DE409["409 THEME_HAS_QUESTIONS"]
+        DEL_QST -->|"Non"| DEL_SQL["DELETE FROM T_THEME_THM"]
+        DEL_SQL --> D204(["204 No Content"])
+    end
+
+    classDef error fill:#f8d7da,stroke:#dc3545,color:#721c24
+    classDef success fill:#d4edda,stroke:#28a745,color:#155724
+    class E401,E403,E405,E429 error
+    class PE415,PE400a,PE400b,PE400c,PE409 error
+    class LE400 error
+    class RE400,RE404 error
+    class PUE400a,PUE404,PUE415,PUE400b,PUE400c,PUE400d,PUE400e,PUE409 error
+    class DE400,DE404,DE409 error
+    class P201,L200,R200,PU200a,PU200b,D204 success

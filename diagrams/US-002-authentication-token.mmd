@@ -1,0 +1,48 @@
+%%{init: {"theme": "neutral", "flowchart": {"curve": "basis"}}}%%
+flowchart TD
+    subgraph TOKEN["📬 Flux d'émission du token — POST /api/v1/token"]
+        direction TB
+        REQ(["Client"]) -->|"POST /api/v1/token"| RL
+        RL{"> 5 req/min\npar IP ?"}
+        RL -->|"Oui"| E429["429 RATE_LIMIT_EXCEEDED\nRetry-After: 60"]
+        RL -->|"Non"| CT{"Content-Type\n= application/json ?"}
+        CT -->|"Non"| E415["415 UNSUPPORTED_MEDIA_TYPE"]
+        CT -->|"Oui"| J{"Body JSON\nvalide ?"}
+        J -->|"Non"| E400a["400 INVALID_JSON"]
+        J -->|"Oui"| UF{"Champs inconnus\ndans le body ?"}
+        UF -->|"Oui"| E400b["400 UNKNOWN_FIELDS"]
+        UF -->|"Non"| FIELDS{"username & password\nprésents et non vides ?"}
+        FIELDS -->|"Non"| E400c["400 VALIDATION_ERROR"]
+        FIELDS -->|"Oui"| DB["SELECT * FROM T_USER_USR\nWHERE username COLLATE NOCASE"]
+        DB --> UEXIST{"Utilisateur\ntrouvé ?"}
+        UEXIST -->|"Non"| FAKE["bcrypt.compare factice\n(anti-timing attack)"]
+        FAKE --> LOGFAIL["Log WARN : LOGIN_FAILURE\nusername, IP, timestamp"]
+        LOGFAIL --> E401["401 INVALID_CREDENTIALS\n(message générique)"]
+        UEXIST -->|"Oui"| BC["bcrypt.compare\n(password, hash stocké)"]
+        BC --> MATCH{"Mot de passe\ncorrect ?"}
+        MATCH -->|"Non"| LOGFAIL
+        MATCH -->|"Oui"| GEN["Générer JWT\nsub=UUIDv7, role, iat, exp\nAlgo HS256 + JWT_SECRET"]
+        GEN --> LOGOK["Log INFO : LOGIN_SUCCESS\nusername, IP, timestamp"]
+        LOGOK --> OK(["200 OK\n{ token, expires_in, token_type: Bearer }"])
+    end
+
+    subgraph SEED["🌱 Flux du seed — npm run seed"]
+        direction TB
+        NS(["npm run seed"]) --> SC{"T_USER_USR\nvide ?"}
+        SC -->|"Non"| SKIP(["Arrêt — idempotent\n(comptes déjà présents)"])
+        SC -->|"Oui"| LOAD["Lire les 11 mots de passe\ndepuis les variables d'environnement"]
+        LOAD --> PWD{"Tous présents\net ≥ 12 caractères ?"}
+        PWD -->|"Non"| PERR(["Erreur — arrêt\n(mot de passe invalide/manquant)"])
+        PWD -->|"Oui"| HASH["Hasher chaque mot de passe\nbcrypt (sel automatique)"]
+        HASH --> UUID["Générer 11 UUIDv7\n(1 admin + 10 buzzers)"]
+        UUID --> INSERT["INSERT INTO T_USER_USR\n11 comptes"]
+        INSERT --> DONE(["✅ Seed terminé"])
+    end
+
+    classDef error fill:#f8d7da,stroke:#dc3545,color:#721c24
+    classDef success fill:#d4edda,stroke:#28a745,color:#155724
+    classDef info fill:#cce5ff,stroke:#004085,color:#004085
+    classDef warning fill:#fff3cd,stroke:#ffc107,color:#856404
+    class E429,E415,E400a,E400b,E400c,E401 error
+    class OK,DONE success
+    class SKIP,PERR warning
