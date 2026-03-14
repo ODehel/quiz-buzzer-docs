@@ -446,3 +446,5 @@ Lorsque les données résultantes de la fusion sont identiques aux données exis
 ### Dépendance avec US-004
 
 Cette US étend l'infrastructure de l'US-004 (table `T_QUESTION_QST`, middlewares, validateurs). La logique de fusion PATCH doit être isolée dans un utilitaire dédié (`mergeQuestion.js`) pour respecter le **principe de responsabilité unique (SRP — SOLID)** et permettre la réutilisation.
+
+---

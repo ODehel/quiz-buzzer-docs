@@ -379,3 +379,5 @@ Toutes les plages (`level_min`/`level_max`, `time_limit_min`/`time_limit_max`, `
 ### Dépendance avec US-004
 
 Cette US complète l'endpoint `GET /api/v1/questions` défini dans l'US-004. Elle s'appuie sur la même table `T_QUESTION_QST` et les mêmes middlewares. La logique de filtrage doit être isolée dans un utilitaire dédié (`filterQuestions.js`) pour respecter le **principe de responsabilité unique (SRP — SOLID)**.
+
+---

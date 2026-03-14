@@ -201,3 +201,5 @@ La table `T_USER_USR` et son schéma sont définis dans l'US-002. Le script de s
 ### Facteur de coût bcrypt
 
 Le facteur de coût bcrypt est fixé à **12**, conformément aux recommandations OWASP (2024). Ce facteur peut être ajusté via une variable d'environnement `BCRYPT_COST` pour adapter les performances selon l'environnement (ex. : `10` en tests pour accélérer l'exécution).
+
+---
