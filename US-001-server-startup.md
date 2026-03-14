@@ -1,3 +1,5 @@
+![Page de couverture — US-001](diagrams/covers/US-001-cover.png)
+
 # US-001 — Démarrage du serveur Quiz Buzzer
 
 ## 📋 Contexte projet
@@ -23,6 +25,8 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 ## ✅ Critères d'acceptance
 
+> 🧪 **Exigence de couverture** — Chaque critère d'acceptance listé ci-dessous doit être couvert par **au moins un test automatisé** (unitaire et/ou d'intégration). Un CA non couvert par un test est considéré comme **non livré**. La couverture globale du code de l'US doit être **≥ 90%**, mesurée via `jest --coverage`.
+
 | # | Critère | Résultat attendu |
 |---|---|---|
 | CA-1 | Le serveur démarre sans erreur avec `npm start` | Le serveur démarre et reste en écoute sans erreur |
@@ -34,6 +38,12 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 ---
 
+## 🔄 Diagramme de flux
+
+![Diagramme de flux — US-001 — Démarrage du serveur Quiz Buzzer](diagrams/US-001-server-startup.png)
+
+---
+
 ## 🔧 Spécifications techniques
 
 | Élément | Choix |
@@ -42,6 +52,8 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 | Langage | JavaScript (ES Modules) |
 | Tests | Jest (dernière version stable disponible) |
 | Principes d'architecture | YAGNI, KISS, DRY, SOLID |
+
+> ⚠️ **Exigence fondamentale** — Toute implémentation de cette US doit scrupuleusement respecter les principes **KISS** (solutions simples), **DRY** (pas de duplication), **YAGNI** (pas de fonctionnalité prématurée) et **SOLID** (architecture modulaire et responsabilités séparées). Ces principes prévalent sur toute optimisation prématurée ou généralisation non justifiée par un besoin immédiat documenté.
 
 ### Scripts npm
 

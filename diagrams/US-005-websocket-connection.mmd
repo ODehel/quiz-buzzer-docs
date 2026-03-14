@@ -1,0 +1,61 @@
+%%{init: {"theme": "forest", "flowchart": {"curve": "basis"}}}%%
+flowchart TD
+    subgraph CONN["🔌 Flux de connexion et d'authentification WebSocket"]
+        direction TB
+        CLIENT(["Client\n(Buzzer ou Angular)"]) -->|"Upgrade HTTP"| PATH{"Chemin\n= /ws ?"}
+        PATH -->|"Non"| DESTROY["socket.destroy()\nConnexion détruite"]
+        PATH -->|"Oui"| ACCEPT["Accepter l'upgrade WebSocket"]
+        ACCEPT --> LOGCONN["Log INFO : WEBSOCKET_CONNECTED\n(IP du client)"]
+        LOGCONN --> TIMER["Démarrer le timer\nd'authentification (60 s)"]
+        TIMER --> WAIT{"Premier message\nreçu dans les 60 s ?"}
+        WAIT -->|"Non"| TIMEOUT["Log WARN : WEBSOCKET_AUTH_FAILED\nraison: Authentication timeout."]
+        TIMEOUT --> CLOSE4003["Fermeture 4003\nAuthentication timeout."]
+        WAIT -->|"Oui"| CANCELTIME["Annuler le timer"]
+        CANCELTIME --> JSONVALID{"Message JSON valide\net { type: auth, token } ?"}
+        JSONVALID -->|"Non"| LOGFAIL1["Log WARN : WEBSOCKET_AUTH_FAILED\nraison: Invalid token."]
+        LOGFAIL1 --> CLOSE4001a["Fermeture 4001\nInvalid token."]
+        JSONVALID -->|"Oui"| JWTEXP{"Token JWT\nexpiré ?"}
+        JWTEXP -->|"Oui"| LOGFAIL2["Log WARN : WEBSOCKET_AUTH_FAILED\nraison: Token expired."]
+        LOGFAIL2 --> CLOSE4002["Fermeture 4002\nToken expired."]
+        JWTEXP -->|"Non"| JWTSIG{"Signature JWT\nvalide ? (HS256)"}
+        JWTSIG -->|"Non"| LOGFAIL3["Log WARN : WEBSOCKET_AUTH_FAILED\nraison: Invalid token."]
+        LOGFAIL3 --> CLOSE4001b["Fermeture 4001\nInvalid token."]
+        JWTSIG -->|"Oui"| LOOKUP["SELECT * FROM T_USER_USR\nWHERE id = sub (claim JWT)"]
+        LOOKUP --> USEREXIST{"Utilisateur\ntoujours en base ?"}
+        USEREXIST -->|"Non"| CLOSE4001c["Fermeture 4001\nInvalid token."]
+        USEREXIST -->|"Oui"| ROLE{"Rôle ?"}
+
+        ROLE -->|"buzzer"| BUZZER_EXIST{"Même sub déjà\nconnecté ?"}
+        BUZZER_EXIST -->|"Oui"| BUZZER_REP["Fermer l'ancienne connexion\nsilencieusement\nCode 4004 : Session replaced."]
+        BUZZER_REP --> BUZZER_REG
+        BUZZER_EXIST -->|"Non"| BUZZER_REG["Enregistrer dans le registre\nMap: sub -> ws, role, username, connectedAt"]
+        BUZZER_REG --> AUTH_SUCCESS_B["Envoyer { type: auth_success,\nrole: buzzer, username }"]
+        AUTH_SUCCESS_B --> LOGAUTH_B["Log INFO : WEBSOCKET_AUTHENTICATED\nbuzzers_connected, buzzers_max, admin_connected"]
+        LOGAUTH_B --> ACTIVE_B(["Buzzer actif et authentifié\n(max 10 simultanés)"])
+
+        ROLE -->|"admin"| ADMIN_EXIST{"Admin déjà\nconnecté ?"}
+        ADMIN_EXIST -->|"Oui"| ADMIN_REP["Fermer l'ancienne connexion\nsilencieusement\nCode 4004 : Session replaced."]
+        ADMIN_REP --> ADMIN_REG
+        ADMIN_EXIST -->|"Non"| ADMIN_REG["Enregistrer dans le registre\nMap: sub -> ws, role, username, connectedAt"]
+        ADMIN_REG --> AUTH_SUCCESS_A["Envoyer { type: auth_success,\nrole: admin, username }"]
+        AUTH_SUCCESS_A --> LOGAUTH_A["Log INFO : WEBSOCKET_AUTHENTICATED\nbuzzers_connected, buzzers_max, admin_connected"]
+        LOGAUTH_A --> ACTIVE_A(["Admin actif et authentifié\n(max 1 simultané)"])
+
+        ACTIVE_B --> MSG{"Message reçu\naprès authentification ?"}
+        ACTIVE_A --> MSG
+        MSG -->|"Oui"| IGNORE["Ignorer silencieusement\n(hors périmètre US-005)"]
+    end
+
+    subgraph DISC["🔴 Flux de déconnexion"]
+        direction TB
+        DCONN(["Client se déconnecte\n(TCP close / close frame / perte réseau)"]) --> DREG["Retirer du registre\ndes connexions (Map)"]
+        DREG --> DLOG["Log INFO : WEBSOCKET_DISCONNECTED\nusername, role,\nbuzzers_connected, buzzers_max, admin_connected"]
+        DLOG --> DFREE(["Slot libéré\n(reconnexion possible)"])
+    end
+
+    classDef error fill:#f8d7da,stroke:#dc3545,color:#721c24
+    classDef success fill:#d4edda,stroke:#28a745,color:#155724
+    classDef warning fill:#fff3cd,stroke:#ffc107,color:#856404
+    class DESTROY,CLOSE4003,CLOSE4001a,CLOSE4001b,CLOSE4001c,CLOSE4002 error
+    class ACTIVE_B,ACTIVE_A,DFREE success
+    class BUZZER_REP,ADMIN_REP warning

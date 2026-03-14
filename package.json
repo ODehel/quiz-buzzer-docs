@@ -1,0 +1,18 @@
+{
+  "name": "quiz-buzzer-docs",
+  "version": "1.0.0",
+  "description": "Cahiers des charges du projet Quiz Buzzer",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "bash scripts/generate-all.sh",
+    "generate:diagrams": "for f in diagrams/*.mmd; do mmdc -i \"$f\" -o \"${f%.mmd}.png\" --puppeteerConfigFile scripts/puppeteer.config.json --theme forest; done",
+    "generate:covers": "node scripts/generate-covers.mjs"
+  },
+  "devDependencies": {
+    "@mermaid-js/mermaid-cli": "^11.12.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

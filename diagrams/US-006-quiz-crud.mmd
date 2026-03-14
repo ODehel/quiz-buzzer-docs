@@ -1,0 +1,96 @@
+%%{init: {"theme": "forest", "flowchart": {"curve": "basis"}}}%%
+flowchart TD
+    REQ(["Requête HTTP"]) --> MW_AUTH["Middleware : authenticate\nVérifier le JWT dans Authorization: Bearer"]
+    MW_AUTH --> AUTH_OK{"Token JWT\nvalide ?"}
+    AUTH_OK -->|"Non"| E401["401 UNAUTHORIZED"]
+    AUTH_OK -->|"Oui"| MW_ROLE["Middleware : authorize admin\nVérifier le rôle JWT"]
+    MW_ROLE --> ROLE_OK{"Rôle\n= admin ?"}
+    ROLE_OK -->|"Non"| E403["403 FORBIDDEN"]
+    ROLE_OK -->|"Oui"| MW_RL{"> 100 req/min\npar IP ?"}
+    MW_RL -->|"Oui"| E429["429 RATE_LIMIT_EXCEEDED\nRetry-After: 30"]
+    MW_RL -->|"Non"| ROUTE{"Méthode + Route"}
+    ROUTE -->|"Méthode non supportée"| E405["405 METHOD_NOT_ALLOWED\n+ header Allow adapté"]
+    ROUTE -->|"POST /quizzes"| POST_CT
+    ROUTE -->|"GET /quizzes"| LIST_FILT
+    ROUTE -->|"PUT /quizzes/:id"| PUT_ID
+    ROUTE -->|"DELETE /quizzes/:id"| DEL_ID
+
+    subgraph POST["➕ Création — POST /api/v1/quizzes"]
+        direction TB
+        POST_CT{"Content-Type\n= application/json ?"}
+        POST_CT -->|"Non"| PE415["415 UNSUPPORTED_MEDIA_TYPE"]
+        POST_CT -->|"Oui"| POST_JSON{"JSON valide ?"}
+        POST_JSON -->|"Non"| PE400a["400 INVALID_BODY"]
+        POST_JSON -->|"Oui"| POST_UF{"Champs inconnus ?\n(hors name et question_ids)"}
+        POST_UF -->|"Oui"| PE400b["400 UNKNOWN_FIELDS"]
+        POST_UF -->|"Non"| POST_NORM["Trim + Collapse du nom"]
+        POST_NORM --> POST_REGEX{"Regex valide ?\n3–40 car., majuscule,\nlettre/chiffre à la fin"}
+        POST_REGEX -->|"Non"| PE400c["400 VALIDATION_ERROR\n(nom invalide)"]
+        POST_REGEX -->|"Oui"| POST_UNIQ{"Nom déjà existant ?\nCOLLATE NOCASE"}
+        POST_UNIQ -->|"Oui"| PE409["409 CONFLICT"]
+        POST_UNIQ -->|"Non"| POST_QTY{"question_ids contient\n≥ 10 éléments ?"}
+        POST_QTY -->|"Non"| PE400d["400 VALIDATION_ERROR\n(moins de 10 questions)"]
+        POST_QTY -->|"Oui"| POST_DUPL{"Doublons dans\nquestion_ids ?"}
+        POST_DUPL -->|"Oui"| PE400e["400 VALIDATION_ERROR\n(doublons détectés)"]
+        POST_DUPL -->|"Non"| POST_UUID{"Tous les question_ids\nsont des UUID valides ?"}
+        POST_UUID -->|"Non"| PE400f["400 INVALID_UUID"]
+        POST_UUID -->|"Oui"| POST_EXIST{"Toutes les questions\nexistent en base ?"}
+        POST_EXIST -->|"Non"| PE404["404 QUESTION_NOT_FOUND"]
+        POST_EXIST -->|"Oui"| POST_INS["Générer UUIDv7 + created_at\nINSERT INTO T_QUIZ_QUZ\nINSERT INTO T_QUIZ_QUESTION_QQN\n(avec QQN_ORDER = position)"]
+        POST_INS --> P201(["201 Created\n{ id, name, question_count,\ncreated_at, last_updated_at: null }"])
+    end
+
+    subgraph LIST["📋 Liste — GET /api/v1/quizzes"]
+        direction TB
+        LIST_FILT{"Filtre ?name=...\n(optionnel)"}
+        LIST_FILT -->|"Oui"| LIST_SQL_F["SELECT * FROM T_QUIZ_QUZ\nWHERE name LIKE '%name%'\nCOLLATE NOCASE\n+ résumé questions (total, par niveau, par type)\nTri created_at DESC"]
+        LIST_FILT -->|"Non — liste complète"| LIST_SQL_A["SELECT * FROM T_QUIZ_QUZ\n+ résumé questions (total, par niveau, par type)\nTri created_at DESC"]
+        LIST_SQL_F --> L200(["200 OK\n[ { id, name, created_at, last_updated_at,\nquestion_summary } ]\nou [] si aucun résultat"])
+        LIST_SQL_A --> L200
+    end
+
+    subgraph PUT["✏️ Modification complète — PUT /api/v1/quizzes/:id"]
+        direction TB
+        PUT_ID{"UUID valide ?"}
+        PUT_ID -->|"Non"| PUTE400a["400 INVALID_UUID"]
+        PUT_ID -->|"Oui"| PUT_FIND{"Quiz trouvé ?"}
+        PUT_FIND -->|"Non"| PUTE404["404 NOT_FOUND"]
+        PUT_FIND -->|"Oui"| PUT_CT{"Content-Type\n= application/json ?"}
+        PUT_CT -->|"Non"| PUTE415["415 UNSUPPORTED_MEDIA_TYPE"]
+        PUT_CT -->|"Oui"| PUT_IDM{"id présent dans body\net ≠ id URL ?"}
+        PUT_IDM -->|"Oui"| PUTE400b["400 ID_MISMATCH"]
+        PUT_IDM -->|"Non"| PUT_VALID["Appliquer toutes les règles\nde validation du POST\n(nom, question_ids, doublons,\nUUID, existence des questions)"]
+        PUT_VALID -->|"Invalide"| PUTE400c["Erreur correspondante\n400 / 404 / 409"]
+        PUT_VALID -->|"Valide"| PUT_SAME{"Données identiques\nà l'existant ?"}
+        PUT_SAME -->|"Oui"| PU200a(["200 OK — Aucune modification\nlast_updated_at non modifié"])
+        PUT_SAME -->|"Non"| PUT_UPD["UPDATE T_QUIZ_QUZ + last_updated_at\nREMPLACER T_QUIZ_QUESTION_QQN\n(supprimer + réinsérer)"]
+        PUT_UPD --> PU200b(["200 OK\n{ id, name, question_count,\ncreated_at, last_updated_at }"])
+    end
+
+    subgraph DEL["🗑️ Suppression — DELETE /api/v1/quizzes/:id"]
+        direction TB
+        DEL_ID{"UUID valide ?"}
+        DEL_ID -->|"Non"| DE400["400 INVALID_UUID"]
+        DEL_ID -->|"Oui"| DEL_FIND{"Quiz trouvé ?"}
+        DEL_FIND -->|"Non"| DE404["404 NOT_FOUND"]
+        DEL_FIND -->|"Oui"| DEL_GAME{"Quiz référencé par\nune partie active ?\n(état ≠ COMPLETED)"}
+        DEL_GAME -->|"Oui"| DE403["403 QUIZ_IN_USE"]
+        DEL_GAME -->|"Non"| DEL_SQL["DELETE FROM T_QUIZ_QUESTION_QQN\n(en cascade)\nDELETE FROM T_QUIZ_QUZ"]
+        DEL_SQL --> D204(["204 No Content"])
+    end
+
+    subgraph GUARD["🛡️ Garde transversale — DELETE /api/v1/questions/:id"]
+        direction TB
+        GD_QST(["DELETE /api/v1/questions/:id"]) --> GD_CHECK{"Question appartient\nà au moins un quiz ?"}
+        GD_CHECK -->|"Oui"| GD409["409 QUESTION_IN_QUIZ"]
+        GD_CHECK -->|"Non"| GD204(["204 No Content\n(suppression autorisée)"])
+    end
+
+    classDef error fill:#f8d7da,stroke:#dc3545,color:#721c24
+    classDef success fill:#d4edda,stroke:#28a745,color:#155724
+    class E401,E403,E405,E429 error
+    class PE415,PE400a,PE400b,PE400c,PE400d,PE400e,PE400f,PE404,PE409 error
+    class PUTE400a,PUTE404,PUTE415,PUTE400b,PUTE400c error
+    class DE400,DE404,DE403 error
+    class GD409 error
+    class P201,L200,PU200a,PU200b,D204,GD204 success

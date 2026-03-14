@@ -1,3 +1,5 @@
+![Page de couverture — US-006](diagrams/covers/US-006-cover.png)
+
 # US-006 — CRUD des quiz
 
 ## 📋 Contexte projet
@@ -22,6 +24,8 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 ---
 
 ## ✅ Critères d'acceptance
+
+> 🧪 **Exigence de couverture** — Chaque critère d'acceptance listé ci-dessous doit être couvert par **au moins un test automatisé** (unitaire et/ou d'intégration). Un CA non couvert par un test est considéré comme **non livré**. La couverture globale du code de l'US doit être **≥ 90%**, mesurée via `jest --coverage`.
 
 ### Création — `POST /api/v1/quizzes`
 
@@ -95,6 +99,12 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 | CA-41 | Méthode HTTP non supportée | `405 METHOD_NOT_ALLOWED` avec header `Allow` adapté |
 | CA-42 | Erreur serveur inattendue | `500 INTERNAL_SERVER_ERROR` (aucun détail technique exposé) |
 | CA-43 | Tests unitaires et d'intégration | Couverture ≥ 90% |
+
+---
+
+## 🔄 Diagramme de flux
+
+![Diagramme de flux — US-006 — CRUD des quiz](diagrams/US-006-quiz-crud.png)
 
 ---
 
@@ -275,13 +285,15 @@ curl -s -v -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/quizzes" \
 
 | Élément | Choix |
 |---|---|
-| Runtime | Node.js 24 LTS |
+| Runtime | Node.js 24 LTS (dernière version stable disponible) |
 | Langage | JavaScript (ES Modules) |
 | Base de données | SQLite |
-| Tests | Jest |
+| Tests | Jest (dernière version stable disponible) |
 | Identifiants | UUIDv7 généré côté Node.js |
-| Horodatage | ISO 8601 UTC, généré côté Node.js |
-| Principes | YAGNI, KISS, DRY, SOLID |
+| Horodatage | ISO 8601 UTC (millisecondes), généré côté Node.js |
+| Principes d'architecture | YAGNI, KISS, DRY, SOLID |
+
+> ⚠️ **Exigence fondamentale** — Toute implémentation de cette US doit scrupuleusement respecter les principes **KISS** (solutions simples), **DRY** (pas de duplication), **YAGNI** (pas de fonctionnalité prématurée) et **SOLID** (architecture modulaire et responsabilités séparées). Ces principes prévalent sur toute optimisation prématurée ou généralisation non justifiée par un besoin immédiat documenté.
 
 ### Schéma des tables
 
@@ -358,9 +370,57 @@ CREATE TABLE IF NOT EXISTS T_QUIZ_QUESTION_QQN
 
 ---
 
+## 🔐 Authentification et autorisation
+
+### Mécanisme
+
+Toutes les routes de cette US sont protégées par un **JSON Web Token (JWT)** transmis via le header HTTP `Authorization`.
+
+| Élément | Valeur |
+|---|---|
+| Type de token | JWT |
+| Algorithme de signature | HS256 (symétrique) |
+| Transmission | Header `Authorization: Bearer <token>` |
+| Secret de signature | Variable d'environnement `JWT_SECRET` (min 32 caractères) |
+| Durée de validité | 1 heure (3600s), configurable via variable d'environnement `JWT_EXPIRATION` |
+| Renouvellement | Reconnexion via `POST /api/v1/token` (US-002) |
+
+### Structure du payload JWT
+
+```json
+{
+  "sub": "018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a",
+  "role": "admin",
+  "iat": 1741358400,
+  "exp": 1741362000
+}
+```
+
+| Claim | Type | Description |
+|---|---|---|
+| `sub` (subject) | `string` | UUIDv7 de l'utilisateur (claim standard RFC 7519) |
+| `role` | `string` | Rôle de l'utilisateur (`"admin"` pour cette US) |
+| `iat` (issued at) | `number` | Timestamp Unix de l'émission (automatique) |
+| `exp` (expiration) | `number` | Timestamp Unix d'expiration (automatique) |
+
+### Architecture middleware — Réutilisation de l'US-003
+
+Les middlewares `authenticate` et `authorize('admin')` créés dans l'US-003 sont réutilisés tels quels sur toutes les routes de cette US, conformément aux principes DRY et Open/Closed (SOLID).
+
+**Application sur les routes :**
+
+```javascript
+router.post('/api/v1/quizzes',       authenticate, authorize('admin'), createQuiz);
+router.get('/api/v1/quizzes',        authenticate, authorize('admin'), listQuizzes);
+router.put('/api/v1/quizzes/:id',    authenticate, authorize('admin'), updateQuiz);
+router.delete('/api/v1/quizzes/:id', authenticate, authorize('admin'), deleteQuiz);
+```
+
+---
+
 ## 🚨 Catalogue des erreurs
 
-| Code erreur | HTTP | Message | Contexte |
+| Code erreur | Code HTTP | Message | Contexte |
 |---|---|---|---|
 | `VALIDATION_ERROR` | `400` | _(dynamique)_ | Nom invalide, moins de 10 questions, doublons |
 | `INVALID_UUID` | `400` | `"The provided ID is not a valid UUID."` | UUID mal formé |

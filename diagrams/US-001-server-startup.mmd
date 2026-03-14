@@ -1,0 +1,22 @@
+%%{init: {"theme": "forest", "flowchart": {"curve": "basis"}}}%%
+flowchart TD
+    START(["`**npm start**`"])
+    START --> ENV["Lire PORT depuis l'environnement\n(défaut : **3000**)"]
+    ENV --> HTTP["Créer le serveur HTTP Node.js"]
+    HTTP --> LISTEN["Mettre le serveur en écoute\nsur le PORT configuré"]
+    LISTEN --> TIME["Capturer l'heure de lancement\nformat **HH:mm:ss**"]
+    TIME --> IFACES["Parcourir os.networkInterfaces()"]
+    IFACES --> FOUND{"Interface IPv4\nnon-loopback\ntrouvée ?"}
+
+    FOUND -->|"✅ Oui"| LOG_OK["Console :\n🚀 Server started at HH:mm:ss\n📡 Listening on http://&lt;IP&gt;:PORT"]
+    FOUND -->|"❌ Non"| LOG_FB["Console :\n🚀 Server started at HH:mm:ss\n⚠️ No network interface found\nlistening on http://localhost:PORT"]
+
+    LOG_OK --> ACTIVE(["`Serveur actif\nen écoute`"])
+    LOG_FB --> ACTIVE
+
+    classDef success fill:#d4edda,stroke:#28a745,color:#155724
+    classDef warning fill:#fff3cd,stroke:#ffc107,color:#856404
+    classDef terminal fill:#cce5ff,stroke:#004085,color:#004085
+    class LOG_OK success
+    class LOG_FB warning
+    class ACTIVE terminal

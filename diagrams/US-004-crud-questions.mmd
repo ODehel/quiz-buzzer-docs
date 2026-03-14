@@ -1,0 +1,144 @@
+%%{init: {"theme": "forest", "flowchart": {"curve": "basis"}}}%%
+flowchart TD
+    REQ(["Requête HTTP"]) --> MW_AUTH["Middleware : authenticate\nVérifier le JWT dans Authorization: Bearer"]
+    MW_AUTH --> AUTH_OK{"Token JWT\nvalide ?"}
+    AUTH_OK -->|"Non"| E401["401 UNAUTHORIZED"]
+    AUTH_OK -->|"Oui"| MW_ROLE["Middleware : authorize admin\nVérifier le rôle JWT"]
+    MW_ROLE --> ROLE_OK{"Rôle\n= admin ?"}
+    ROLE_OK -->|"Non"| E403["403 FORBIDDEN"]
+    ROLE_OK -->|"Oui"| MW_RL{"> 100 req/min\npar IP ?"}
+    MW_RL -->|"Oui"| E429["429 RATE_LIMIT_EXCEEDED\nRetry-After: 30"]
+    MW_RL -->|"Non"| ROUTE{"Méthode + Route"}
+    ROUTE -->|"Méthode non supportée"| E405["405 METHOD_NOT_ALLOWED\n+ header Allow adapté"]
+    ROUTE -->|"POST /questions"| POST_CT
+    ROUTE -->|"GET /questions"| LIST_PG
+    ROUTE -->|"GET /questions/:id"| READ_ID
+    ROUTE -->|"PUT /questions/:id"| PUT_ID
+    ROUTE -->|"PATCH /questions/:id"| PATCH_ID
+    ROUTE -->|"DELETE /questions/:id"| DEL_ID
+
+    subgraph POST["➕ Création — POST /api/v1/questions"]
+        direction TB
+        POST_CT{"Content-Type\n= application/json ?"}
+        POST_CT -->|"Non"| PE415["415 UNSUPPORTED_MEDIA_TYPE"]
+        POST_CT -->|"Oui"| POST_JSON{"JSON valide ?"}
+        POST_JSON -->|"Non"| PE400a["400 INVALID_JSON"]
+        POST_JSON -->|"Oui"| POST_TYPE{"type = MCQ\nou SPEED ?"}
+        POST_TYPE -->|"Ni l'un ni l'autre"| PE400b["400 VALIDATION_ERROR\n(type invalide)"]
+        POST_TYPE -->|"Valide"| POST_THEME_UUID{"theme_id est\nun UUID valide ?"}
+        POST_THEME_UUID -->|"Non"| PE400c["400 INVALID_UUID"]
+        POST_THEME_UUID -->|"Oui"| POST_THEME{"theme_id référence\nun thème existant ?"}
+        POST_THEME -->|"Non"| PE400d["400 INVALID_THEME"]
+        POST_THEME -->|"Oui"| POST_UF{"Champs inconnus\ndans le body ?"}
+        POST_UF -->|"Oui"| PE400e["400 UNKNOWN_FIELDS"]
+        POST_UF -->|"Non"| POST_NORM["Trim + Collapse du titre"]
+        POST_NORM --> POST_TITLE{"Titre valide ?\n10–250 car., majuscule Unicode"}
+        POST_TITLE -->|"Non"| PE400f["400 VALIDATION_ERROR\n(titre invalide)"]
+        POST_TITLE -->|"Oui"| POST_UNIQ{"Titre déjà existant ?\nCOLLATE NOCASE"}
+        POST_UNIQ -->|"Oui"| PE409["409 QUESTION_ALREADY_EXISTS"]
+        POST_UNIQ -->|"Non"| POST_MCQ{"type = MCQ ?"}
+        POST_MCQ -->|"Oui"| POST_CHOICES{"choices = tableau\nde 4 chaînes distinctes\nnon vides, 1–40 car. ?"}
+        POST_CHOICES -->|"Non"| PE400g["400 VALIDATION_ERROR\n(choices invalides)"]
+        POST_CHOICES -->|"Oui"| POST_CORR_MCQ{"correct_answer correspond\nà l'un des choices ?\ninsensible à la casse"}
+        POST_CORR_MCQ -->|"Non"| PE400h["400 VALIDATION_ERROR\n(correct_answer)"]
+        POST_MCQ -->|"Non — SPEED"| POST_NO_CHOICES{"choices absent\ndu body ?"}
+        POST_NO_CHOICES -->|"Non — présent"| PE400i["400 VALIDATION_ERROR\n(choices interdit pour SPEED)"]
+        POST_NO_CHOICES -->|"Oui"| POST_CORR_SPD{"correct_answer valide ?\n1–40 caractères"}
+        POST_CORR_SPD -->|"Non"| PE400j["400 VALIDATION_ERROR\n(correct_answer)"]
+        POST_CORR_MCQ -->|"Oui"| POST_NUMS
+        POST_CORR_SPD -->|"Oui"| POST_NUMS
+        POST_NUMS{"level 1–5\ntime_limit 5–60\npoints 1–50 ?"}
+        POST_NUMS -->|"Non"| PE400k["400 VALIDATION_ERROR\n(valeurs numériques)"]
+        POST_NUMS -->|"Oui"| POST_INS["Générer UUIDv7 + created_at\nINSERT INTO T_QUESTION_QST"]
+        POST_INS --> P201(["201 Created\n{ id, type, theme_id, title,\nchoices si MCQ, correct_answer,\nlevel, time_limit, points,\nimage_path: null, audio_path: null,\ncreated_at, last_updated_at: null }"])
+    end
+
+    subgraph LIST["📋 Liste paginée + filtres — GET /api/v1/questions"]
+        direction TB
+        LIST_PG{"Paramètres page/limit\nvalides ? limit ≤ 100"}
+        LIST_PG -->|"Non"| LE400a["400 INVALID_PAGINATION"]
+        LIST_PG -->|"Oui"| LIST_FILT{"Filtres valides ?\ntheme_id, type, level, ranges,\npas de conflit level/level_min+max"}
+        LIST_FILT -->|"Non"| LE400b["400 INVALID_FILTER"]
+        LIST_FILT -->|"Oui"| LIST_SQL["SELECT * FROM T_QUESTION_QST\n+ filtres combinés en ET\nOFFSET/LIMIT — Tri created_at DESC"]
+        LIST_SQL --> L200(["200 OK\n{ data, page, limit, total, total_pages }"])
+    end
+
+    subgraph READ["🔍 Lecture unitaire — GET /api/v1/questions/:id"]
+        direction TB
+        READ_ID{"UUID valide ?"}
+        READ_ID -->|"Non"| RE400["400 INVALID_UUID"]
+        READ_ID -->|"Oui"| READ_FIND{"Question trouvée\nen base ?"}
+        READ_FIND -->|"Non"| RE404["404 NOT_FOUND"]
+        READ_FIND -->|"Oui"| READ_MCQ{"type = MCQ ?"}
+        READ_MCQ -->|"Oui"| R200a(["200 OK avec choices"])
+        READ_MCQ -->|"Non — SPEED"| R200b(["200 OK sans choices"])
+    end
+
+    subgraph PUT["✏️ Modification complète — PUT /api/v1/questions/:id"]
+        direction TB
+        PUT_ID{"UUID valide ?"}
+        PUT_ID -->|"Non"| PUTE400a["400 INVALID_UUID"]
+        PUT_ID -->|"Oui"| PUT_FIND{"Question trouvée ?"}
+        PUT_FIND -->|"Non"| PUTE404["404 NOT_FOUND"]
+        PUT_FIND -->|"Oui"| PUT_CT{"Content-Type\n= application/json ?"}
+        PUT_CT -->|"Non"| PUTE415["415 UNSUPPORTED_MEDIA_TYPE"]
+        PUT_CT -->|"Oui"| PUT_TYPE_MATCH{"type envoyé =\ntype actuel ?"}
+        PUT_TYPE_MATCH -->|"Non"| PUTE400b["400 TYPE_CHANGE_NOT_ALLOWED"]
+        PUT_TYPE_MATCH -->|"Oui"| PUT_IDM{"id présent dans body\net ≠ id URL ?"}
+        PUT_IDM -->|"Oui"| PUTE400c["400 ID_MISMATCH"]
+        PUT_IDM -->|"Non"| PUT_UF{"image_path / audio_path\ndans le body ?"}
+        PUT_UF -->|"Oui"| PUTE400d["400 UNKNOWN_FIELDS"]
+        PUT_UF -->|"Non"| PUT_VALID["Appliquer toutes les règles\nde validation du POST\n(titre, choices, correct_answer,\nlevel, time_limit, points)"]
+        PUT_VALID -->|"Invalide"| PUTE400e["400 VALIDATION_ERROR\nou 409 QUESTION_ALREADY_EXISTS"]
+        PUT_VALID -->|"Valide"| PUT_SAME{"Données identiques\nà l'existant ?"}
+        PUT_SAME -->|"Oui"| PU200a(["200 OK — Aucune modification\nlast_updated_at non modifié"])
+        PUT_SAME -->|"Non"| PUT_UPD["UPDATE T_QUESTION_QST\nSET last_updated_at = now"]
+        PUT_UPD --> PU200b(["200 OK\n{ question complète }"])
+    end
+
+    subgraph PATCH["🔧 Modification partielle — PATCH /api/v1/questions/:id\n(JSON Merge Patch RFC 7396)"]
+        direction TB
+        PATCH_ID{"UUID valide ?"}
+        PATCH_ID -->|"Non"| PATCHE400a["400 INVALID_UUID"]
+        PATCH_ID -->|"Oui"| PATCH_FIND{"Question trouvée ?"}
+        PATCH_FIND -->|"Non"| PATCHE404["404 NOT_FOUND"]
+        PATCH_FIND -->|"Oui"| PATCH_CT{"Content-Type\n= application/json ?"}
+        PATCH_CT -->|"Non"| PATCHE415["415 UNSUPPORTED_MEDIA_TYPE"]
+        PATCH_CT -->|"Oui"| PATCH_TYPE{"type présent\ndans le body ?"}
+        PATCH_TYPE -->|"Oui"| PATCHE400b["400 TYPE_CHANGE_NOT_ALLOWED"]
+        PATCH_TYPE -->|"Non"| PATCH_ID2{"id présent\ndans le body ?"}
+        PATCH_ID2 -->|"Oui"| PATCHE400c["400 UNKNOWN_FIELDS"]
+        PATCH_ID2 -->|"Non"| PATCH_EMPTY{"Body vide {} ?"}
+        PATCH_EMPTY -->|"Oui"| PATCH200a(["200 OK — Aucune modification"])
+        PATCH_EMPTY -->|"Non"| PATCH_VALID["Valider uniquement\nles champs présents\n(titre, choices, correct_answer,\nlevel, time_limit, points,\nimage_path, audio_path)"]
+        PATCH_VALID -->|"Invalide"| PATCHE400d["400 VALIDATION_ERROR\nou 400 INVALID_THEME\nou 409 QUESTION_ALREADY_EXISTS"]
+        PATCH_VALID -->|"Valide"| PATCH_SAME{"Données résultantes\nidentiques à l'existant ?"}
+        PATCH_SAME -->|"Oui"| PATCH200a
+        PATCH_SAME -->|"Non"| PATCH_UPD["Fusionner les champs modifiés\nUPDATE T_QUESTION_QST\nSET last_updated_at = now"]
+        PATCH_UPD --> PATCH200b(["200 OK\n{ question mise à jour }"])
+    end
+
+    subgraph DEL["🗑️ Suppression — DELETE /api/v1/questions/:id"]
+        direction TB
+        DEL_ID{"UUID valide ?"}
+        DEL_ID -->|"Non"| DE400["400 INVALID_UUID"]
+        DEL_ID -->|"Oui"| DEL_FIND{"Question trouvée ?"}
+        DEL_FIND -->|"Non"| DE404["404 NOT_FOUND"]
+        DEL_FIND -->|"Oui"| DEL_QUIZ{"Question appartient\nà un quiz ?"}
+        DEL_QUIZ -->|"Oui"| DE409a["409 QUESTION_IN_QUIZ"]
+        DEL_QUIZ -->|"Non"| DEL_THEME{"Suppression d'un thème ?\n(garde CA-78 US-003)"}
+        DEL_THEME -->|"Thème avec questions"| DE409b["409 THEME_HAS_QUESTIONS"]
+        DEL_THEME -->|"Sans questions"| DEL_SQL["DELETE FROM T_QUESTION_QST"]
+        DEL_SQL --> D204(["204 No Content"])
+    end
+
+    classDef error fill:#f8d7da,stroke:#dc3545,color:#721c24
+    classDef success fill:#d4edda,stroke:#28a745,color:#155724
+    class E401,E403,E405,E429 error
+    class PE415,PE400a,PE400b,PE400c,PE400d,PE400e,PE400f,PE400g,PE400h,PE400i,PE400j,PE400k,PE409 error
+    class LE400a,LE400b error
+    class RE400,RE404 error
+    class PUTE400a,PUTE404,PUTE415,PUTE400b,PUTE400c,PUTE400d,PUTE400e error
+    class PATCHE400a,PATCHE404,PATCHE415,PATCHE400b,PATCHE400c,PATCHE400d error
+    class DE400,DE404,DE409a,DE409b error
+    class P201,L200,R200a,R200b,PU200a,PU200b,PATCH200a,PATCH200b,D204 success
