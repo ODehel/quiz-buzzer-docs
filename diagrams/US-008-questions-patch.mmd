@@ -1,0 +1,32 @@
+%%{init: {"theme": "forest", "flowchart": {"curve": "basis"}}}%%
+flowchart TD
+    REQ(["PATCH /api/v1/questions/:id"]) --> MW_AUTH["Middleware : authenticate"]
+    MW_AUTH --> AUTH_OK{"Token JWT valide ?"}
+    AUTH_OK -->|"Non"| E401["401 UNAUTHORIZED"]
+    AUTH_OK -->|"Oui"| MW_ROLE["Middleware : authorize admin"]
+    MW_ROLE --> ROLE_OK{"Rôle = admin ?"}
+    ROLE_OK -->|"Non"| E403["403 FORBIDDEN"]
+    ROLE_OK -->|"Oui"| MW_RL{"> 100 req/min ?"}
+    MW_RL -->|"Oui"| E429["429 RATE_LIMIT_EXCEEDED"]
+    MW_RL -->|"Non"| PATCH_UUID{"UUID valide ?"}
+    PATCH_UUID -->|"Non"| E400a["400 INVALID_UUID"]
+    PATCH_UUID -->|"Oui"| PATCH_FIND{"Question trouvée ?"}
+    PATCH_FIND -->|"Non"| E404["404 NOT_FOUND"]
+    PATCH_FIND -->|"Oui"| PATCH_CT{"Content-Type\n= application/json ?"}
+    PATCH_CT -->|"Non"| E415["415 UNSUPPORTED_MEDIA_TYPE"]
+    PATCH_CT -->|"Oui"| PATCH_TYPE{"type ou id\ndans le body ?"}
+    PATCH_TYPE -->|"type présent"| E400b["400 TYPE_CHANGE_NOT_ALLOWED"]
+    PATCH_TYPE -->|"id présent"| E400c["400 UNKNOWN_FIELDS"]
+    PATCH_TYPE -->|"Non"| PATCH_EMPTY{"Body vide {} ?"}
+    PATCH_EMPTY -->|"Oui"| OK_NO_CHANGE(["200 OK — Aucune modification"])
+    PATCH_EMPTY -->|"Non"| PATCH_VALID["Valider les champs présents\n(RFC 7396 JSON Merge Patch)"]
+    PATCH_VALID -->|"Invalide"| E400d["400 VALIDATION_ERROR\nou INVALID_THEME\nou QUESTION_ALREADY_EXISTS"]
+    PATCH_VALID -->|"Valide"| PATCH_SAME{"Données résultantes\nidentiques à l'existant ?"}
+    PATCH_SAME -->|"Oui"| OK_NO_CHANGE
+    PATCH_SAME -->|"Non"| PATCH_UPD["Fusionner les champs\nUPDATE T_QUESTION_QST"]
+    PATCH_UPD --> OK(["200 OK\n{ question mise à jour }"])
+
+    classDef error fill:#f8d7da,stroke:#dc3545,color:#721c24
+    classDef success fill:#d4edda,stroke:#28a745,color:#155724
+    class E401,E403,E429,E400a,E404,E415,E400b,E400c,E400d error
+    class OK,OK_NO_CHANGE success
