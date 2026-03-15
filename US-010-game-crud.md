@@ -424,11 +424,21 @@ CREATE TABLE IF NOT EXISTS T_GAME_PARTICIPANT_GPA
 
 ### Format JSON — Body PATCH
 
+Renommer un participant :
+
 ```json
 {
   "participants": [
     { "order": 2, "name": "Robert" }
   ]
+}
+```
+
+Modifier le statut seul :
+
+```json
+{
+  "status": "OPEN"
 }
 ```
 
