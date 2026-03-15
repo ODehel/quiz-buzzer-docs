@@ -1,0 +1,98 @@
+%%{init: {"theme": "forest"}}%%
+sequenceDiagram
+    participant C as Client (Angular)
+    participant S as Serveur
+    participant DB as SQLite
+
+    Note over C,DB: Création — POST /api/v1/games
+    C->>S: POST /api/v1/games<br/>Authorization: Bearer TOKEN<br/>{ "quiz_id": "...", "participants": ["Alice", "Bob"] }
+    S->>S: Authentification + Autorisation (admin)
+    S->>S: Valider body (quiz_id UUID, participants 1-10, noms <= 50 car.)
+    S->>DB: SELECT COUNT(*) FROM T_GAME_GAM WHERE status IN ('PENDING','OPEN')
+    alt Partie active existante
+        S-->>C: 409 ACTIVE_GAME_EXISTS
+    else Aucune partie active
+        S->>DB: SELECT * FROM T_QUIZ_QUZ WHERE id = quiz_id
+        alt Quiz introuvable
+            S-->>C: 404 QUIZ_NOT_FOUND
+        else Quiz trouvé
+            S->>DB: INSERT INTO T_GAME_GAM (status=PENDING) + INSERT INTO T_GAME_PARTICIPANT_GPA (transaction)
+            DB-->>S: OK
+            S-->>C: 201 Created (sans body)
+        end
+    end
+
+    Note over C,DB: Liste — GET /api/v1/games
+    C->>S: GET /api/v1/games<br/>Authorization: Bearer TOKEN
+    S->>S: Authentification + Autorisation (admin)
+    S->>DB: SELECT * FROM T_GAME_GAM + T_GAME_PARTICIPANT_GPA ORDER BY created_at DESC
+    DB-->>S: Résultats
+    S-->>C: 200 OK [ { id, quiz_id, status, created_at, participants } ]
+
+    Note over C,DB: Lecture par ID — GET /api/v1/games/:id
+    C->>S: GET /api/v1/games/:id<br/>Authorization: Bearer TOKEN
+    S->>S: Authentification + Autorisation (admin)
+    S->>DB: SELECT * FROM T_GAME_GAM + T_GAME_PARTICIPANT_GPA WHERE id = ?
+    alt Partie introuvable
+        S-->>C: 404 NOT_FOUND
+    else Partie trouvée
+        S-->>C: 200 OK { id, quiz_id, status, created_at, participants }
+    end
+
+    Note over C,DB: Modification complète — PUT /api/v1/games/:id
+    C->>S: PUT /api/v1/games/:id<br/>Authorization: Bearer TOKEN<br/>{ "status": "OPEN", "participants": ["Alice", "Robert"] }
+    S->>S: Authentification + Autorisation (admin)
+    S->>DB: SELECT * FROM T_GAME_GAM WHERE id = ?
+    alt Partie introuvable
+        S-->>C: 404 NOT_FOUND
+    else Partie trouvée
+        S->>S: Vérifier immuabilité quiz_id (si présent dans body)
+        alt quiz_id différent
+            S-->>C: 400 IMMUTABLE_FIELD
+        else OK
+            S->>S: Vérifier transition de statut autorisée
+            alt Transition interdite
+                S-->>C: 422 INVALID_TRANSITION
+            else Transition autorisée
+                S->>S: Valider participants (1-10, noms <= 50 car.)
+                S->>DB: UPDATE T_GAME_GAM + DELETE/INSERT T_GAME_PARTICIPANT_GPA (transaction)
+                DB-->>S: OK
+                S-->>C: 200 OK { id, quiz_id, status, created_at, participants }
+            end
+        end
+    end
+
+    Note over C,DB: Modification partielle — PATCH /api/v1/games/:id
+    C->>S: PATCH /api/v1/games/:id<br/>Authorization: Bearer TOKEN<br/>{ "participants": [{ "order": 2, "name": "Robert" }] }
+    S->>S: Authentification + Autorisation (admin)
+    S->>DB: SELECT * FROM T_GAME_GAM WHERE id = ?
+    alt Partie introuvable
+        S-->>C: 404 NOT_FOUND
+    else Partie trouvée
+        S->>S: Vérifier immuabilité quiz_id et transitions de statut (si fournis)
+        alt Champ invalide ou transition interdite
+            S-->>C: 400 / 422 selon l'erreur
+        else OK
+            loop Pour chaque participant fourni
+                S->>DB: SELECT * FROM T_GAME_PARTICIPANT_GPA WHERE game_id = ? AND order = ?
+                alt Participant introuvable
+                    S-->>C: 404 PARTICIPANT_NOT_FOUND
+                end
+            end
+            S->>DB: UPDATE T_GAME_GAM (si statut) + UPDATE T_GAME_PARTICIPANT_GPA (lignes ciblées)
+            DB-->>S: OK
+            S-->>C: 200 OK { id, quiz_id, status, created_at, participants }
+        end
+    end
+
+    Note over C,DB: Suppression — DELETE /api/v1/games/:id
+    C->>S: DELETE /api/v1/games/:id<br/>Authorization: Bearer TOKEN
+    S->>S: Authentification + Autorisation (admin)
+    S->>DB: SELECT * FROM T_GAME_GAM WHERE id = ?
+    alt Partie introuvable
+        S-->>C: 404 NOT_FOUND
+    else Partie trouvée
+        S->>DB: DELETE FROM T_GAME_GAM (cascade T_GAME_PARTICIPANT_GPA)
+        DB-->>S: OK
+        S-->>C: 204 No Content
+    end

@@ -1,0 +1,116 @@
+%%{init: {"theme": "forest", "flowchart": {"curve": "basis"}}}%%
+flowchart TD
+    REQ(["Requête HTTP"]) --> MW_AUTH["Middleware : authenticate\nVérifier le JWT dans Authorization: Bearer"]
+    MW_AUTH --> AUTH_OK{"Token JWT\nvalide ?"}
+    AUTH_OK -->|"Non"| E401["401 UNAUTHORIZED"]
+    AUTH_OK -->|"Oui"| MW_ROLE["Middleware : authorize admin\nVérifier le rôle JWT"]
+    MW_ROLE --> ROLE_OK{"Rôle\n= admin ?"}
+    ROLE_OK -->|"Non"| E403["403 FORBIDDEN"]
+    ROLE_OK -->|"Oui"| MW_RL{"> 100 req/min\npar IP ?"}
+    MW_RL -->|"Oui"| E429["429 RATE_LIMIT_EXCEEDED\nRetry-After: 60"]
+    MW_RL -->|"Non"| ROUTE{"Méthode + Route"}
+    ROUTE -->|"Méthode non supportée"| E405["405 METHOD_NOT_ALLOWED\n+ header Allow adapté"]
+    ROUTE -->|"POST /games"| POST_CT
+    ROUTE -->|"GET /games"| LIST_SQL
+    ROUTE -->|"GET /games/:id"| GET_ID
+    ROUTE -->|"PUT /games/:id"| PUT_ID
+    ROUTE -->|"PATCH /games/:id"| PATCH_ID
+    ROUTE -->|"DELETE /games/:id"| DEL_ID
+
+    subgraph POST["➕ Création — POST /api/v1/games"]
+        direction TB
+        POST_CT{"Content-Type\n= application/json ?"}
+        POST_CT -->|"Non"| PE415["415 UNSUPPORTED_MEDIA_TYPE"]
+        POST_CT -->|"Oui"| POST_JSON{"JSON valide ?"}
+        POST_JSON -->|"Non"| PE400a["400 INVALID_BODY"]
+        POST_JSON -->|"Oui"| POST_UF{"Champs inconnus ?\n(hors quiz_id, participants)"}
+        POST_UF -->|"Oui"| PE400b["400 UNKNOWN_FIELDS"]
+        POST_UF -->|"Non"| POST_REQ{"quiz_id et participants\nprésents ?"}
+        POST_REQ -->|"Non"| PE400c["400 VALIDATION_ERROR"]
+        POST_REQ -->|"Oui"| POST_UUID{"quiz_id est\nun UUID valide ?"}
+        POST_UUID -->|"Non"| PE400d["400 INVALID_UUID"]
+        POST_UUID -->|"Oui"| POST_PART{"participants :\n1 à 10 éléments ?\nnoms non vides <= 50 car. ?"}
+        POST_PART -->|"Non"| PE400e["400 VALIDATION_ERROR"]
+        POST_PART -->|"Oui"| POST_QUIZ{"Quiz existant\nen base ?"}
+        POST_QUIZ -->|"Non"| PE404["404 QUIZ_NOT_FOUND"]
+        POST_QUIZ -->|"Oui"| POST_ACTIVE{"Partie active\n(PENDING ou OPEN)\nexistante ?"}
+        POST_ACTIVE -->|"Oui"| PE409["409 ACTIVE_GAME_EXISTS"]
+        POST_ACTIVE -->|"Non"| POST_INS{"Générer UUIDv7 + created_at\nINSERT INTO T_GAME_GAM (status=PENDING)\nINSERT INTO T_GAME_PARTICIPANT_GPA\n(transaction atomique)"}
+        POST_INS --> P201(["201 Created\n(sans body)"])
+    end
+
+    subgraph LIST["📋 Liste — GET /api/v1/games"]
+        direction TB
+        LIST_SQL["SELECT * FROM T_GAME_GAM\n+ participants\nTri created_at DESC"]
+        LIST_SQL --> L200(["200 OK\n[ { id, quiz_id, status, created_at,\nparticipants } ]\nou [] si aucun résultat"])
+    end
+
+    subgraph GET["🔍 Lecture — GET /api/v1/games/:id"]
+        direction TB
+        GET_ID{"UUID valide ?"}
+        GET_ID -->|"Non"| GE400["400 INVALID_UUID"]
+        GET_ID -->|"Oui"| GET_FIND{"Partie trouvée ?"}
+        GET_FIND -->|"Non"| GE404["404 NOT_FOUND"]
+        GET_FIND -->|"Oui"| GE200(["200 OK\n{ id, quiz_id, status, created_at,\nparticipants }"])
+    end
+
+    subgraph PUT["✏️ Modification complète — PUT /api/v1/games/:id"]
+        direction TB
+        PUT_ID{"UUID valide ?"}
+        PUT_ID -->|"Non"| PUTE400a["400 INVALID_UUID"]
+        PUT_ID -->|"Oui"| PUT_FIND{"Partie trouvée ?"}
+        PUT_FIND -->|"Non"| PUTE404["404 NOT_FOUND"]
+        PUT_FIND -->|"Oui"| PUT_CT{"Content-Type\n= application/json ?"}
+        PUT_CT -->|"Non"| PUTE415["415 UNSUPPORTED_MEDIA_TYPE"]
+        PUT_CT -->|"Oui"| PUT_UF{"Champs inconnus ?\n(hors quiz_id, status, participants)"}
+        PUT_UF -->|"Oui"| PUTE400b["400 UNKNOWN_FIELDS"]
+        PUT_UF -->|"Non"| PUT_QID{"quiz_id présent\net different du quiz_id en base ?"}
+        PUT_QID -->|"Oui"| PUTE400c["400 IMMUTABLE_FIELD"]
+        PUT_QID -->|"Non"| PUT_TRANS{"Transition de statut\nautorisée ?\nPENDING->OPEN\nOPEN->COMPLETED"}
+        PUT_TRANS -->|"Non"| PUTE422["422 INVALID_TRANSITION"]
+        PUT_TRANS -->|"Oui"| PUT_PART{"participants :\n1 à 10 éléments ?\nnoms non vides <= 50 car. ?"}
+        PUT_PART -->|"Non"| PUTE400d["400 VALIDATION_ERROR"]
+        PUT_PART -->|"Oui"| PUT_UPD["UPDATE T_GAME_GAM\nSUPPRIMER + REINSERER T_GAME_PARTICIPANT_GPA\n(transaction atomique)"]
+        PUT_UPD --> PU200(["200 OK\n{ id, quiz_id, status, created_at,\nparticipants }"])
+    end
+
+    subgraph PATCH["🔧 Modification partielle — PATCH /api/v1/games/:id"]
+        direction TB
+        PATCH_ID{"UUID valide ?"}
+        PATCH_ID -->|"Non"| PATE400a["400 INVALID_UUID"]
+        PATCH_ID -->|"Oui"| PAT_FIND{"Partie trouvée ?"}
+        PAT_FIND -->|"Non"| PATE404["404 NOT_FOUND"]
+        PAT_FIND -->|"Oui"| PAT_CT{"Content-Type\n= application/json ?"}
+        PAT_CT -->|"Non"| PATE415["415 UNSUPPORTED_MEDIA_TYPE"]
+        PAT_CT -->|"Oui"| PAT_UF{"Champs inconnus ?\n(hors quiz_id, status, participants)"}
+        PAT_UF -->|"Oui"| PATE400b["400 UNKNOWN_FIELDS"]
+        PAT_UF -->|"Non"| PAT_QID{"quiz_id présent\net different du quiz_id en base ?"}
+        PAT_QID -->|"Oui"| PATE400c["400 IMMUTABLE_FIELD"]
+        PAT_QID -->|"Non"| PAT_TRANS{"Statut fourni ?\nTransition autorisée ?"}
+        PAT_TRANS -->|"Transition interdite"| PATE422["422 INVALID_TRANSITION"]
+        PAT_TRANS -->|"OK ou absent"| PAT_PART{"participants fournis ?\norder existant ?\nnom valide <= 50 car. ?"}
+        PAT_PART -->|"order inexistant"| PATE404b["404 PARTICIPANT_NOT_FOUND"]
+        PAT_PART -->|"nom invalide"| PATE400d["400 VALIDATION_ERROR"]
+        PAT_PART -->|"OK ou absent"| PAT_UPD["UPDATE T_GAME_GAM (si statut)\nUPDATE T_GAME_PARTICIPANT_GPA\n(lignes ciblées uniquement)"]
+        PAT_UPD --> PA200(["200 OK\n{ id, quiz_id, status, created_at,\nparticipants }"])
+    end
+
+    subgraph DEL["🗑️ Suppression — DELETE /api/v1/games/:id"]
+        direction TB
+        DEL_ID{"UUID valide ?"}
+        DEL_ID -->|"Non"| DE400["400 INVALID_UUID"]
+        DEL_ID -->|"Oui"| DEL_FIND{"Partie trouvée ?"}
+        DEL_FIND -->|"Non"| DE404["404 NOT_FOUND"]
+        DEL_FIND -->|"Oui"| DEL_SQL["DELETE FROM T_GAME_GAM\n(cascade sur T_GAME_PARTICIPANT_GPA)"]
+        DEL_SQL --> D204(["204 No Content"])
+    end
+
+    classDef error fill:#f8d7da,stroke:#dc3545,color:#721c24
+    classDef success fill:#d4edda,stroke:#28a745,color:#155724
+    class E401,E403,E405,E429 error
+    class PE415,PE400a,PE400b,PE400c,PE400d,PE400e,PE404,PE409 error
+    class GE400,GE404 error
+    class PUTE400a,PUTE404,PUTE415,PUTE400b,PUTE400c,PUTE400d,PUTE422 error
+    class PATE400a,PATE404,PATE415,PATE400b,PATE400c,PATE400d,PATE422,PATE404b error
+    class DE400,DE404 error
+    class P201,L200,GE200,PU200,PA200,D204 success
