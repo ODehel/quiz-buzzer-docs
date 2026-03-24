@@ -34,7 +34,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 | CA-1 | Créer un quiz avec un nom valide et au moins 10 questions | `201 Created` avec le quiz créé (`id`, `name`, `question_count`, `created_at`, `last_updated_at: null`) |
 | CA-2 | Le nom est normalisé avant validation (trim + collapse des espaces multiples) | `"  Mon   quiz  " → "Mon quiz"` |
 | CA-3 | Le nom doit respecter la regex `/^[\p{Lu}][\p{L}\p{N} '\-]{1,38}[\p{L}\p{N}]$/u` | Entre 3 et 40 caractères, commence par une majuscule, finit par une lettre ou un chiffre. Sinon → `400 VALIDATION_ERROR` |
-| CA-4 | L'unicité du nom est insensible à la casse | `"Culture générale"` existe → `"CULTURE GÉNÉRALE"` retourne `409 CONFLICT` |
+| CA-4 | L'unicité du nom est insensible à la casse | `"Culture générale"` existe → `"CULTURE GÉNÉRALE"` retourne `409 QUIZ_ALREADY_EXISTS` |
 | CA-5 | `question_ids` doit être un tableau d'au moins 10 éléments | Moins de 10 éléments → `400 VALIDATION_ERROR` |
 | CA-6 | `question_ids` ne doit pas contenir de doublons | Doublon détecté → `400 VALIDATION_ERROR` |
 | CA-7 | Chaque `question_id` doit être un UUID valide | Sinon → `400 INVALID_UUID` |
@@ -153,7 +153,7 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X POST "$BASE_URL/api/v1/quizzes" \
   -d '{"name": "culture générale", "question_ids": ["'$Q1'","'$Q2'","'$Q3'","'$Q4'","'$Q5'","'$Q6'","'$Q7'","'$Q8'","'$Q9'","'$Q10'"]}'
 ```
 
-**CA-4** — Nom déjà existant (insensible à la casse) → `409 CONFLICT`
+**CA-4** — Nom déjà existant (insensible à la casse) → `409 QUIZ_ALREADY_EXISTS`
 
 ```bash
 curl -s -w "\n→ HTTP %{http_code}\n" -X POST "$BASE_URL/api/v1/quizzes" \
@@ -441,7 +441,7 @@ router.delete('/api/v1/quizzes/:id', authenticate, authorize('admin'), deleteQui
 | `NOT_FOUND` | `404` | `"The requested quiz was not found."` | Quiz inexistant |
 | `QUESTION_NOT_FOUND` | `404` | `"Question not found: <id>."` | Question référencée inexistante |
 | `METHOD_NOT_ALLOWED` | `405` | _(dynamique)_ | Méthode non supportée |
-| `CONFLICT` | `409` | `"A quiz with this name already exists."` | Nom déjà utilisé |
+| `QUIZ_ALREADY_EXISTS` | `409` | `"A quiz with this name already exists."` | Nom déjà utilisé |
 | `QUESTION_IN_QUIZ` | `409` | `"Cannot delete this question: it belongs to one or more quizzes."` | Question utilisée dans un quiz |
 | `UNSUPPORTED_MEDIA_TYPE` | `415` | `"Content-Type must be 'application/json'."` | Content-Type incorrect |
 | `RATE_LIMIT_EXCEEDED` | `429` | `"Too many requests. Please retry in 60 seconds."` | Rate limit dépassé |
