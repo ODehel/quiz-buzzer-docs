@@ -53,7 +53,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 | # | Critère | Résultat attendu |
 |---|---|---|
-| CA-13 | Le endpoint `/token` est limité à 20 requêtes par minute **par adresse IP** | Dépassement → `429 RATE_LIMIT_EXCEEDED` avec header `Retry-After: 60` |
+| CA-13 | Le endpoint `/token` est limité à 100 requêtes par minute **par adresse IP** | Dépassement → `429 RATE_LIMIT_EXCEEDED` avec header `Retry-After: 60` |
 
 ### Logging
 
@@ -332,7 +332,7 @@ BUZZER_01_PASSWORD=... à BUZZER_10_PASSWORD=...
 | Table `T_USER_USR` et schéma | Endpoint de création de comptes utilisateurs |
 | Hachage bcrypt des mots de passe | Seed des comptes (→ **US-002**) |
 | Logging structuré JSON (succès + échecs) | Changement de mot de passe (US dédiée) |
-| Rate limiting spécifique 20 req/min par IP | Déconnexion (gérée côté client) |
+| Rate limiting spécifique 100 req/min par IP | Déconnexion (gérée côté client) |
 | Gestion complète des erreurs | Authentification WebSocket (US dédiée) |
 | Middlewares `authenticate` et `authorize` (réutilisables) | CRUD des utilisateurs |
 | Tests unitaires et d'intégration (couverture ≥ 90%) | Interface Angular de connexion |
@@ -359,7 +359,7 @@ Le fichier `.env` contient des mots de passe en clair et le secret JWT. Il **ne 
 
 ### Rate limiting par IP sur `/token`
 
-Le rate limiting de 20 req/min est **par adresse IP**, contrairement au rate limiting global de 100 req/min des autres endpoints. Cela permet à plusieurs clients de s'authentifier simultanément (ex : 10 buzzers + 1 admin au démarrage d'une partie) tout en limitant les tentatives de brute force depuis une même IP.
+Le rate limiting de 100 req/min est **par adresse IP**. Cela permet à plusieurs clients de s'authentifier simultanément (ex : 10 buzzers + 1 admin au démarrage d'une partie) tout en limitant les tentatives de brute force depuis une même IP.
 
 ### Middlewares réutilisables (DRY / SOLID)
 
