@@ -50,11 +50,15 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 | # | Critère | Résultat attendu |
 |---|---|---|
-| CA-15 | Récupérer la liste de tous les quiz | `200 OK` avec tableau de quiz (voir format ci-dessous) |
-| CA-16 | Aucun quiz en base | `200 OK` avec `[]` |
+| CA-15 | Récupérer la liste de tous les quiz avec pagination | `200 OK` avec objet `{ data, page, limit, total, total_pages }` |
+| CA-16 | Aucun quiz en base | `200 OK` avec `{ "data": [], "page": 1, "limit": 20, "total": 0, "total_pages": 0 }` |
 | CA-17 | Tri par date de création décroissante (plus récents en premier) | Ordre garanti |
 | CA-18 | Filtrage optionnel par nom (paramètre `?name=...`, recherche insensible à la casse, contient) | Seuls les quiz dont le nom contient la chaîne sont retournés |
 | CA-19 | Chaque quiz retourné contient : `id`, `name`, `created_at`, `last_updated_at` et `question_summary` | `question_summary` : total + décompte par niveau et par type (`MCQ` / `SPEED`) |
+| CA-20 | Paramètres de pagination par défaut : `page=1`, `limit=20` | Appliqués si non fournis |
+| CA-21 | Le paramètre `limit` est plafonné à `100` | `limit=200` → `400 INVALID_PAGINATION` |
+| CA-22 | Paramètres de pagination invalides (négatifs, zéro, non numériques) | `400 INVALID_PAGINATION` |
+| CA-23 | Page au-delà du total | `200 OK` avec `data: []` et métadonnées correctes |
 
 ### Modification complète — `PUT /api/v1/quizzes/:id`
 
@@ -191,26 +195,47 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X POST "$BASE_URL/api/v1/quizzes" \
 
 ### Lecture de la liste — `GET /api/v1/quizzes`
 
-**CA-15** — Lister tous les quiz → `200 OK`
+**CA-15** — Lister tous les quiz avec pagination → `200 OK`
 
 ```bash
 curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/quizzes" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-**CA-16** — Aucun quiz en base → `200 OK` avec `[]`
+**CA-16** — Aucun quiz en base → `200 OK` avec pagination vide
 
 ```bash
 # À exécuter sur une base vide
 curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/quizzes" \
   -H "Authorization: Bearer $TOKEN"
-# Vérifier : réponse "[]"
+# Vérifier : réponse { "data": [], "page": 1, "limit": 20, "total": 0, "total_pages": 0 }
 ```
 
 **CA-18** — Filtrage par nom (contient, insensible à la casse)
 
 ```bash
 curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/quizzes?name=culture" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**CA-20** — Paramètres de pagination par défaut → `200 OK` avec page=1, limit=20
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/quizzes" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**CA-21** — `limit` > 100 → `400 INVALID_PAGINATION`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/quizzes?limit=200" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**CA-23** — Page au-delà du total → `200 OK` avec `data: []`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/quizzes?page=999" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -323,27 +348,33 @@ CREATE TABLE IF NOT EXISTS T_QUIZ_QUESTION_QQN
 );
 ```
 
-### Format JSON — Réponse liste
+### Format JSON — Réponse liste (paginée)
 
 ```json
-[
-  {
-    "id": "018e4f5c-0000-7000-8000-000000000001",
-    "name": "Culture générale saison 1",
-    "created_at": "2026-03-11T10:00:00.000Z",
-    "last_updated_at": null,
-    "question_summary": {
-      "total": 20,
-      "by_level": {
-        "1": { "MCQ": 2, "SPEED": 1 },
-        "2": { "MCQ": 3, "SPEED": 2 },
-        "3": { "MCQ": 5, "SPEED": 3 },
-        "4": { "MCQ": 2, "SPEED": 1 },
-        "5": { "MCQ": 1, "SPEED": 0 }
+{
+  "data": [
+    {
+      "id": "018e4f5c-0000-7000-8000-000000000001",
+      "name": "Culture générale saison 1",
+      "created_at": "2026-03-11T10:00:00.000Z",
+      "last_updated_at": null,
+      "question_summary": {
+        "total": 20,
+        "by_level": {
+          "1": { "MCQ": 2, "SPEED": 1 },
+          "2": { "MCQ": 3, "SPEED": 2 },
+          "3": { "MCQ": 5, "SPEED": 3 },
+          "4": { "MCQ": 2, "SPEED": 1 },
+          "5": { "MCQ": 1, "SPEED": 0 }
+        }
       }
     }
-  }
-]
+  ],
+  "page": 1,
+  "limit": 20,
+  "total": 1,
+  "total_pages": 1
+}
 ```
 
 ### Format JSON — Réponse création / modification
@@ -435,6 +466,7 @@ router.delete('/api/v1/quizzes/:id', authenticate, authorize('admin'), deleteQui
 | `INVALID_BODY` | `400` | `"Request body must be a JSON object."` | Body non parseable |
 | `UNKNOWN_FIELDS` | `400` | `"Unknown field(s): foo."` | Champs non reconnus |
 | `ID_MISMATCH` | `400` | `"The ID in the request body does not match the URL parameter."` | ID body ≠ ID URL |
+| `INVALID_PAGINATION` | `400` | `"Invalid pagination parameters."` | page/limit invalides |
 | `UNAUTHORIZED` | `401` | `"Authentication token is missing or invalid."` | Token absent/expiré/invalide |
 | `FORBIDDEN` | `403` | `"You do not have permission to perform this action."` | Rôle insuffisant |
 | `QUIZ_IN_USE` | `403` | `"Cannot delete this quiz: it is referenced by an active game."` | Quiz utilisé par une partie non terminée |
@@ -454,10 +486,12 @@ router.delete('/api/v1/quizzes/:id', authenticate, authorize('admin'), deleteQui
 | Inclus | Exclu |
 |---|---|
 | CRUD quiz : POST, GET liste, PUT, DELETE | GET quiz par ID (YAGNI) |
-| Validation nom (normalisation, unicité, regex) | Pagination de la liste (YAGNI) |
-| Validation `question_ids` (min 10, doublons, existence) | Interface Angular |
-| Ordre des questions garanti (`QQN_ORDER`) | Gestion des parties (US suivante) |
+| Validation nom (normalisation, unicité, regex) | Interface Angular |
+| Validation `question_ids` (min 10, doublons, existence) | Gestion des parties (US suivante) |
+| Ordre des questions garanti (`QQN_ORDER`) | |
 | Résumé des questions par niveau et type dans la liste | |
+| Pagination de la liste (défaut : page=1, limit=20, max 100) | |
+| Filtrage optionnel par nom | |
 | Garde de suppression : quiz → questions, parties → quiz | |
 | Suppression en cascade de `T_QUIZ_QUESTION_QQN` | |
 | Tests unitaires et d'intégration (couverture ≥ 90%) | |
