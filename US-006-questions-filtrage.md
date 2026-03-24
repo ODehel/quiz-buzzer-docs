@@ -50,7 +50,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 |---|---|---|
 | CA-13 | Toutes les routes sont protégées par un Bearer token | Token absent/invalide/expiré → `401 UNAUTHORIZED` |
 | CA-14 | Seul l'administrateur peut effectuer des opérations | Rôle insuffisant → `403 FORBIDDEN` |
-| CA-15 | Rate limiting : max 100 requêtes par minute | Dépassement → `429 RATE_LIMIT_EXCEEDED` avec header `Retry-After: 30` |
+| CA-15 | Rate limiting : max 100 requêtes par minute | Dépassement → `429 RATE_LIMIT_EXCEEDED` avec header `Retry-After: 60` |
 | CA-16 | Méthode HTTP non supportée sur une ressource | `405 METHOD_NOT_ALLOWED` avec header `Allow` adapté |
 | CA-17 | Erreur serveur inattendue | `500 INTERNAL_SERVER_ERROR` (aucun détail technique exposé) |
 | CA-18 | Tests unitaires et d'intégration | Couverture de tests ≥ 90% |
@@ -180,14 +180,14 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions" \
   -H "Authorization: Bearer $TOKEN_BUZZER"
 ```
 
-**CA-15** — Rate limiting dépassé (> 100 req/min) → `429 RATE_LIMIT_EXCEEDED` avec header `Retry-After: 30`
+**CA-15** — Rate limiting dépassé (> 100 req/min) → `429 RATE_LIMIT_EXCEEDED` avec header `Retry-After: 60`
 
 ```bash
 for i in $(seq 1 101); do
   curl -s -o /dev/null -w "%{http_code}\n" -X GET "$BASE_URL/api/v1/questions" \
     -H "Authorization: Bearer $TOKEN"
 done
-# La 101ème requête doit retourner 429 avec le header Retry-After: 30
+# La 101ème requête doit retourner 429 avec le header Retry-After: 60
 ```
 
 **CA-16** — Méthode HTTP non supportée → `405 METHOD_NOT_ALLOWED` avec header `Allow` adapté
@@ -331,7 +331,7 @@ router.get('/api/v1/questions', authenticate, authorize('admin'), listQuestions)
 | `UNAUTHORIZED` | `401` | `"Authentication token is missing or invalid."` | Token absent/expiré/invalide |
 | `FORBIDDEN` | `403` | `"You do not have permission to perform this action."` | Rôle insuffisant |
 | `METHOD_NOT_ALLOWED` | `405` | `"HTTP method DELETE is not allowed on this resource."` | Méthode non supportée (message dynamique) |
-| `RATE_LIMIT_EXCEEDED` | `429` | `"Too many requests. Please retry in 30 seconds."` | Dépassement rate limit (header `Retry-After: 30`) |
+| `RATE_LIMIT_EXCEEDED` | `429` | `"Too many requests. Please retry in 60 seconds."` | Dépassement rate limit (header `Retry-After: 60`) |
 | `INTERNAL_SERVER_ERROR` | `500` | `"An unexpected error occurred. Please try again later."` | Erreur serveur (aucun détail technique exposé) |
 
 ### Format standard des réponses d'erreur

@@ -7,7 +7,7 @@ flowchart TD
     MW_ROLE --> ROLE_OK{"Rôle\n= admin ?"}
     ROLE_OK -->|"Non"| E403["403 FORBIDDEN"]
     ROLE_OK -->|"Oui"| MW_RL{"> 100 req/min\npar IP ?"}
-    MW_RL -->|"Oui"| E429["429 RATE_LIMIT_EXCEEDED\nRetry-After: 30"]
+    MW_RL -->|"Oui"| E429["429 RATE_LIMIT_EXCEEDED\nRetry-After: 60"]
     MW_RL -->|"Non"| ROUTE{"Méthode + Route"}
     ROUTE -->|"Méthode non supportée"| E405["405 METHOD_NOT_ALLOWED\n+ header Allow adapté"]
     ROUTE -->|"POST /questions"| POST_CT

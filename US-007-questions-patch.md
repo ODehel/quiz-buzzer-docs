@@ -57,7 +57,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 |---|---|---|
 | CA-20 | Toutes les routes sont protégées par un Bearer token | Token absent/invalide/expiré → `401 UNAUTHORIZED` |
 | CA-21 | Seul l'administrateur peut effectuer des opérations | Rôle insuffisant → `403 FORBIDDEN` |
-| CA-22 | Rate limiting : max 100 requêtes par minute | Dépassement → `429 RATE_LIMIT_EXCEEDED` avec header `Retry-After: 30` |
+| CA-22 | Rate limiting : max 100 requêtes par minute | Dépassement → `429 RATE_LIMIT_EXCEEDED` avec header `Retry-After: 60` |
 | CA-23 | Méthode HTTP non supportée sur une ressource | `405 METHOD_NOT_ALLOWED` avec header `Allow: GET, PUT, PATCH, DELETE` |
 | CA-24 | Erreur serveur inattendue | `500 INTERNAL_SERVER_ERROR` (aucun détail technique exposé) |
 | CA-25 | Tests unitaires et d'intégration | Couverture de tests ≥ 90% |
@@ -237,7 +237,7 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/questions/$QUE
   -d '{"level": 2}'
 ```
 
-**CA-22** — Rate limiting dépassé (> 100 req/min) → `429 RATE_LIMIT_EXCEEDED` avec header `Retry-After: 30`
+**CA-22** — Rate limiting dépassé (> 100 req/min) → `429 RATE_LIMIT_EXCEEDED` avec header `Retry-After: 60`
 
 ```bash
 for i in $(seq 1 101); do
@@ -246,7 +246,7 @@ for i in $(seq 1 101); do
     -H "Content-Type: application/json" \
     -d '{"level": 2}'
 done
-# La 101ème requête doit retourner 429 avec le header Retry-After: 30
+# La 101ème requête doit retourner 429 avec le header Retry-After: 60
 ```
 
 **CA-23** — Méthode HTTP non supportée → `405 METHOD_NOT_ALLOWED` avec header `Allow` adapté
@@ -396,7 +396,7 @@ router.patch('/api/v1/questions/:id', authenticate, authorize('admin'), patchQue
 | `METHOD_NOT_ALLOWED` | `405` | _(dynamique)_ | Méthode non supportée (message dynamique) |
 | `QUESTION_ALREADY_EXISTS` | `409` | `"A question with this title already exists."` | Titre en doublon |
 | `UNSUPPORTED_MEDIA_TYPE` | `415` | `"Content-Type must be 'application/json'."` | Content-Type incorrect |
-| `RATE_LIMIT_EXCEEDED` | `429` | `"Too many requests. Please retry in 30 seconds."` | Dépassement rate limit (header `Retry-After: 30`) |
+| `RATE_LIMIT_EXCEEDED` | `429` | `"Too many requests. Please retry in 60 seconds."` | Dépassement rate limit (header `Retry-After: 60`) |
 | `INTERNAL_SERVER_ERROR` | `500` | `"An unexpected error occurred. Please try again later."` | Erreur serveur (aucun détail technique exposé) |
 
 ### Format standard des réponses d'erreur
