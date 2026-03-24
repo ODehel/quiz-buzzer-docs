@@ -134,17 +134,17 @@ CREATE TABLE T_USER_USR
 
 | Username | Rôle | Variable d'environnement du mot de passe |
 |---|---|---|
-| `admin` | `admin` | `ADMIN_PASSWORD` |
-| `quiz_buzzer_01` | `buzzer` | `BUZZER_01_PASSWORD` |
-| `quiz_buzzer_02` | `buzzer` | `BUZZER_02_PASSWORD` |
-| `quiz_buzzer_03` | `buzzer` | `BUZZER_03_PASSWORD` |
-| `quiz_buzzer_04` | `buzzer` | `BUZZER_04_PASSWORD` |
-| `quiz_buzzer_05` | `buzzer` | `BUZZER_05_PASSWORD` |
-| `quiz_buzzer_06` | `buzzer` | `BUZZER_06_PASSWORD` |
-| `quiz_buzzer_07` | `buzzer` | `BUZZER_07_PASSWORD` |
-| `quiz_buzzer_08` | `buzzer` | `BUZZER_08_PASSWORD` |
-| `quiz_buzzer_09` | `buzzer` | `BUZZER_09_PASSWORD` |
-| `quiz_buzzer_10` | `buzzer` | `BUZZER_10_PASSWORD` |
+| `admin` | `admin` | `SEED_PASSWORD_ADMIN` |
+| `quiz_buzzer_01` | `buzzer` | `SEED_PASSWORD_BUZZER_01` |
+| `quiz_buzzer_02` | `buzzer` | `SEED_PASSWORD_BUZZER_02` |
+| `quiz_buzzer_03` | `buzzer` | `SEED_PASSWORD_BUZZER_03` |
+| `quiz_buzzer_04` | `buzzer` | `SEED_PASSWORD_BUZZER_04` |
+| `quiz_buzzer_05` | `buzzer` | `SEED_PASSWORD_BUZZER_05` |
+| `quiz_buzzer_06` | `buzzer` | `SEED_PASSWORD_BUZZER_06` |
+| `quiz_buzzer_07` | `buzzer` | `SEED_PASSWORD_BUZZER_07` |
+| `quiz_buzzer_08` | `buzzer` | `SEED_PASSWORD_BUZZER_08` |
+| `quiz_buzzer_09` | `buzzer` | `SEED_PASSWORD_BUZZER_09` |
+| `quiz_buzzer_10` | `buzzer` | `SEED_PASSWORD_BUZZER_10` |
 
 ### Configuration — Variables d'environnement
 
@@ -152,8 +152,8 @@ CREATE TABLE T_USER_USR
 |---|---|---|---|
 | `JWT_SECRET` | Secret de signature JWT (min 32 caractères) | ✅ Oui | — |
 | `JWT_EXPIRATION` | Durée de validité du token en secondes | Non | `3600` |
-| `ADMIN_PASSWORD` | Mot de passe initial de l'administrateur | ✅ Oui (seed) | — |
-| `BUZZER_01_PASSWORD` à `BUZZER_10_PASSWORD` | Mots de passe initiaux des buzzers | ✅ Oui (seed) | — |
+| `SEED_PASSWORD_ADMIN` | Mot de passe initial de l'administrateur | ✅ Oui (seed) | — |
+| `SEED_PASSWORD_BUZZER_01` à `SEED_PASSWORD_BUZZER_10` | Mots de passe initiaux des buzzers | ✅ Oui (seed) | — |
 
 ### Scripts npm
 
