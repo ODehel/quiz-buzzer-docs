@@ -51,7 +51,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 | CA-8 | Le maître du jeu envoie `trigger_choices` depuis Angular | La partie passe en `QUESTION_OPEN`, le serveur diffuse `question_choices` à tous les buzzers et à Angular, le chronomètre démarre |
 | CA-9 | Le message `question_choices` contient les 4 propositions A/B/C/D, l'horodatage de démarrage du chrono (`started_at`) et la durée (`time_limit`) | Données conformes à la question en base |
 | CA-10 | Le serveur envoie un tick de resynchronisation `timer_tick` toutes les 5 secondes avec le temps restant | Format : `{ "type": "timer_tick", "remaining_seconds": N }` |
-| CA-11 | À expiration du chrono, le serveur envoie automatiquement `timer_end` à tous les buzzers et à Angular | Le message indique que le temps est écoulé — les joueurs n'ayant pas répondu sont enregistrés avec `time_limit` comme temps de réponse |
+| CA-11 | À expiration du chrono, le serveur envoie automatiquement `timer_end` à tous les buzzers et à Angular | **Informatif uniquement** : le message indique que le temps est écoulé et enregistre les joueurs n'ayant pas répondu avec `time_limit` comme temps de réponse. La transition vers `QUESTION_CLOSED` n'est pas automatique — le maître doit envoyer `trigger_correction` |
 | CA-12 | `trigger_choices` reçu alors que l'état n'est pas `QUESTION_TITLE` | Serveur envoie `error` à Angular avec code `INVALID_STATE` |
 
 ### Réponse d'un buzzer — `answer`
@@ -72,7 +72,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 | # | Critère | Résultat attendu |
 |---|---|---|
-| CA-22 | Le maître du jeu envoie `trigger_correction` depuis Angular | Condition : tous les joueurs ont répondu **ou** le chrono est expiré — sinon `error` avec code `ANSWERS_PENDING` |
+| CA-22 | Le maître du jeu envoie `trigger_correction` depuis Angular | **Seul déclencheur** de la transition `QUESTION_OPEN → QUESTION_CLOSED`. Condition : tous les joueurs ont répondu **ou** le chrono est expiré (`timer_end` reçu). Sinon : `error` avec code `ANSWERS_PENDING`. Attendre `timer_end` ne suffit pas — le maître doit explicitement envoyer `trigger_correction` |
 | CA-23 | Le serveur calcule les scores, les persiste en base et diffuse les résultats | Voir section Persistance |
 | CA-24 | Le serveur envoie `question_result` individuellement à chaque buzzer | Contient : la bonne réponse, la réponse du joueur, un indicateur `correct` (booléen), les points gagnés sur la question, le score cumulé du joueur |
 | CA-25 | Le serveur envoie `question_result_summary` à Angular | Contient : la bonne réponse, le détail complet de tous les joueurs (nom, réponse, temps de réponse, points gagnés, score cumulé), le classement mis à jour |
@@ -186,10 +186,12 @@ IN_ERROR  ← depuis tout état en cas d'erreur SQLite après 3 tentatives
 |---|---|---|
 | `OPEN → QUESTION_TITLE` | `trigger_title` (admin) | Questions restantes disponibles |
 | `QUESTION_TITLE → QUESTION_OPEN` | `trigger_choices` (admin) | État = `QUESTION_TITLE` |
-| `QUESTION_OPEN → QUESTION_CLOSED` | `trigger_correction` (admin) | Tous ont répondu **ou** chrono expiré |
+| `QUESTION_OPEN → QUESTION_CLOSED` | `trigger_correction` (admin) | Tous ont répondu **ou** chrono expiré (`timer_end` reçu) — le `trigger_correction` **doit** être envoyé pour effectuer la transition |
 | `QUESTION_CLOSED → OPEN` | `trigger_next_question` (admin) | Questions restantes disponibles |
 | `QUESTION_CLOSED → COMPLETED` | `trigger_next_question` (admin) | Dernière question atteinte |
 | `* → IN_ERROR` | Serveur | Échec SQLite après 3 tentatives |
+
+> ⚠️ **Clarification importante** — `timer_end` est purement **informatif** : il signale au maître que le chrono a expiré, mais **ne déclenche pas automatiquement la transition**. Le maître doit explicitement envoyer `trigger_correction` pour passer à `QUESTION_CLOSED`.
 
 ### Chronomètre — Approche hybride
 
@@ -200,9 +202,13 @@ trigger_choices reçu
        Les clients calculent le temps restant localement pour l'affichage
   → 3. Toutes les 5s : diffusion timer_tick { remaining_seconds }
        Les clients corrigent leur dérive locale
-  → 4a. timer_end déclenché par le serveur à expiration
-  → 4b. OU : trigger_correction reçu avant expiration (tous les joueurs ont répondu)
+  → 4a. À expiration du setTimeout : serveur envoie timer_end (informatif)
+        → Enregistre les joueurs n'ayant pas répondu
+        → ⚠️ La transition vers QUESTION_CLOSED n'est PAS automatique
+  → 4b. trigger_correction reçu (tous les joueurs ont répondu OU timer_end reçu)
+        → Seul déclencheur de la transition QUESTION_OPEN → QUESTION_CLOSED
         → clearInterval + clearTimeout
+        → Calcul + persistance des scores
 ```
 
 ### Traitement atomique des réponses (race condition)
@@ -459,9 +465,13 @@ src/
   → player_answered → Angular
   → Si tous ont répondu → all_answered → Angular
 
-[Serveur] timer_end (expiration) OU [Angular] trigger_correction (tous ont répondu)
-  → Serveur : QUESTION_OPEN → QUESTION_CLOSED
-  → Calcul + persistance des scores (3 tentatives)
+[Serveur] timer_end (expiration) — informatif uniquement
+  → Enregistre les joueurs n'ayant pas répondu
+  → ⚠️ N'entraîne PAS la transition
+
+[Angular] trigger_correction (condition : tous ont répondu OU timer_end reçu)
+  → Seul déclencheur de la transition QUESTION_OPEN → QUESTION_CLOSED
+  → Serveur : calcul + persistance des scores (3 tentatives)
   → question_result → chaque buzzer individuellement
   → question_result_summary → Angular
 
@@ -469,6 +479,17 @@ src/
   → Questions restantes → QUESTION_CLOSED → OPEN
   → Dernière question → QUESTION_CLOSED → COMPLETED
 ```
+
+### Clarification : Rôle de `timer_end` et de `trigger_correction`
+
+> **`timer_end` est purement informatif.** À l'expiration du chronomètre, le serveur envoie `timer_end` à tous les buzzers et à Angular pour signaler que le temps est écoulé et enregistrer les joueurs n'ayant pas répondu. **Cependant, `timer_end` ne déclenche pas automatiquement la transition vers `QUESTION_CLOSED`.**
+>
+> **`trigger_correction` est le seul déclencheur** de la transition `QUESTION_OPEN → QUESTION_CLOSED`. Le maître du jeu doit explicitement envoyer `trigger_correction` pour passer à la correction, même s'il a reçu `timer_end`.
+>
+> Scénarios :
+> - **Cas normal** : Avant expiration, tous les joueurs répondent → serveur envoie `all_answered` → maître envoie `trigger_correction` → transition
+> - **Cas expiration** : Chrono expire → serveur envoie `timer_end` (enregistre les manquants) → maître envoie `trigger_correction` → transition
+> - **Attendre `timer_end` ne suffit pas** : Le serveur n'envoie jamais la transition automatiquement, même après `timer_end`. Le maître doit toujours prendre la décision consciente d'envoyer `trigger_correction`.
 
 ### Réutilisation de l'US-009
 
