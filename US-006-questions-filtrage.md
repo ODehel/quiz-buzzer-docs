@@ -46,13 +46,17 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 ### Sécurité et transversalité
 
+Voir [Annexe — Critères de sécurité transversaux](SECURITE-TRANSVERSALE.md)
+
+Les critères suivants s'appliquent à toutes les routes de cette US :
+
 | # | Critère | Résultat attendu |
 |---|---|---|
-| CA-13 | Toutes les routes sont protégées par un Bearer token | Token absent/invalide/expiré → `401 UNAUTHORIZED` |
-| CA-14 | Seul l'administrateur peut effectuer des opérations | Rôle insuffisant → `403 FORBIDDEN` |
-| CA-15 | Rate limiting : max 100 requêtes par minute | Dépassement → `429 RATE_LIMIT_EXCEEDED` avec header `Retry-After: 60` |
-| CA-16 | Méthode HTTP non supportée sur une ressource | `405 METHOD_NOT_ALLOWED` avec header `Allow` adapté |
-| CA-17 | Erreur serveur inattendue | `500 INTERNAL_SERVER_ERROR` (aucun détail technique exposé) |
+| CA-13 | Bearer token (voir annexe CA-Bearer) | Token absent/invalide/expiré → `401 UNAUTHORIZED` |
+| CA-14 | Rôle administrateur (voir annexe CA-Forbidden) | Rôle insuffisant → `403 FORBIDDEN` |
+| CA-15 | Rate limiting (voir annexe CA-RateLimit) | Dépassement → `429 RATE_LIMIT_EXCEEDED` avec header `Retry-After: 60` |
+| CA-16 | Méthode HTTP (voir annexe CA-MethodNotAllowed) | `405 METHOD_NOT_ALLOWED` avec header `Allow` adapté |
+| CA-17 | Erreur serveur (voir annexe CA-InternalError) | `500 INTERNAL_SERVER_ERROR` sans détails techniques |
 | CA-18 | Tests unitaires et d'intégration | Couverture de tests ≥ 90% |
 
 ---
@@ -167,36 +171,22 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions?level=
 
 ### Sécurité et transversalité
 
-**CA-13** — Token absent → `401 UNAUTHORIZED`
+Voir [Annexe — Critères de sécurité transversaux](SECURITE-TRANSVERSALE.md) pour tous les cas de test de sécurité.
+
+**Exemples rapides contextualisés à cette US** :
 
 ```bash
+# CA-13 — Token absent
 curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions"
-```
+# Attendu : 401 UNAUTHORIZED
 
-**CA-14** — Rôle buzzer → `403 FORBIDDEN`
-
-```bash
+# CA-14 — Rôle insuffisant
 curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/questions" \
   -H "Authorization: Bearer $TOKEN_BUZZER"
+# Attendu : 403 FORBIDDEN
 ```
 
-**CA-15** — Rate limiting dépassé (> 100 req/min) → `429 RATE_LIMIT_EXCEEDED` avec header `Retry-After: 60`
-
-```bash
-for i in $(seq 1 101); do
-  curl -s -o /dev/null -w "%{http_code}\n" -X GET "$BASE_URL/api/v1/questions" \
-    -H "Authorization: Bearer $TOKEN"
-done
-# La 101ème requête doit retourner 429 avec le header Retry-After: 60
-```
-
-**CA-16** — Méthode HTTP non supportée → `405 METHOD_NOT_ALLOWED` avec header `Allow` adapté
-
-```bash
-curl -s -v -w "\n→ HTTP %{http_code}\n" -X DELETE "$BASE_URL/api/v1/questions" \
-  -H "Authorization: Bearer $TOKEN"
-# Vérifier : code 405 et header "Allow: GET, POST"
-```
+Consulter l'annexe pour les autres cas (rate limiting, méthode non supportée, erreur serveur).
 
 ---
 
