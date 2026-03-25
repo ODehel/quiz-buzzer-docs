@@ -520,25 +520,21 @@ router.delete('/api/v1/quizzes/:id', authenticate, authorize('admin'), deleteQui
 
 ## 🚨 Catalogue des erreurs
 
+### Codes standards
+Voir le [Catalogue centralisé des codes d'erreur](error-codes.md#1️⃣-codes-derreur-standards-transversaux)
+
+### Codes spécifiques à cette US
+
 | Code erreur | Code HTTP | Message | Contexte |
 |---|---|---|---|
-| `VALIDATION_ERROR` | `400` | _(dynamique)_ | Nom invalide, moins de 10 questions, doublons |
-| `INVALID_UUID` | `400` | `"The provided ID is not a valid UUID."` | UUID mal formé |
-| `INVALID_BODY` | `400` | `"Request body must be a JSON object."` | Body non parseable |
-| `UNKNOWN_FIELDS` | `400` | `"Unknown field(s): foo."` | Champs non reconnus |
-| `ID_MISMATCH` | `400` | `"The ID in the request body does not match the URL parameter."` | ID body ≠ ID URL |
-| `INVALID_PAGINATION` | `400` | `"Invalid pagination parameters."` | page/limit invalides |
-| `UNAUTHORIZED` | `401` | `"Authentication token is missing or invalid."` | Token absent/expiré/invalide |
-| `FORBIDDEN` | `403` | `"You do not have permission to perform this action."` | Rôle insuffisant |
-| `QUIZ_IN_USE` | `403` | `"Cannot delete this quiz: it is referenced by an active game."` | Quiz utilisé par une partie non terminée |
-| `NOT_FOUND` | `404` | `"The requested quiz was not found."` | Quiz inexistant |
-| `QUESTION_NOT_FOUND` | `404` | `"Question not found: <id>."` | Question référencée inexistante |
-| `METHOD_NOT_ALLOWED` | `405` | _(dynamique)_ | Méthode non supportée |
-| `QUIZ_ALREADY_EXISTS` | `409` | `"A quiz with this name already exists."` | Nom déjà utilisé |
-| `QUESTION_IN_QUIZ` | `409` | `"Cannot delete this question: it belongs to one or more quizzes."` | Question utilisée dans un quiz |
-| `UNSUPPORTED_MEDIA_TYPE` | `415` | `"Content-Type must be 'application/json'."` | Content-Type incorrect |
-| `RATE_LIMIT_EXCEEDED` | `429` | `"Too many requests. Please retry in 60 seconds."` | Rate limit dépassé |
-| `INTERNAL_SERVER_ERROR` | `500` | `"An unexpected error occurred. Please try again later."` | Erreur serveur |
+| `QUIZ_ALREADY_EXISTS` | `409` | `"A quiz with this name already exists."` | Doublon de nom de quiz (comparaison insensible à la casse) |
+| `QUESTION_NOT_FOUND` | `404` | `"Question not found: <id>."` | Question référencée dans le quiz inexistante |
+| `QUESTION_IN_QUIZ` | `409` | `"Cannot delete this question: it belongs to one or more quizzes."` | Suppression d'une question utilisée dans un quiz |
+| `QUIZ_IN_USE` | `403` | `"Cannot delete this quiz: it is referenced by an active game."` | Suppression d'un quiz référencé par une partie active (`PENDING` ou `OPEN`) |
+
+---
+
+**Format standard des réponses d'erreur** — Voir [Format standard des réponses d'erreur](error-codes.md#-format-standard-des-réponses-derreur)
 
 ---
 
