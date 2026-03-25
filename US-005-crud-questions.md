@@ -1120,35 +1120,21 @@ router.delete('/api/v1/questions/:id', authenticate, authorize('admin'), deleteQ
 
 ## 🚨 Catalogue des erreurs
 
+### Codes standards
+Voir le [Catalogue centralisé des codes d'erreur](error-codes.md#1️⃣-codes-derreur-standards-transversaux)
+
+### Codes spécifiques à cette US
+
 | Code erreur | Code HTTP | Message | Contexte |
 |---|---|---|---|
-| `VALIDATION_ERROR` | `400` | _(dynamique selon le cas)_ | Titre manquant/invalide, choices invalides, correct_answer invalide, level/time_limit/points hors plage |
-| `INVALID_UUID` | `400` | `"The provided ID is not a valid UUID."` | ID mal formé dans l'URL ou `theme_id` invalide dans le body |
-| `INVALID_JSON` | `400` | `"Request body must be valid JSON."` | Corps non parseable |
-| `UNKNOWN_FIELDS` | `400` | `"Unknown field(s): foo, bar."` | Champs non reconnus dans le body |
-| `ID_MISMATCH` | `400` | `"The ID in the request body does not match the URL parameter."` | ID body ≠ ID URL |
-| `INVALID_PAGINATION` | `400` | `"Invalid pagination parameters."` | page/limit invalides |
-| `INVALID_THEME` | `400` | `"The provided theme_id does not reference an existing theme."` | theme_id inexistant (POST/PUT) |
-| `TYPE_CHANGE_NOT_ALLOWED` | `400` | `"The question type cannot be changed."` | Tentative de changement de type via PUT |
-| `UNAUTHORIZED` | `401` | `"Authentication token is missing or invalid."` | Token absent/expiré/invalide |
-| `FORBIDDEN` | `403` | `"You do not have permission to perform this action."` | Rôle insuffisant |
-| `NOT_FOUND` | `404` | `"The requested question was not found."` | Ressource inexistante |
-| `METHOD_NOT_ALLOWED` | `405` | _(dynamique : ex. `"HTTP method DELETE is not allowed on this resource."`)_ | Méthode non supportée (message dynamique) |
-| `QUESTION_ALREADY_EXISTS` | `409` | `"A question with this title already exists."` | Doublon de titre |
-| `THEME_HAS_QUESTIONS` | `409` | `"Cannot delete this theme: questions are still associated with it."` | Suppression d'un thème avec questions liées (garde US-004 CA-30) |
-| `UNSUPPORTED_MEDIA_TYPE` | `415` | `"Content-Type must be 'application/json'."` | Content-Type incorrect |
-| `RATE_LIMIT_EXCEEDED` | `429` | `"Too many requests. Please retry in 60 seconds."` | Dépassement rate limit (header `Retry-After: 60`) |
-| `INTERNAL_SERVER_ERROR` | `500` | `"An unexpected error occurred. Please try again later."` | Erreur serveur (aucun détail technique exposé) |
+| `INVALID_THEME` | `400` | `"The provided theme_id does not reference an existing theme."` | Référence de thème inexistant |
+| `TYPE_CHANGE_NOT_ALLOWED` | `400` | `"The question type cannot be changed."` | Tentative de changement de type (MCQ ↔ SPEED) via PUT |
+| `QUESTION_ALREADY_EXISTS` | `409` | `"A question with this title already exists."` | Doublon de titre (comparaison insensible à la casse) |
+| `THEME_HAS_QUESTIONS` | `409` | `"Cannot delete this theme: questions are still associated with it."` | Suppression d'un thème avec questions liées |
 
-### Format standard des réponses d'erreur
+---
 
-```json
-{
-  "status": 400,
-  "error": "VALIDATION_ERROR",
-  "message": "Question title must start with an uppercase letter."
-}
-```
+**Format standard des réponses d'erreur** — Voir [Format standard des réponses d'erreur](error-codes.md#-format-standard-des-réponses-derreur)
 
 ---
 

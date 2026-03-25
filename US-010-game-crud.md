@@ -500,24 +500,21 @@ Les middlewares `authenticate` et `authorize('admin')` existants sont réutilis�
 
 ## 🚨 Catalogue des erreurs
 
+### Codes standards
+Voir le [Catalogue centralisé des codes d'erreur](error-codes.md#1️⃣-codes-derreur-standards-transversaux)
+
+### Codes spécifiques à cette US
+
 | Code erreur | Code HTTP | Message | Contexte |
 |---|---|---|---|
-| `VALIDATION_ERROR` | `400` | _(dynamique)_ | Champ manquant, nom vide, tableau invalide |
-| `INVALID_UUID` | `400` | "The provided ID is not a valid UUID." | UUID mal formé |
-| `INVALID_BODY` | `400` | "Request body must be a JSON object." | Body non parseable |
-| `UNKNOWN_FIELDS` | `400` | "Unknown field(s): foo." | Champs non reconnus |
-| `IMMUTABLE_FIELD` | `400` | "quiz_id cannot be changed after creation." | Tentative de modification du `quiz_id` |
-| `UNAUTHORIZED` | `401` | "Authentication token is missing or invalid." | Token absent/expiré/invalide |
-| `FORBIDDEN` | `403` | "You do not have permission to perform this action." | Rôle insuffisant |
-| `NOT_FOUND` | `404` | "The requested game was not found." | Partie inexistante |
-| `QUIZ_NOT_FOUND` | `404` | "The requested quiz was not found." | Quiz référencé inexistant |
-| `PARTICIPANT_NOT_FOUND` | `404` | "No participant found at order <n> for this game." | Position de participant inexistante |
-| `METHOD_NOT_ALLOWED` | `405` | _(dynamique)_ | Méthode non supportée |
-| `ACTIVE_GAME_EXISTS` | `409` | "A game is already active. Delete it before creating a new one." | Partie active déjà existante |
-| `UNSUPPORTED_MEDIA_TYPE` | `415` | "Content-Type must be 'application/json'." | Content-Type incorrect |
-| `RATE_LIMIT_EXCEEDED` | `429` | "Too many requests. Please retry in 60 seconds." | Rate limit dépassé |
-| `INVALID_TRANSITION` | `422` | "Cannot transition from <current> to <target>." | Transition de statut interdite |
-| `INTERNAL_SERVER_ERROR` | `500` | "An unexpected error occurred. Please try again later." | Erreur serveur |
+| `QUIZ_NOT_FOUND` | `404` | `"The requested quiz was not found."` | Quiz référencé inexistant |
+| `ACTIVE_GAME_EXISTS` | `409` | `"A game is already active. Delete it before creating a new one."` | Création impossible : une partie active (`PENDING` ou `OPEN`) existe déjà |
+| `PARTICIPANT_NOT_FOUND` | `404` | `"No participant found at order <n> for this game."` | Position de participant inexistante (PATCH) |
+| `INVALID_TRANSITION` | `422` | `"Cannot transition from <current> to <target>."` | Transition de statut interdite par la machine à états |
+
+---
+
+**Format standard des réponses d'erreur** — Voir [Format standard des réponses d'erreur](error-codes.md#-format-standard-des-réponses-derreur)
 
 ---
 

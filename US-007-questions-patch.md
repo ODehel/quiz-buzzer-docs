@@ -382,32 +382,16 @@ router.patch('/api/v1/questions/:id', authenticate, authorize('admin'), patchQue
 
 ## 🚨 Catalogue des erreurs
 
-| Code erreur | Code HTTP | Message | Contexte |
-|---|---|---|---|
-| `VALIDATION_ERROR` | `400` | _(dynamique selon le cas)_ | Champ obligatoire à null, `choices` invalides, `correct_answer` invalide, chaîne vide pour `image_path`/`audio_path` |
-| `INVALID_UUID` | `400` | `"The provided ID is not a valid UUID."` | ID mal formé dans l'URL |
-| `INVALID_JSON` | `400` | `"Request body must be valid JSON."` | Corps non parseable |
-| `UNKNOWN_FIELDS` | `400` | `"Unknown field(s): foo."` | Champs non reconnus dans le body (dont `id`) |
-| `INVALID_THEME` | `400` | `"The provided theme_id does not reference an existing theme."` | `theme_id` inexistant en base |
-| `TYPE_CHANGE_NOT_ALLOWED` | `400` | `"The question type cannot be changed."` | `type` présent dans le body |
-| `UNAUTHORIZED` | `401` | `"Authentication token is missing or invalid."` | Token absent/expiré/invalide |
-| `FORBIDDEN` | `403` | `"You do not have permission to perform this action."` | Rôle insuffisant |
-| `NOT_FOUND` | `404` | `"The requested question was not found."` | Question inexistante |
-| `METHOD_NOT_ALLOWED` | `405` | _(dynamique)_ | Méthode non supportée (message dynamique) |
-| `QUESTION_ALREADY_EXISTS` | `409` | `"A question with this title already exists."` | Titre en doublon |
-| `UNSUPPORTED_MEDIA_TYPE` | `415` | `"Content-Type must be 'application/json'."` | Content-Type incorrect |
-| `RATE_LIMIT_EXCEEDED` | `429` | `"Too many requests. Please retry in 60 seconds."` | Dépassement rate limit (header `Retry-After: 60`) |
-| `INTERNAL_SERVER_ERROR` | `500` | `"An unexpected error occurred. Please try again later."` | Erreur serveur (aucun détail technique exposé) |
+### Codes standards
+Voir le [Catalogue centralisé des codes d'erreur](error-codes.md#1️⃣-codes-derreur-standards-transversaux)
 
-### Format standard des réponses d'erreur
+### Codes spécifiques à cette US
 
-```json
-{
-  "status": 400,
-  "error": "TYPE_CHANGE_NOT_ALLOWED",
-  "message": "The question type cannot be changed."
-}
-```
+Voir le [Catalogue — Questions (US-005 & US-006)](error-codes.md#questions-us-005--us-006)
+
+---
+
+**Format standard des réponses d'erreur** — Voir [Format standard des réponses d'erreur](error-codes.md#-format-standard-des-réponses-derreur)
 
 ---
 

@@ -325,24 +325,18 @@ router.get('/api/v1/questions', authenticate, authorize('admin'), listQuestions)
 
 ## 🚨 Catalogue des erreurs
 
+### Codes standards
+Voir le [Catalogue centralisé des codes d'erreur](error-codes.md#1️⃣-codes-derreur-standards-transversaux)
+
+### Codes spécifiques à cette US
+
 | Code erreur | Code HTTP | Message | Contexte |
 |---|---|---|---|
 | `INVALID_FILTER` | `400` | `"Invalid filter parameters."` | Filtres invalides (type inconnu, UUID mal formé, thème inexistant, plage incohérente, conflit exact/plage) |
-| `UNAUTHORIZED` | `401` | `"Authentication token is missing or invalid."` | Token absent/expiré/invalide |
-| `FORBIDDEN` | `403` | `"You do not have permission to perform this action."` | Rôle insuffisant |
-| `METHOD_NOT_ALLOWED` | `405` | `"HTTP method DELETE is not allowed on this resource."` | Méthode non supportée (message dynamique) |
-| `RATE_LIMIT_EXCEEDED` | `429` | `"Too many requests. Please retry in 60 seconds."` | Dépassement rate limit (header `Retry-After: 60`) |
-| `INTERNAL_SERVER_ERROR` | `500` | `"An unexpected error occurred. Please try again later."` | Erreur serveur (aucun détail technique exposé) |
 
-### Format standard des réponses d'erreur
+---
 
-```json
-{
-  "status": 400,
-  "error": "INVALID_FILTER",
-  "message": "Invalid filter parameters."
-}
-```
+**Format standard des réponses d'erreur** — Voir [Format standard des réponses d'erreur](error-codes.md#-format-standard-des-réponses-derreur)
 
 ---
 

@@ -515,33 +515,19 @@ router.delete('/api/v1/themes/:id', authenticate, authorize('admin'), deleteThem
 
 ## 🚨 Catalogue des erreurs
 
+### Codes standards
+Voir le [Catalogue centralisé des codes d'erreur](error-codes.md#1️⃣-codes-derreur-standards-transversaux)
+
+### Codes spécifiques à cette US
+
 | Code erreur | Code HTTP | Message | Contexte |
 |---|---|---|---|
-| `VALIDATION_ERROR` | `400` | _(dynamique selon le cas)_ | Nom manquant, vide, trop court/long, format invalide |
-| `INVALID_UUID` | `400` | `"The provided ID is not a valid UUID."` | ID mal formé dans l'URL |
-| `INVALID_JSON` | `400` | `"Request body must be valid JSON."` | Corps non parseable |
-| `UNKNOWN_FIELDS` | `400` | `"Unknown field(s): foo, bar."` | Champs non reconnus dans le body |
-| `ID_MISMATCH` | `400` | `"The ID in the request body does not match the URL parameter."` | ID body ≠ ID URL |
-| `INVALID_PAGINATION` | `400` | `"Invalid pagination parameters."` | page/limit invalides |
-| `UNAUTHORIZED` | `401` | `"Authentication token is missing or invalid."` | Token absent/expiré/invalide |
-| `FORBIDDEN` | `403` | `"You do not have permission to perform this action."` | Rôle insuffisant |
-| `NOT_FOUND` | `404` | `"The requested theme was not found."` | Ressource inexistante |
-| `METHOD_NOT_ALLOWED` | `405` | `"HTTP method PATCH is not allowed on this resource."` | Méthode non supportée (message dynamique) |
-| `THEME_ALREADY_EXISTS` | `409` | `"A theme with this name already exists."` | Doublon de nom |
-| `THEME_HAS_QUESTIONS` | `409` | `"Cannot delete this theme: questions are still associated with it."` | Suppression avec dépendances |
-| `UNSUPPORTED_MEDIA_TYPE` | `415` | `"Content-Type must be 'application/json'."` | Content-Type incorrect |
-| `RATE_LIMIT_EXCEEDED` | `429` | `"Too many requests. Please retry in 60 seconds."` | Dépassement rate limit (header `Retry-After: 60`) |
-| `INTERNAL_SERVER_ERROR` | `500` | `"An unexpected error occurred. Please try again later."` | Erreur serveur (aucun détail technique exposé) |
+| `THEME_ALREADY_EXISTS` | `409` | `"A theme with this name already exists."` | Doublon de nom (comparaison insensible à la casse) |
+| `THEME_HAS_QUESTIONS` | `409` | `"Cannot delete this theme: questions are still associated with it."` | Suppression d'un thème avec questions liées |
 
-### Format standard des réponses d'erreur
+---
 
-```json
-{
-  "status": 400,
-  "error": "VALIDATION_ERROR",
-  "message": "Theme name must start with an uppercase letter."
-}
-```
+**Format standard des réponses d'erreur** — Voir [Format standard des réponses d'erreur](error-codes.md#-format-standard-des-réponses-derreur)
 
 ---
 

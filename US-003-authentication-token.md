@@ -284,27 +284,18 @@ Le token émis par cet endpoint est utilisé dans deux contextes :
 
 ## 🚨 Catalogue des erreurs
 
+### Codes standards
+Voir le [Catalogue centralisé des codes d'erreur](error-codes.md#1️⃣-codes-derreur-standards-transversaux)
+
+### Codes spécifiques à cette US
+
 | Code erreur | Code HTTP | Message | Contexte |
 |---|---|---|---|
-| `VALIDATION_ERROR` | `400` | _(dynamique selon le cas)_ | Champs username/password manquants ou vides |
-| `INVALID_JSON` | `400` | "Request body must be valid JSON." | Corps non parseable |
-| `INVALID_BODY` | `400` | "Request body must be a JSON object." | Le corps de la requête est du JSON valide mais n'est pas un objet (ex : tableau, null, primitive) |
-| `UNKNOWN_FIELDS` | `400` | "Unknown field(s): foo, bar." | Champs non reconnus dans le body |
-| `INVALID_CREDENTIALS` | `401` | "Invalid credentials." | Username ou password incorrect (message générique) |
-| `METHOD_NOT_ALLOWED` | `405` | "HTTP method GET is not allowed on this resource." | Méthode non supportée (message dynamique) |
-| `UNSUPPORTED_MEDIA_TYPE` | `415` | "Content-Type must be 'application/json'." | Content-Type incorrect |
-| `RATE_LIMIT_EXCEEDED` | `429` | "Too many requests. Please retry in 60 seconds." | Dépassement rate limit (header `Retry-After: 60`) |
-| `INTERNAL_SERVER_ERROR` | `500` | "An unexpected error occurred. Please try again later." | Erreur serveur (aucun détail technique exposé) |
+| `INVALID_CREDENTIALS` | `401` | `"Invalid credentials."` | Username ou password incorrect (message générique) |
 
-### Format standard des réponses d'erreur
+---
 
-```json
-{
-  "status": 401,
-  "error": "INVALID_CREDENTIALS",
-  "message": "Invalid credentials."
-}
-```
+**Format standard des réponses d'erreur** — Voir [Format standard des réponses d'erreur](error-codes.md#-format-standard-des-réponses-derreur)
 
 ---
 
