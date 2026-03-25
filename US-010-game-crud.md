@@ -388,20 +388,21 @@ Cette US introduit deux nouvelles tables dans `src/database/database.js` :
 ```sql
 CREATE TABLE IF NOT EXISTS T_GAME_GAM
 (
-    GAM_ID         TEXT PRIMARY KEY,
-    GAM_QUIZ_ID    TEXT NOT NULL REFERENCES T_QUIZ_QUZ (QUZ_ID),
-    GAM_STATUS     TEXT NOT NULL DEFAULT 'PENDING'
-                       CHECK (GAM_STATUS IN (
-                           'PENDING',
-                           'OPEN',
-                           'QUESTION_TITLE',
-                           'QUESTION_OPEN',
-                           'QUESTION_BUZZED',
-                           'QUESTION_CLOSED',
-                           'COMPLETED',
-                           'IN_ERROR'
-                       )),
-    GAM_CREATED_AT TEXT NOT NULL
+    GAM_ID                      TEXT PRIMARY KEY,
+    GAM_QUIZ_ID                 TEXT NOT NULL REFERENCES T_QUIZ_QUZ (QUZ_ID),
+    GAM_STATUS                  TEXT NOT NULL DEFAULT 'PENDING'
+                                    CHECK (GAM_STATUS IN (
+                                        'PENDING',
+                                        'OPEN',
+                                        'QUESTION_TITLE',
+                                        'QUESTION_OPEN',
+                                        'QUESTION_BUZZED',
+                                        'QUESTION_CLOSED',
+                                        'COMPLETED',
+                                        'IN_ERROR'
+                                    )),
+    GAM_CURRENT_QUESTION_INDEX  INTEGER NOT NULL DEFAULT 0,
+    GAM_CREATED_AT              TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS T_GAME_PARTICIPANT_GPA
@@ -565,6 +566,19 @@ En définissant le CHECK **complètement dès US-010** avec tous les états pré
 #### État des transitions
 
 Les états supplémentaires (`QUESTION_TITLE`, `QUESTION_OPEN`, etc.) resteront **inutilisés en US-010** — aucune transition vers eux n'est possible. Ils seront **progressivement activés** (rendus atteignables via des transitions) dans les US suivantes (US-011, US-012).
+
+### Colonne `GAM_CURRENT_QUESTION_INDEX` — Initialisation préventive
+
+La colonne `GAM_CURRENT_QUESTION_INDEX` est ajoutée dès cette US-010 avec une valeur par défaut de `0`, bien qu'elle ne soit utilisée que dans l'US-011 (gestion du flux des questions MCQ).
+
+#### Justification
+
+SQLite ne supporte pas la modification de contraintes `DEFAULT` sur colonnes existantes. Ajouter cette colonne dès l'US-010 évite une migration ultérieure destructive lors de l'implémentation de l'US-011. Cette stratégie pragmatique :
+- Évite une recréation de table lors de US-011
+- Initialise un état connu et prévisible (`0`)
+- Respecte le principe de migration sûre et non-destructive
+
+Les transitions utilisant cette colonne seront **progressivement activées** dans l'US-011.
 
 ### Unicité de la partie active
 
