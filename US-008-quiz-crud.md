@@ -111,13 +111,17 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 ### Sécurité et transversalité
 
+Voir [Annexe — Critères de sécurité transversaux](SECURITE-TRANSVERSALE.md)
+
+Les critères suivants s'appliquent à toutes les routes de cette US :
+
 | # | Critère | Résultat attendu |
 |---|---|---|
-| CA-38 | Toutes les routes sont protégées par un Bearer token | Token absent/invalide/expiré → `401 UNAUTHORIZED` |
-| CA-39 | Seul l'administrateur peut effectuer des opérations | Rôle insuffisant → `403 FORBIDDEN` |
-| CA-40 | Rate limiting : max 100 requêtes par minute par IP | Dépassement → `429 RATE_LIMIT_EXCEEDED` avec header `Retry-After: 60` |
-| CA-41 | Méthode HTTP non supportée | `405 METHOD_NOT_ALLOWED` avec header `Allow` adapté |
-| CA-42 | Erreur serveur inattendue | `500 INTERNAL_SERVER_ERROR` (aucun détail technique exposé) |
+| CA-38 | Bearer token (voir annexe CA-Bearer) | Token absent/invalide/expiré → `401 UNAUTHORIZED` |
+| CA-39 | Rôle administrateur (voir annexe CA-Forbidden) | Rôle insuffisant → `403 FORBIDDEN` |
+| CA-40 | Rate limiting (voir annexe CA-RateLimit) | Dépassement → `429 RATE_LIMIT_EXCEEDED` avec header `Retry-After: 60` |
+| CA-41 | Méthode HTTP (voir annexe CA-MethodNotAllowed) | `405 METHOD_NOT_ALLOWED` avec header `Allow` adapté |
+| CA-42 | Erreur serveur (voir annexe CA-InternalError) | `500 INTERNAL_SERVER_ERROR` sans détails techniques |
 | CA-43 | Tests unitaires et d'intégration | Couverture ≥ 90% |
 
 ---
@@ -328,26 +332,22 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X DELETE "$BASE_URL/api/v1/questions/$Q1
 
 ### Sécurité et transversalité
 
-**CA-38** — Token absent → `401 UNAUTHORIZED`
+Voir [Annexe — Critères de sécurité transversaux](SECURITE-TRANSVERSALE.md) pour tous les cas de test de sécurité.
+
+**Exemples rapides contextualisés à cette US** :
 
 ```bash
+# CA-38 — Token absent
 curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/quizzes"
-```
+# Attendu : 401 UNAUTHORIZED
 
-**CA-39** — Rôle buzzer → `403 FORBIDDEN`
-
-```bash
+# CA-39 — Rôle insuffisant
 curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/quizzes" \
   -H "Authorization: Bearer $TOKEN_BUZZER"
+# Attendu : 403 FORBIDDEN
 ```
 
-**CA-41** — Méthode non supportée → `405 METHOD_NOT_ALLOWED`
-
-```bash
-curl -s -v -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/quizzes" \
-  -H "Authorization: Bearer $TOKEN"
-# Vérifier : 405 et header "Allow: GET, POST"
-```
+Consulter l'annexe pour les autres cas (rate limiting, méthode non supportée, erreur serveur).
 
 ---
 

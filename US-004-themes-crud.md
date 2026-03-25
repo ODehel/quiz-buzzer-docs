@@ -88,13 +88,17 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 ### Sécurité et transversalité
 
+Voir [Annexe — Critères de sécurité transversaux](SECURITE-TRANSVERSALE.md)
+
+Les critères suivants s'appliquent à toutes les routes de cette US :
+
 | # | Critère | Résultat attendu |
 |---|---|---|
-| CA-32 | Toutes les routes sont protégées par un Bearer token | Token absent/invalide/expiré → `401 UNAUTHORIZED` |
-| CA-33 | Seul l'administrateur peut effectuer des opérations | Rôle insuffisant → `403 FORBIDDEN` |
-| CA-34 | Rate limiting : max 100 requêtes par minute | Dépassement → `429 RATE_LIMIT_EXCEEDED` avec header `Retry-After: 60` |
-| CA-35 | Méthode HTTP non supportée sur une ressource | `405 METHOD_NOT_ALLOWED` avec header `Allow` adapté à la ressource |
-| CA-36 | Erreur serveur inattendue | `500 INTERNAL_SERVER_ERROR` (aucun détail technique exposé) |
+| CA-32 | Bearer token (voir annexe CA-Bearer) | Token absent/invalide/expiré → `401 UNAUTHORIZED` |
+| CA-33 | Rôle administrateur (voir annexe CA-Forbidden) | Rôle insuffisant → `403 FORBIDDEN` |
+| CA-34 | Rate limiting (voir annexe CA-RateLimit) | Dépassement → `429 RATE_LIMIT_EXCEEDED` avec header `Retry-After: 60` |
+| CA-35 | Méthode HTTP (voir annexe CA-MethodNotAllowed) | `405 METHOD_NOT_ALLOWED` avec header `Allow` adapté |
+| CA-36 | Erreur serveur (voir annexe CA-InternalError) | `500 INTERNAL_SERVER_ERROR` sans détails techniques |
 | CA-37 | Tests unitaires et d'intégration | Couverture de tests ≥ 90% |
 
 ---
@@ -304,36 +308,24 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X DELETE "$BASE_URL/api/v1/themes/$THEME
 
 ### Sécurité et transversalité
 
-**CA-32** — Token absent → `401 UNAUTHORIZED`
+Voir [Annexe — Critères de sécurité transversaux](SECURITE-TRANSVERSALE.md) pour tous les cas de test de sécurité (CA-Bearer, CA-Forbidden, CA-RateLimit, CA-MethodNotAllowed, CA-InternalError).
+
+**Exemple rapide — CA-32 Token absent** :
 
 ```bash
 curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/themes"
+# Attendu : 401 UNAUTHORIZED
 ```
 
-**CA-33** — Rôle buzzer → `403 FORBIDDEN`
+**Exemple rapide — CA-33 Rôle insuffisant** :
 
 ```bash
 curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/themes" \
   -H "Authorization: Bearer $TOKEN_BUZZER"
+# Attendu : 403 FORBIDDEN
 ```
 
-**CA-34** — Rate limiting dépassé (> 100 req/min) → `429 RATE_LIMIT_EXCEEDED` avec header `Retry-After: 60`
-
-```bash
-for i in $(seq 1 101); do
-  curl -s -o /dev/null -w "%{http_code}\n" -X GET "$BASE_URL/api/v1/themes" \
-    -H "Authorization: Bearer $TOKEN"
-done
-# La 101ème requête doit retourner 429 avec le header Retry-After: 60
-```
-
-**CA-35** — Méthode HTTP non supportée → `405 METHOD_NOT_ALLOWED` avec header `Allow` adapté
-
-```bash
-curl -s -v -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/themes" \
-  -H "Authorization: Bearer $TOKEN"
-# Vérifier : code 405 et header "Allow: GET, POST"
-```
+Consulter l'annexe pour les autres cas (rate limiting, méthode non supportée, erreur serveur).
 
 ---
 
@@ -565,7 +557,7 @@ L'UUIDv7 et le `created_at` étant tous deux générés côté Node.js, il est r
 
 ### Sécurité des erreurs 500
 
-Les erreurs internes ne doivent jamais exposer de détails techniques (stack trace, message SQL, etc.) dans la réponse API. Ces informations doivent être consignées uniquement dans les logs serveur.
+Voir [Annexe — Critères de sécurité transversaux — CA-InternalError](SECURITE-TRANSVERSALE.md#erreurs-serveur-500-internal_server_error). Les erreurs internes ne doivent jamais exposer de détails techniques dans la réponse API.
 
 ### Middlewares réutilisables (DRY / SOLID)
 
