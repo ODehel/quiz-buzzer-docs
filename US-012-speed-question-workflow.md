@@ -93,7 +93,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 | # | Critère | Résultat attendu |
 |---|---|---|
-| CA-30 | Le serveur envoie `question_result` individuellement à chaque buzzer | Gagnant : `correct: true`, points gagnés, score cumulé — Invalidés : `correct: false`, `points_earned: 0`, score cumulé inchangé — Non buzzés : `correct: false`, `points_earned: 0`, score cumulé inchangé |
+| CA-30 | Le serveur envoie `question_result` individuellement à chaque buzzer | Gagnant : `correct_answer`, `correct: true`, points gagnés, score cumulé — Invalidés : `correct_answer`, `correct: false`, `points_earned: 0`, score cumulé inchangé — Non buzzés : `correct_answer`, `correct: false`, `points_earned: 0`, score cumulé inchangé |
 | CA-31 | Le serveur envoie `question_result_summary` à Angular | Contient : le gagnant (ou `null`), le détail de tous les joueurs ayant buzzé (nom, temps de réponse, statut validé/invalidé, points gagnés, score cumulé), le classement mis à jour |
 
 ### Passage à la question suivante — `trigger_next_question`
@@ -280,6 +280,7 @@ Gagnant :
 ```json
 {
   "type": "question_result",
+  "correct_answer": "Paris",
   "correct": true,
   "points_earned": 20,
   "cumulative_score": 55
@@ -290,6 +291,7 @@ Invalidé ou non buzzé :
 ```json
 {
   "type": "question_result",
+  "correct_answer": "Paris",
   "correct": false,
   "points_earned": 0,
   "cumulative_score": 35
