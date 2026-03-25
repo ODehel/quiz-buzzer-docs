@@ -134,22 +134,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 ### Extension du schéma de la table `T_GAME_GAM`
 
-La contrainte `CHECK` sur `GAM_STATUS` est étendue pour intégrer `QUESTION_BUZZED` :
-
-```sql
--- La migration doit recréer T_GAME_GAM avec la contrainte étendue (SQLite ne supporte pas ALTER COLUMN)
--- Nouveaux états autorisés (s'ajoutent à ceux définis dans US-011) :
-CHECK (GAM_STATUS IN (
-    'PENDING',
-    'OPEN',
-    'QUESTION_TITLE',
-    'QUESTION_OPEN',
-    'QUESTION_BUZZED',
-    'QUESTION_CLOSED',
-    'COMPLETED',
-    'IN_ERROR'
-))
-```
+Aucune modification de la table `T_GAME_GAM` n'est requise dans cette US. La contrainte `CHECK` sur `GAM_STATUS` a été définie complètement lors de l'US-010, incluant déjà tous les états (`PENDING`, `OPEN`, `QUESTION_TITLE`, `QUESTION_OPEN`, `QUESTION_BUZZED`, `QUESTION_CLOSED`, `COMPLETED`, `IN_ERROR`).
 
 > **Note :** `QUESTION_TITLE` reste dans la contrainte pour compatibilité avec les questions MCQ (US-011). Il n'est jamais utilisé par les questions SPEED.
 
@@ -483,7 +468,7 @@ En MCQ, une ligne est insérée pour chaque participant. En SPEED, une seule lig
 
 ### Extension de la contrainte CHECK sur `GAM_STATUS`
 
-Comme pour US-011, SQLite ne supporte pas `ALTER COLUMN`. La migration doit recréer `T_GAME_GAM` avec la contrainte `CHECK` étendue (ajout de `QUESTION_BUZZED`), migrer les données existantes, puis supprimer l'ancienne table — dans une transaction atomique.
+Aucune migration n'est requise pour étendre la contrainte `CHECK`. Le CHECK a été défini complètement lors de l'US-010 et inclut déjà `QUESTION_BUZZED`. Cette approche pragmatique évite les recréations destructives de table lors des migrations successives (SQLite ne supporte pas `ALTER COLUMN`).
 
 ### Réutilisation du registre de connexions (US-009)
 

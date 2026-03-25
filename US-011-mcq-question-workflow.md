@@ -142,23 +142,13 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 ### Extension du schéma de la table `T_GAME_GAM`
 
-Deux colonnes sont ajoutées à la table existante `T_GAME_GAM` (définie dans l'US-010) :
+Une colonne est ajoutée à la table existante `T_GAME_GAM` (définie dans l'US-010) :
 
 ```sql
 ALTER TABLE T_GAME_GAM ADD COLUMN GAM_CURRENT_QUESTION_INDEX INTEGER NOT NULL DEFAULT 0;
-ALTER TABLE T_GAME_GAM ADD COLUMN GAM_STATUS TEXT NOT NULL DEFAULT 'PENDING'
-    CHECK (GAM_STATUS IN (
-        'PENDING',
-        'OPEN',
-        'QUESTION_TITLE',
-        'QUESTION_OPEN',
-        'QUESTION_CLOSED',
-        'COMPLETED',
-        'IN_ERROR'
-    ));
 ```
 
-> **Note :** La contrainte `CHECK` sur `GAM_STATUS` est étendue pour intégrer les nouveaux états. La migration doit recréer la table avec la nouvelle contrainte (SQLite ne supporte pas `ALTER COLUMN`).
+> **Note :** La contrainte `CHECK` sur `GAM_STATUS` a été définie complètement lors de l'US-010 (incluant `QUESTION_TITLE`, `QUESTION_OPEN`, `QUESTION_CLOSED`, `QUESTION_BUZZED`) pour éviter les recréations destructives de table lors des migrations successives (SQLite ne supporte pas `ALTER COLUMN`). Aucune modification du CHECK n'est effectuée dans cette US.
 
 ### Nouvelle table — Résultats par question
 
