@@ -40,6 +40,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 | CA-7 | Il ne peut exister qu'une seule partie active (`PENDING` ou `OPEN`) à la fois | Si une partie active existe → `409 ACTIVE_GAME_EXISTS` |
 | CA-8 | `participants` doit être un tableau de 1 à 10 éléments | Tableau vide ou plus de 10 éléments → `400 VALIDATION_ERROR` |
 | CA-9 | Chaque nom de participant est une chaîne non vide d'au maximum 50 caractères | Sinon → `400 VALIDATION_ERROR` |
+| CA-9a | Chaque nom de participant doit être unique au sein d'une partie | Sinon → `400 VALIDATION_ERROR` avec message "Participant name "X" is not unique." |
 | CA-10 | Les participants sont insérés dans `T_GAME_PARTICIPANT_GPA` avec leur ordre (1-based) | Garanti par la colonne `GPA_ORDER` |
 | CA-11 | Le body ne doit contenir que les champs `quiz_id` et `participants` | Champs inconnus → `400 UNKNOWN_FIELDS` |
 | CA-12 | Le `Content-Type` doit être `application/json` | Sinon → `415 UNSUPPORTED_MEDIA_TYPE` |
@@ -76,7 +77,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 | CA-28 | Toute transition vers `IN_ERROR` via PUT est interdite | `422 INVALID_TRANSITION` |
 | CA-29 | Toute transition depuis `IN_ERROR` est interdite | `422 INVALID_TRANSITION` |
 | CA-30 | Modification des participants : le tableau remplace entièrement la liste existante | L'ordre et les noms reflètent exactement le nouveau tableau |
-| CA-31 | Règles de validation sur `participants` identiques à la création (CA-8, CA-9) | Mêmes codes d'erreur |
+| CA-31 | Règles de validation sur `participants` identiques à la création (CA-8, CA-9, CA-9a) | Mêmes codes d'erreur |
 | CA-32 | Le body ne doit contenir que les champs `quiz_id` (optionnel), `status` (optionnel) et `participants` (optionnel) | Champs inconnus → `400 UNKNOWN_FIELDS` |
 | CA-33 | ID inexistant dans l'URL | `404 NOT_FOUND` |
 | CA-34 | ID mal formé dans l'URL | `400 INVALID_UUID` |
@@ -90,7 +91,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 | CA-37 | Modifier un ou plusieurs participants individuellement via `{ "participants": [{ "order": 2, "name": "Nouveau nom" }] }` | `200 OK` avec la partie mise à jour |
 | CA-38 | `order` doit correspondre à un participant existant dans la partie | Sinon → `404 PARTICIPANT_NOT_FOUND` |
 | CA-39 | `order` doit être un entier entre 1 et 10 | Sinon → `400 VALIDATION_ERROR` |
-| CA-40 | Le nom modifié respecte les mêmes règles que la création (non vide, max 50 chars) | Sinon → `400 VALIDATION_ERROR` |
+| CA-40 | Le nom modifié respecte les mêmes règles que la création (non vide, max 50 chars, unicité au sein de la partie) | Sinon → `400 VALIDATION_ERROR` |
 | CA-41 | `quiz_id` est immuable — s'il est présent dans le body, il doit correspondre à l'ID en base | Sinon → `400 IMMUTABLE_FIELD` |
 | CA-42 | Les mêmes règles de transition de statut s'appliquent (CA-25 à CA-29) | Mêmes codes d'erreur |
 | CA-43 | Le body ne doit contenir que les champs `quiz_id` (optionnel), `status` (optionnel) et `participants` (optionnel) | Champs inconnus → `400 UNKNOWN_FIELDS` |
@@ -400,7 +401,8 @@ CREATE TABLE IF NOT EXISTS T_GAME_PARTICIPANT_GPA
     GPA_GAME_ID TEXT    NOT NULL REFERENCES T_GAME_GAM (GAM_ID) ON DELETE CASCADE,
     GPA_NAME    TEXT    NOT NULL,
     GPA_ORDER   INTEGER NOT NULL CHECK (GPA_ORDER BETWEEN 1 AND 10),
-    PRIMARY KEY (GPA_GAME_ID, GPA_ORDER)
+    PRIMARY KEY (GPA_GAME_ID, GPA_ORDER),
+    UNIQUE (GPA_GAME_ID, GPA_NAME)
 );
 ```
 
