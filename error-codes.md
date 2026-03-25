@@ -82,6 +82,14 @@ Codes communs à **toutes les US**, appliquées globalement par le serveur :
 
 ---
 
+#### **Resultats de partie (US-013)**
+
+| Code erreur | Code HTTP | Message | Contexte |
+|---|---|---|---|
+| `GAME_NOT_COMPLETED` | `409` | `"Results are only available for completed games."` | Tentative de consulter les resultats d'une partie non terminee |
+
+---
+
 #### **Workflows & WebSocket (US-009, US-011, US-012)**
 
 > Codes spécifiques aux workflows MCQ/SPEED et WebSocket.
@@ -224,6 +232,7 @@ Pour une vue d'ensemble rapide, voici tous les codes documentés :
 | `QUESTION_IN_QUIZ` | 409 | US-008 | Quiz |
 | `ACTIVE_GAME_EXISTS` | 409 | US-010 | Game |
 | `INVALID_TRANSITION` | 422 | US-010 | Game |
+| `GAME_NOT_COMPLETED` | 409 | US-013 | Game Results |
 | `INTERNAL_SERVER_ERROR` | 500 | Toutes | Standard |
 
 ---
