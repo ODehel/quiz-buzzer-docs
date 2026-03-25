@@ -218,6 +218,9 @@ Toute la codebase de **tous les projets** (serveur Node.js, Angular, firmware ES
 | US-008 | CRUD des quiz | ✅ Documentée |
 | US-009 | Connexion WebSocket des buzzers et de l'application Angular | ✅ Documentée |
 | US-010 | CRUD des parties | ✅ Documentée |
+| US-011 | Workflow d'une question MCQ | ✅ Documentée |
+| US-012 | Workflow d'une question SPEED | ✅ Documentée |
+| US-013 | Consultation des resultats d'une partie | ✅ Documentée |
 
 ---
 
