@@ -60,6 +60,18 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 | CA-22 | Paramètres de pagination invalides (négatifs, zéro, non numériques) | `400 INVALID_PAGINATION` |
 | CA-23 | Page au-delà du total | `200 OK` avec `data: []` et métadonnées correctes |
 
+### Lecture par ID — `GET /api/v1/quizzes/:id`
+
+> 🔄 **Ajout ultérieur** — Initialement exclu par YAGNI (US-008), cet endpoint est nécessaire pour :
+> - Valider l'existence du quiz lors de la création d'une partie (US-010)
+> - Récupérer les questions ordonnées pour l'affichage du quiz au maître du jeu (US-011)
+
+| # | Critère | Résultat attendu |
+|---|---|---|
+| CA-24 | Récupérer un quiz par son ID | `200 OK` avec le quiz complet (id, name, question_ids ordonnées, created_at, last_updated_at) |
+| CA-25 | ID inexistant | `404 NOT_FOUND` |
+| CA-26 | ID mal formé | `400 INVALID_UUID` |
+
 ### Modification complète — `PUT /api/v1/quizzes/:id`
 
 | # | Critère | Résultat attendu |
@@ -239,6 +251,29 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/quizzes?page=999
   -H "Authorization: Bearer $TOKEN"
 ```
 
+### Lecture par ID — `GET /api/v1/quizzes/:id`
+
+**CA-24** — Récupérer un quiz avec toutes ses questions → `200 OK`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/quizzes/$QUIZ_ID" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**CA-25** — ID inexistant → `404 NOT_FOUND`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/quizzes/018e4f5a-0000-0000-0000-000000000000" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**CA-26** — ID mal formé → `400 INVALID_UUID`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/quizzes/pas-un-uuid" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
 ### Modification — `PUT /api/v1/quizzes/:id`
 
 **CA-20** — Modifier nom et questions → `200 OK`
@@ -389,6 +424,29 @@ CREATE TABLE IF NOT EXISTS T_QUIZ_QUESTION_QQN
 }
 ```
 
+### Format JSON — Réponse GET par ID
+
+```json
+{
+  "id": "018e4f5c-0000-7000-8000-000000000001",
+  "name": "Culture générale saison 1",
+  "question_ids": [
+    "018e4f5a-0001-7000-8000-000000000001",
+    "018e4f5a-0002-7000-8000-000000000002",
+    "018e4f5a-0003-7000-8000-000000000003",
+    "018e4f5a-0004-7000-8000-000000000004",
+    "018e4f5a-0005-7000-8000-000000000005",
+    "018e4f5a-0006-7000-8000-000000000006",
+    "018e4f5a-0007-7000-8000-000000000007",
+    "018e4f5a-0008-7000-8000-000000000008",
+    "018e4f5a-0009-7000-8000-000000000009",
+    "018e4f5a-0010-7000-8000-000000000010"
+  ],
+  "created_at": "2026-03-11T10:00:00.000Z",
+  "last_updated_at": null
+}
+```
+
 ---
 
 ## 📡 Endpoints
@@ -397,6 +455,7 @@ CREATE TABLE IF NOT EXISTS T_QUIZ_QUESTION_QQN
 |---|---|---|---|---|
 | `POST` | `/api/v1/quizzes` | Créer un quiz | Bearer (admin) | `201 Created` |
 | `GET` | `/api/v1/quizzes` | Lister les quiz | Bearer (admin) | `200 OK` |
+| `GET` | `/api/v1/quizzes/:id` | Récupérer un quiz par ID | Bearer (admin) | `200 OK` |
 | `PUT` | `/api/v1/quizzes/:id` | Modifier entièrement un quiz | Bearer (admin) | `200 OK` |
 | `DELETE` | `/api/v1/quizzes/:id` | Supprimer un quiz | Bearer (admin) | `204 No Content` |
 
@@ -405,7 +464,7 @@ CREATE TABLE IF NOT EXISTS T_QUIZ_QUESTION_QQN
 | URL | Méthodes autorisées |
 |---|---|
 | `/api/v1/quizzes` | `GET, POST` |
-| `/api/v1/quizzes/:id` | `PUT, DELETE` |
+| `/api/v1/quizzes/:id` | `GET, PUT, DELETE` |
 
 ---
 
@@ -485,13 +544,14 @@ router.delete('/api/v1/quizzes/:id', authenticate, authorize('admin'), deleteQui
 
 | Inclus | Exclu |
 |---|---|
-| CRUD quiz : POST, GET liste, PUT, DELETE | GET quiz par ID (YAGNI) |
-| Validation nom (normalisation, unicité, regex) | Interface Angular |
-| Validation `question_ids` (min 10, doublons, existence) | Gestion des parties (US suivante) |
+| CRUD quiz : POST, GET liste, GET par ID, PUT, DELETE | Interface Angular |
+| Validation nom (normalisation, unicité, regex) | Gestion des parties (US suivante) |
+| Validation `question_ids` (min 10, doublons, existence) | |
 | Ordre des questions garanti (`QQN_ORDER`) | |
 | Résumé des questions par niveau et type dans la liste | |
 | Pagination de la liste (défaut : page=1, limit=20, max 100) | |
 | Filtrage optionnel par nom | |
+| Récupération complète du quiz avec ses questions ordonnées (GET par ID) | |
 | Garde de suppression : quiz → questions, parties → quiz | |
 | Suppression en cascade de `T_QUIZ_QUESTION_QQN` | |
 | Tests unitaires et d'intégration (couverture ≥ 90%) | |
