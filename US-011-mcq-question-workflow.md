@@ -540,10 +540,6 @@ Le serveur Node.js est mono-thread mais la boucle d'événements peut traiter un
 
 La sauvegarde des scores en fin de question implique plusieurs écritures en base (`T_GAME_ANSWER_GAA` + `T_GAME_GAM`). Ces écritures doivent être effectuées dans une **transaction SQLite atomique**. En cas d'échec, la transaction est rollbackée avant le retry suivant.
 
-### Extension de la contrainte CHECK sur GAM_STATUS
-
-SQLite ne supporte pas `ALTER COLUMN`. La migration doit recréer `T_GAME_GAM` avec la nouvelle contrainte `CHECK` étendue, migrer les données existantes, puis supprimer l'ancienne table. Cette opération doit être effectuée dans une transaction atomique.
-
 ### Buzzers non connectés en cours de partie
 
 Un participant dont le buzzer n'est plus connecté (déconnexion définitive après 3 tentatives, définie dans l'US-009) est traité comme n'ayant pas répondu : `answer: null`, `time_ms: time_limit * 1000`, `points_earned: 0`. Son absence ne bloque pas le déclenchement de la correction — le maître du jeu peut toujours déclencher `trigger_correction` dès que le chrono expire ou que les joueurs connectés ont tous répondu.
