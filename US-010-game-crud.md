@@ -538,16 +538,36 @@ Les middlewares `authenticate` et `authorize('admin')` existants sont réutilis�
 
 ## 🔍 Points de vigilance
 
-### Définition anticipée du CHECK sur `GAM_STATUS`
+### Définition anticipée du CHECK sur `GAM_STATUS` — Éviter les recréations destructives
 
 Le CHECK sur `GAM_STATUS` inclut dès l'US-010 **tous les états documentés** dans les US suivantes (`QUESTION_TITLE`, `QUESTION_OPEN`, `QUESTION_BUZZED`, `QUESTION_CLOSED`), bien que cette US n'utilise que `PENDING`, `OPEN`, `COMPLETED`, `IN_ERROR`.
 
-Cette approche pragmatique:
-- **Évite deux recréations successives de table** lors des migrations US-011 et US-012 (SQLite ne supporte pas `ALTER COLUMN`, obligeant à recréer)
-- **Respecte YAGNI** car les états sont déjà documentés et définis dans le plan global
-- **Facilite l'évolution future** sans briser la continuité des données
+#### Justification
 
-Les états supplémentaires resteront inutilisés en US-010 (aucune transition vers eux) et seront progressivement adoptés dans les US suivantes.
+**SQLite limitation** : SQLite ne supporte pas `ALTER COLUMN` ni la modification de contraintes `CHECK` existantes. Toute modification obligerait à :
+1. Créer une table temporaire avec la nouvelle définition
+2. Copier les données existantes
+3. Supprimer l'ancienne table
+4. Renommer la temporaire
+
+Cette opération est destructive, complexe et sujette aux erreurs en production.
+
+#### Solution pragmatique
+
+En définissant le CHECK **complètement dès US-010** avec tous les états prévus, les US suivantes (US-011, US-012) peuvent :
+- Ajouter des colonnes via `ALTER TABLE ADD COLUMN` (opération simple et safe)
+- Utiliser les états définis sans modifier le CHECK
+- Éviter toute recréation de table
+
+#### Respect des principes SOLID
+
+- **Évite deux recréations successives de table** lors des migrations US-011 et US-012
+- **Respecte YAGNI** : les états sont déjà documentés et nécessaires dans le plan global, ce n'est pas une généralisation prématurée
+- **Facilite l'évolution future** sans risque de dérive de données
+
+#### État des transitions
+
+Les états supplémentaires (`QUESTION_TITLE`, `QUESTION_OPEN`, etc.) resteront **inutilisés en US-010** — aucune transition vers eux n'est possible. Ils seront **progressivement activés** (rendus atteignables via des transitions) dans les US suivantes (US-011, US-012).
 
 ### Unicité de la partie active
 

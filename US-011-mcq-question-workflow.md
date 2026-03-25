@@ -142,13 +142,25 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 ### Extension du schéma de la table `T_GAME_GAM`
 
+#### Ajout de la colonne `GAM_CURRENT_QUESTION_INDEX`
+
 Une colonne est ajoutée à la table existante `T_GAME_GAM` (définie dans l'US-010) :
 
 ```sql
 ALTER TABLE T_GAME_GAM ADD COLUMN GAM_CURRENT_QUESTION_INDEX INTEGER NOT NULL DEFAULT 0;
 ```
 
-> **Note :** La contrainte `CHECK` sur `GAM_STATUS` a été définie complètement lors de l'US-010 (incluant `QUESTION_TITLE`, `QUESTION_OPEN`, `QUESTION_CLOSED`, `QUESTION_BUZZED`) pour éviter les recréations destructives de table lors des migrations successives (SQLite ne supporte pas `ALTER COLUMN`). Aucune modification du CHECK n'est effectuée dans cette US.
+#### Contrainte CHECK — Pas de modification requise
+
+> ⚠️ **Clarification importante** — **Aucune modification du CHECK sur `GAM_STATUS` n'est effectuée en US-011.**
+>
+> **Raison pragmatique :** La contrainte `CHECK (GAM_STATUS IN (...))` a été définie **intégralement lors de l'US-010** en incluant tous les états documentés, y compris les nouveaux états MCQ (`QUESTION_TITLE`, `QUESTION_OPEN`, `QUESTION_CLOSED`, `QUESTION_BUZZED`). Cette approche anticipée **évite une recréation destructive de table en US-011**.
+>
+> **Pourquoi c'est nécessaire :** SQLite ne supporte pas `ALTER COLUMN` et interdit la modification de contraintes `CHECK` existantes via `ALTER TABLE`. La seule solution serait de recréer intégralement `T_GAME_GAM`, migrer les données, puis supprimer l'ancienne table — une opération destructive et complexe. En définissant le CHECK complètement dès l'origine, on évite ce problème lors des migrations ultérieures.
+>
+> **En US-010**, le CHECK inclut donc : `'PENDING'`, `'OPEN'`, `'QUESTION_TITLE'`, `'QUESTION_OPEN'`, `'QUESTION_BUZZED'`, `'QUESTION_CLOSED'`, `'COMPLETED'`, `'IN_ERROR'`.
+>
+> **En US-011**, on ajoute simplement la colonne `GAM_CURRENT_QUESTION_INDEX` — le CHECK reste inchangé et fonctionnel pour les nouveaux états.
 
 ### Nouvelle table — Résultats par question
 
