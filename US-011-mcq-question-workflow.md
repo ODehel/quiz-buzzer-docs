@@ -544,6 +544,8 @@ Un participant dont le buzzer n'est plus connecté (déconnexion définitive apr
 
 Le registre de connexions et les mécanismes d'authentification WebSocket définis dans l'US-009 sont réutilisés tels quels. Aucune logique d'authentification n'est dupliquée dans cette US. La vérification du rôle (`admin` vs `buzzer`) est effectuée via une consultation du registre existant.
 
-### Dépendance d'implémentation avec US-010
+### Dépendance d'implémentation avec US-010 et clarification de la garde `QUIZ_IN_USE`
 
-La garde `QUIZ_IN_USE` de l'US-008 (CA-31) — qui empêche la suppression d'un quiz référencé par une partie active — doit être **activée** avant l'implémentation de cette US-011, car une partie en cours utilisera désormais des états intermédiaires (`QUESTION_TITLE`, `QUESTION_OPEN`, `QUESTION_CLOSED`) qui constituent également une partie "active".
+La garde `QUIZ_IN_USE` de l'US-008 (CA-31) — qui empêche la suppression d'un quiz référencé par une partie active — est **définie en US-008** mais **activée (implémentée) en US-010**.
+
+Cette US-011 étend les états d'une partie active aux états intermédiaires (`QUESTION_TITLE`, `QUESTION_OPEN`, `QUESTION_CLOSED`). La garde s'applique désormais à tous ces états également, sans changement d'implémentation requis en US-011 : le contrôle en US-010 vérifiera l'existence de parties avec `GAM_STATUS NOT IN ('COMPLETED', 'IN_ERROR')`, ce qui englobera automatiquement les nouveaux états de US-011.
