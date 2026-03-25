@@ -31,7 +31,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 | # | Critère | Résultat attendu |
 |---|---|---|
-| CA-1 | Créer une partie avec un `quiz_id` valide et une liste valide de participants | `201 Created` sans body |
+| CA-1 | Créer une partie avec un `quiz_id` valide et une liste valide de participants | `201 Created` avec la partie créée (`id`, `quiz_id`, `status`, `created_at`, `participants`) |
 | CA-2 | Le statut initial de la partie est `PENDING` | Garanti côté serveur, non fourni par le client |
 | CA-3 | L'ID de la partie est un UUIDv7 généré côté Node.js | Format UUID standard (8-4-4-4-12), version 7 |
 | CA-4 | L'horodatage `created_at` est en ISO 8601 UTC (millisecondes), généré côté Node.js | Exemple : "2026-03-14T10:00:00.000Z" |
@@ -413,6 +413,22 @@ CREATE TABLE IF NOT EXISTS T_GAME_PARTICIPANT_GPA
     PRIMARY KEY (GPA_GAME_ID, GPA_ORDER),
     UNIQUE (GPA_GAME_ID, GPA_NAME)
 );
+```
+
+### Format JSON — Réponse POST (création)
+
+```json
+{
+  "id": "018e4f5d-0000-7000-8000-000000000001",
+  "quiz_id": "018e4f5c-0000-7000-8000-000000000001",
+  "status": "PENDING",
+  "created_at": "2026-03-14T10:00:00.000Z",
+  "participants": [
+    { "order": 1, "name": "Alice" },
+    { "order": 2, "name": "Bob" },
+    { "order": 3, "name": "Charlie" }
+  ]
+}
 ```
 
 ### Format JSON — Réponse GET (liste et par ID)
