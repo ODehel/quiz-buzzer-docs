@@ -109,6 +109,14 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 | CA-50 | ID mal formé | `400 INVALID_UUID` |
 | CA-51 | Un body éventuel est ignoré silencieusement | Aucune erreur |
 
+### Garde de suppression des quiz — Implémentation de la protection `QUIZ_IN_USE`
+
+> ⚠️ **Activation de la garde définie en US-008** — Le CA-31 de l'US-008 définit la garde `QUIZ_IN_USE` qui empêche la suppression d'un quiz référencé par une partie active. Cette US-010, qui introduit les parties et leurs états `PENDING` et `OPEN`, doit **activer cette garde** côté implémentation pour que le CA-31 de l'US-008 soit effectif.
+
+| # | Critère | Résultat attendu |
+|---|---|---|
+| CA-51 | La garde `QUIZ_IN_USE` (US-008 CA-31) est activée : suppression d'un quiz avec `DELETE /api/v1/quizzes/:id` échoue si la partie est en état `PENDING` ou `OPEN` | `403 FORBIDDEN` avec code `QUIZ_IN_USE` (voir détail en US-008 CA-31) |
+
 ### Sécurité et transversalité
 
 | # | Critère | Résultat attendu |
@@ -520,9 +528,10 @@ Les middlewares `authenticate` et `authorize('admin')` existants sont réutilis�
 | Création d'une partie avec participants | Démarrage automatique via WebSocket (US suivante) |
 | Lecture liste et par ID | Scores et réponses par participant (US suivantes) |
 | Modification complète (PUT) et partielle (PATCH) | Notifications WebSocket lors des transitions (US suivantes) |
-| Suppression avec cascade | Activation de la garde `QUIZ_IN_USE` (US-008 CA-31, US suivante) |
-| Machine à états avec transitions gardées | Interface Angular |
+| Suppression avec cascade | Interface Angular |
+| Machine à états avec transitions gardées | |
 | Statut `IN_ERROR` réservé au serveur | |
+| **Activation de la garde `QUIZ_IN_USE`** (définie en US-008 CA-31) — implémentation côté application pour vérifier qu'un quiz ne peut pas être supprimé si une partie active (`PENDING` ou `OPEN`) le référence | |
 | Tests unitaires et d'intégration (couverture ≥ 90%) | |
 
 ---
@@ -570,6 +579,21 @@ Toute opération impliquant `T_GAME_GAM` et `T_GAME_PARTICIPANT_GPA` simultaném
 
 `T_GAME_PARTICIPANT_GPA` déclare `ON DELETE CASCADE` sur `GPA_GAME_ID`. La suppression d'une partie entraîne automatiquement la suppression de tous ses participants, sans action supplémentaire côté application.
 
+### Activation de la garde `QUIZ_IN_USE`
+
+La garde définie dans l'US-008 CA-31 doit être activée par cette US-010. Lors de l'implémentation du handler `DELETE /api/v1/quizzes/:id` en US-008, un contrôle doit vérifier l'existence d'une partie active (état `PENDING` ou `OPEN`) :
+
+```sql
+SELECT COUNT(*) FROM T_GAME_GAM
+WHERE GAM_QUIZ_ID = ?
+  AND GAM_STATUS IN ('PENDING', 'OPEN')
+```
+
+- Si le résultat > 0 → `403 FORBIDDEN` avec code `QUIZ_IN_USE` (voir message exact en US-008 CA-31)
+- Si le résultat = 0 → suppression autorisée
+
+> **Timing** : Bien que définie en US-008, cette vérification n'est fonctionnelle qu'après US-010 car la table `T_GAME_GAM` n'existe pas avant.
+
 ### Ordre d'implémentation recommandé
 
 > 1. Étendre le schéma : ajouter `T_GAME_GAM` et `T_GAME_PARTICIPANT_GPA` dans `src/database/database.js`
@@ -577,6 +601,7 @@ Toute opération impliquant `T_GAME_GAM` et `T_GAME_PARTICIPANT_GPA` simultaném
 > 3. Créer `src/services/gameService.js`
 > 4. Créer `src/routes/gameRoute.js` (collection + resource handlers)
 > 5. Brancher les handlers dans `src/index.js`
+> 6. **Activer la garde `QUIZ_IN_USE` en US-008** : ajouter le contrôle dans le handler `DELETE /api/v1/quizzes/:id` pour vérifier les parties actives
 
 ---
 

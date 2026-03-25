@@ -88,6 +88,8 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 ### Suppression — `DELETE /api/v1/quizzes/:id`
 
+> ⚠️ **Garde d'intégrité avec parties actives** — Les CA-31 et CA-32 définissent une règle métier : un quiz ne peut être supprimé que s'il n'est pas associé à une partie active (`PENDING` ou `OPEN`). Cette vérification dépend de la création de la table `T_GAME_GAM` en **US-010**. Le contrôle `QUIZ_IN_USE` doit être implémenté lors d'US-010.
+
 | # | Critère | Résultat attendu |
 |---|---|---|
 | CA-29 | Supprimer un quiz non référencé par une partie active | `204 No Content` sans body |
