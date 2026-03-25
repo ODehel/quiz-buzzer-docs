@@ -1058,6 +1058,8 @@ Base URL : /api/v1
 | `/api/v1/questions` | `GET, POST` |
 | `/api/v1/questions/:id` | `GET, PUT, PATCH, DELETE` |
 
+> **Note :** Le header `Allow` pour `/api/v1/questions/:id` inclut `PATCH`, mais la méthode `PATCH` est implémentée dans **[US-007](US-007-questions-patch.md)**. Si cette US est livrée seule, seules les méthodes `GET`, `PUT`, `DELETE` sont disponibles.
+
 ### Paramètres de pagination — `GET /api/v1/questions`
 
 | Paramètre | Type | Description |
