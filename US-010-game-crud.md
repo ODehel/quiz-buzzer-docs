@@ -115,7 +115,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 | # | Critère | Résultat attendu |
 |---|---|---|
-| CA-51 | La garde `QUIZ_IN_USE` (US-008 CA-31) est activée : suppression d'un quiz avec `DELETE /api/v1/quizzes/:id` échoue si la partie est en état `PENDING` ou `OPEN` | `403 FORBIDDEN` avec code `QUIZ_IN_USE` (voir détail en US-008 CA-31) |
+| CA-52 | La garde `QUIZ_IN_USE` (US-008 CA-31) est activée : suppression d'un quiz avec `DELETE /api/v1/quizzes/:id` échoue si la partie est en état `PENDING` ou `OPEN` | `403 FORBIDDEN` avec code `QUIZ_IN_USE` (voir détail en US-008 CA-31) |
 
 ### Sécurité et transversalité
 
@@ -125,12 +125,12 @@ Les critères suivants s'appliquent à toutes les routes de cette US :
 
 | # | Critère | Résultat attendu |
 |---|---|---|
-| CA-52 | Bearer token (voir annexe CA-Bearer) | Token absent/invalide/expiré → `401 UNAUTHORIZED` |
-| CA-53 | Rôle administrateur (voir annexe CA-Forbidden) | Rôle insuffisant → `403 FORBIDDEN` |
-| CA-54 | Rate limiting (voir annexe CA-RateLimit) | Dépassement → `429 RATE_LIMIT_EXCEEDED` avec header `Retry-After: 60` |
-| CA-55 | Méthode HTTP (voir annexe CA-MethodNotAllowed) | `405 METHOD_NOT_ALLOWED` avec header `Allow` adapté |
-| CA-56 | Erreur serveur (voir annexe CA-InternalError) | `500 INTERNAL_SERVER_ERROR` sans détails techniques |
-| CA-57 | Tests unitaires et d'intégration | Couverture ≥ 90% |
+| CA-53 | Bearer token (voir annexe CA-Bearer) | Token absent/invalide/expiré → `401 UNAUTHORIZED` |
+| CA-54 | Rôle administrateur (voir annexe CA-Forbidden) | Rôle insuffisant → `403 FORBIDDEN` |
+| CA-55 | Rate limiting (voir annexe CA-RateLimit) | Dépassement → `429 RATE_LIMIT_EXCEEDED` avec header `Retry-After: 60` |
+| CA-56 | Méthode HTTP (voir annexe CA-MethodNotAllowed) | `405 METHOD_NOT_ALLOWED` avec header `Allow` adapté |
+| CA-57 | Erreur serveur (voir annexe CA-InternalError) | `500 INTERNAL_SERVER_ERROR` sans détails techniques |
+| CA-58 | Tests unitaires et d'intégration | Couverture ≥ 90% |
 
 ---
 
@@ -175,7 +175,7 @@ PENDING ──► OPEN ──► COMPLETED          IN_ERROR (statut final)
 > ```bash
 > BASE_URL=http://localhost:3000
 > TOKEN=<votre_token_JWT_admin>       # Obtenu via POST /api/v1/token (US-003)
-> TOKEN_BUZZER=<token_JWT_buzzer>     # Token avec rôle buzzer (pour CA-53)
+> TOKEN_BUZZER=<token_JWT_buzzer>     # Token avec rôle buzzer (pour CA-54)
 > QUIZ_ID=<uuid_quiz_existant>        # UUID d'un quiz créé via US-008
 > GAME_ID=<uuid_partie_créée>         # Renseigné après CA-1
 > ```
@@ -353,11 +353,11 @@ Voir [Annexe — Critères de sécurité transversaux](SECURITE-TRANSVERSALE.md)
 **Exemples rapides contextualisés à cette US** :
 
 ```bash
-# CA-52 — Token absent
+# CA-53 — Token absent
 curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/games"
 # Attendu : 401 UNAUTHORIZED
 
-# CA-53 — Rôle insuffisant
+# CA-54 — Rôle insuffisant
 curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/games" \
   -H "Authorization: Bearer $TOKEN_BUZZER"
 # Attendu : 403 FORBIDDEN
