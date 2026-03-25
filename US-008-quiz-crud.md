@@ -76,29 +76,29 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 | # | Critère | Résultat attendu |
 |---|---|---|
-| CA-20 | Modifier un quiz avec un nom valide et une liste valide de questions | `200 OK` avec le quiz mis à jour, `last_updated_at` mis à jour |
-| CA-21 | Modifier le nom seul (sans changer les questions) est autorisé | `200 OK` |
-| CA-22 | Toutes les règles de validation du POST s'appliquent (nom, question_ids, doublons, UUID, existence) | Mêmes codes d'erreur |
-| CA-23 | La liste de questions remplace entièrement l'ancienne liste | L'ordre et le contenu reflètent exactement le nouveau tableau `question_ids` |
-| CA-24 | Si les données envoyées sont identiques à l'existant | `200 OK` avec le quiz inchangé, `last_updated_at` **non modifié** |
-| CA-25 | L'ID peut être présent dans le body ; s'il l'est, il doit correspondre à l'URL | Sinon → `400 ID_MISMATCH` |
-| CA-26 | ID inexistant dans l'URL | `404 NOT_FOUND` |
-| CA-27 | ID mal formé dans l'URL | `400 INVALID_UUID` |
-| CA-28 | Le `Content-Type` doit être `application/json` | Sinon → `415 UNSUPPORTED_MEDIA_TYPE` |
+| CA-27 | Modifier un quiz avec un nom valide et une liste valide de questions | `200 OK` avec le quiz mis à jour, `last_updated_at` mis à jour |
+| CA-28 | Modifier le nom seul (sans changer les questions) est autorisé | `200 OK` |
+| CA-29 | Toutes les règles de validation du POST s'appliquent (nom, question_ids, doublons, UUID, existence) | Mêmes codes d'erreur |
+| CA-30 | La liste de questions remplace entièrement l'ancienne liste | L'ordre et le contenu reflètent exactement le nouveau tableau `question_ids` |
+| CA-31 | Si les données envoyées sont identiques à l'existant | `200 OK` avec le quiz inchangé, `last_updated_at` **non modifié** |
+| CA-32 | L'ID peut être présent dans le body ; s'il l'est, il doit correspondre à l'URL | Sinon → `400 ID_MISMATCH` |
+| CA-33 | ID inexistant dans l'URL | `404 NOT_FOUND` |
+| CA-34 | ID mal formé dans l'URL | `400 INVALID_UUID` |
+| CA-35 | Le `Content-Type` doit être `application/json` | Sinon → `415 UNSUPPORTED_MEDIA_TYPE` |
 
 ### Suppression — `DELETE /api/v1/quizzes/:id`
 
-> ⚠️ **Garde d'intégrité avec parties actives** — Les CA-31 et CA-32 définissent une règle métier : un quiz ne peut être supprimé que s'il n'est pas associé à une partie active (`PENDING` ou `OPEN`). Cette vérification dépend de la création de la table `T_GAME_GAM` en **US-010**. Le contrôle `QUIZ_IN_USE` doit être implémenté lors d'US-010.
+> ⚠️ **Garde d'intégrité avec parties actives** — Les CA-38 et CA-39 définissent une règle métier : un quiz ne peut être supprimé que s'il n'est pas associé à une partie active (`PENDING` ou `OPEN`). Cette vérification dépend de la création de la table `T_GAME_GAM` en **US-010**. Le contrôle `QUIZ_IN_USE` doit être implémenté lors d'US-010.
 
 | # | Critère | Résultat attendu |
 |---|---|---|
-| CA-29 | Supprimer un quiz non référencé par une partie active | `204 No Content` sans body |
-| CA-30 | La suppression efface en cascade les entrées dans `T_QUIZ_QUESTION_QQN` | Les liaisons quiz-questions sont supprimées |
-| CA-31 | Supprimer un quiz référencé par une partie dont l'état n'est pas `COMPLETED` | `403 FORBIDDEN` avec code `QUIZ_IN_USE` |
-| CA-32 | Supprimer un quiz référencé uniquement par des parties en état `COMPLETED` | `204 No Content` (la partie est terminée, le quiz peut être supprimé) |
-| CA-33 | ID inexistant | `404 NOT_FOUND` |
-| CA-34 | ID mal formé | `400 INVALID_UUID` |
-| CA-35 | Un body éventuel est ignoré silencieusement | Aucune erreur |
+| CA-36 | Supprimer un quiz non référencé par une partie active | `204 No Content` sans body |
+| CA-37 | La suppression efface en cascade les entrées dans `T_QUIZ_QUESTION_QQN` | Les liaisons quiz-questions sont supprimées |
+| CA-38 | Supprimer un quiz référencé par une partie dont l'état n'est pas `COMPLETED` | `403 FORBIDDEN` avec code `QUIZ_IN_USE` |
+| CA-39 | Supprimer un quiz référencé uniquement par des parties en état `COMPLETED` | `204 No Content` (la partie est terminée, le quiz peut être supprimé) |
+| CA-40 | ID inexistant | `404 NOT_FOUND` |
+| CA-41 | ID mal formé | `400 INVALID_UUID` |
+| CA-42 | Un body éventuel est ignoré silencieusement | Aucune erreur |
 
 ### Garde de suppression des questions (implémentation transversale — dépend de US-005)
 
@@ -106,8 +106,8 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 | # | Critère | Résultat attendu |
 |---|---|---|
-| CA-36 | Suppression d'une question appartenant à au moins un quiz | `409 QUESTION_IN_QUIZ` avec message `"Cannot delete this question: it belongs to one or more quizzes."` |
-| CA-37 | Suppression d'une question n'appartenant à aucun quiz | `204 No Content` (comportement inchangé, US-005) |
+| CA-43 | Suppression d'une question appartenant à au moins un quiz | `409 QUESTION_IN_QUIZ` avec message `"Cannot delete this question: it belongs to one or more quizzes."` |
+| CA-44 | Suppression d'une question n'appartenant à aucun quiz | `204 No Content` (comportement inchangé, US-005) |
 
 ### Sécurité et transversalité
 
@@ -117,12 +117,12 @@ Les critères suivants s'appliquent à toutes les routes de cette US :
 
 | # | Critère | Résultat attendu |
 |---|---|---|
-| CA-38 | Bearer token (voir annexe CA-Bearer) | Token absent/invalide/expiré → `401 UNAUTHORIZED` |
-| CA-39 | Rôle administrateur (voir annexe CA-Forbidden) | Rôle insuffisant → `403 FORBIDDEN` |
-| CA-40 | Rate limiting (voir annexe CA-RateLimit) | Dépassement → `429 RATE_LIMIT_EXCEEDED` avec header `Retry-After: 60` |
-| CA-41 | Méthode HTTP (voir annexe CA-MethodNotAllowed) | `405 METHOD_NOT_ALLOWED` avec header `Allow` adapté |
-| CA-42 | Erreur serveur (voir annexe CA-InternalError) | `500 INTERNAL_SERVER_ERROR` sans détails techniques |
-| CA-43 | Tests unitaires et d'intégration | Couverture ≥ 90% |
+| CA-45 | Bearer token (voir annexe CA-Bearer) | Token absent/invalide/expiré → `401 UNAUTHORIZED` |
+| CA-46 | Rôle administrateur (voir annexe CA-Forbidden) | Rôle insuffisant → `403 FORBIDDEN` |
+| CA-47 | Rate limiting (voir annexe CA-RateLimit) | Dépassement → `429 RATE_LIMIT_EXCEEDED` avec header `Retry-After: 60` |
+| CA-48 | Méthode HTTP (voir annexe CA-MethodNotAllowed) | `405 METHOD_NOT_ALLOWED` avec header `Allow` adapté |
+| CA-49 | Erreur serveur (voir annexe CA-InternalError) | `500 INTERNAL_SERVER_ERROR` sans détails techniques |
+| CA-50 | Tests unitaires et d'intégration | Couverture ≥ 90% |
 
 ---
 
@@ -282,7 +282,7 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/quizzes/pas-un-u
 
 ### Modification — `PUT /api/v1/quizzes/:id`
 
-**CA-20** — Modifier nom et questions → `200 OK`
+**CA-27** — Modifier nom et questions → `200 OK`
 
 ```bash
 curl -s -w "\n→ HTTP %{http_code}\n" -X PUT "$BASE_URL/api/v1/quizzes/$QUIZ_ID" \
@@ -295,7 +295,7 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X PUT "$BASE_URL/api/v1/quizzes/$QUIZ_ID
   }'
 ```
 
-**CA-25** — ID dans le body ne correspond pas à l'URL → `400 ID_MISMATCH`
+**CA-32** — ID dans le body ne correspond pas à l'URL → `400 ID_MISMATCH`
 
 ```bash
 curl -s -w "\n→ HTTP %{http_code}\n" -X PUT "$BASE_URL/api/v1/quizzes/$QUIZ_ID" \
@@ -306,14 +306,14 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X PUT "$BASE_URL/api/v1/quizzes/$QUIZ_ID
 
 ### Suppression — `DELETE /api/v1/quizzes/:id`
 
-**CA-29** — Supprimer un quiz non utilisé → `204 No Content`
+**CA-36** — Supprimer un quiz non utilisé → `204 No Content`
 
 ```bash
 curl -s -w "\n→ HTTP %{http_code}\n" -X DELETE "$BASE_URL/api/v1/quizzes/$QUIZ_ID" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-**CA-31** — Supprimer un quiz référencé par une partie active → `403 FORBIDDEN`
+**CA-38** — Supprimer un quiz référencé par une partie active → `403 FORBIDDEN`
 
 ```bash
 # Prérequis : $QUIZ_ID est référencé par une partie en état PENDING ou OPEN
@@ -322,7 +322,7 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X DELETE "$BASE_URL/api/v1/quizzes/$QUIZ
 # Attendu : {"status":403,"error":"QUIZ_IN_USE","message":"Cannot delete this quiz: it is referenced by an active game."}
 ```
 
-**CA-36** — Supprimer une question appartenant à un quiz → `409 QUESTION_IN_QUIZ`
+**CA-43** — Supprimer une question appartenant à un quiz → `409 QUESTION_IN_QUIZ`
 
 ```bash
 curl -s -w "\n→ HTTP %{http_code}\n" -X DELETE "$BASE_URL/api/v1/questions/$Q1" \
