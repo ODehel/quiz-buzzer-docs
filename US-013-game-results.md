@@ -37,8 +37,8 @@ Actuellement, les resultats sont diffuses question par question via WebSocket (`
 |---|---|---|
 | CA-1 | Recuperer les resultats d'une partie en statut `COMPLETED` | `200 OK` avec le classement final et le detail par question |
 | CA-2 | La reponse contient `game_id`, `quiz_id`, `status`, `ranking` et `questions` | Tous les champs presents |
-| CA-3 | Le classement (`ranking`) est trie par score decroissant | Le participant avec le score le plus eleve a le `rank` 1 |
-| CA-4 | Chaque entree du classement contient `rank`, `order`, `name`, `score` | Tous les champs presents |
+| CA-3 | Le classement (`ranking`) est trie par score decroissant, puis par temps cumule croissant en cas d'egalite | Le participant avec le score le plus eleve a le `rank` 1 ; a score egal, le plus rapide est classe devant |
+| CA-4 | Chaque entree du classement contient `rank`, `order`, `name`, `score`, `total_time_ms` | Tous les champs presents |
 | CA-5 | Le detail par question (`questions`) contient `question_id` et `answers` | Tous les champs presents |
 | CA-6 | Chaque reponse contient `participant_order`, `answer`, `time_ms`, `points_earned`, `cumulative_score` | Tous les champs presents |
 | CA-7 | Partie en statut autre que `COMPLETED` (ex: `PENDING`, `OPEN`) | `409 GAME_NOT_COMPLETED` |
@@ -85,9 +85,9 @@ Les criteres suivants s'appliquent a cette route :
   "quiz_id": "018e4f5c-0000-7000-8000-000000000001",
   "status": "COMPLETED",
   "ranking": [
-    { "rank": 1, "order": 1, "name": "Alice", "score": 20 },
-    { "rank": 2, "order": 3, "name": "Charlie", "score": 15 },
-    { "rank": 3, "order": 2, "name": "Bob", "score": 10 }
+    { "rank": 1, "order": 1, "name": "Alice", "score": 20, "total_time_ms": 6000 },
+    { "rank": 2, "order": 3, "name": "Charlie", "score": 15, "total_time_ms": 7600 },
+    { "rank": 3, "order": 2, "name": "Bob", "score": 10, "total_time_ms": 11000 }
   ],
   "questions": [
     {
