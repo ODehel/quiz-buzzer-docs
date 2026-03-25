@@ -382,7 +382,16 @@ CREATE TABLE IF NOT EXISTS T_GAME_GAM
     GAM_ID         TEXT PRIMARY KEY,
     GAM_QUIZ_ID    TEXT NOT NULL REFERENCES T_QUIZ_QUZ (QUZ_ID),
     GAM_STATUS     TEXT NOT NULL DEFAULT 'PENDING'
-                       CHECK (GAM_STATUS IN ('PENDING', 'OPEN', 'COMPLETED', 'IN_ERROR')),
+                       CHECK (GAM_STATUS IN (
+                           'PENDING',
+                           'OPEN',
+                           'QUESTION_TITLE',
+                           'QUESTION_OPEN',
+                           'QUESTION_BUZZED',
+                           'QUESTION_CLOSED',
+                           'COMPLETED',
+                           'IN_ERROR'
+                       )),
     GAM_CREATED_AT TEXT NOT NULL
 );
 
@@ -517,6 +526,17 @@ Les middlewares `authenticate` et `authorize('admin')` existants sont réutilis�
 ---
 
 ## 🔍 Points de vigilance
+
+### Définition anticipée du CHECK sur `GAM_STATUS`
+
+Le CHECK sur `GAM_STATUS` inclut dès l'US-010 **tous les états documentés** dans les US suivantes (`QUESTION_TITLE`, `QUESTION_OPEN`, `QUESTION_BUZZED`, `QUESTION_CLOSED`), bien que cette US n'utilise que `PENDING`, `OPEN`, `COMPLETED`, `IN_ERROR`.
+
+Cette approche pragmatique:
+- **Évite deux recréations successives de table** lors des migrations US-011 et US-012 (SQLite ne supporte pas `ALTER COLUMN`, obligeant à recréer)
+- **Respecte YAGNI** car les états sont déjà documentés et définis dans le plan global
+- **Facilite l'évolution future** sans briser la continuité des données
+
+Les états supplémentaires resteront inutilisés en US-010 (aucune transition vers eux) et seront progressivement adoptés dans les US suivantes.
 
 ### Unicité de la partie active
 
