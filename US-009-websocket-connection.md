@@ -306,6 +306,7 @@ Map<sub (UUIDv7), { ws, role, username, connectedAt }>
 | Timeout d'authentification (60 secondes) | Reconnexion automatique côté client |
 | Logging structuré JSON (4 événements) | Déploiement / CI-CD |
 | Codes de fermeture WebSocket personnalisés (4001–4004) | |
+| Rate limiting des connexions (15 par minute par IP) | Rate limiting au niveau du reverse proxy |
 | Tests unitaires et d'intégration (couverture ≥ 90%) | |
 
 ---
@@ -342,3 +343,21 @@ Lors de la fermeture d'une connexion (qu'elle soit initiée par le client, le se
 ### Intégration avec `src/server.js`
 
 Le serveur WebSocket (`ws.WebSocketServer`) doit être créé avec l'option `{ noServer: true }` et l'upgrade doit être géré manuellement via l'événement `upgrade` du serveur HTTP retourné par `startServer()`. Cela permet de partager le même port et de filtrer le chemin de l'upgrade.
+
+### Rate limiting des connexions WebSocket
+
+**Limitation appliquée:** 15 connexions par minute par adresse IP.
+
+Pour prévenir les attaques par déni de service (DoS) où un client malveillant ouvrirait/fermerait des connexions WebSocket en boucle, un rate limiter en mémoire est appliqué au niveau du `upgrade` HTTP. Chaque adresse IP est limitée à **15 tentatives de connexion par minute (60 secondes)**.
+
+**Comportement:**
+- Si une adresse IP dépasse la limite, la connexion est détruite immédiatement (`socket.destroy()`) sans upgrade vers WebSocket.
+- L'événement `WEBSOCKET_RATE_LIMITED` est loggé au niveau `WARN`.
+- La fenêtre de temps est glissante (timestamps en mémoire).
+- Après 60 secondes, les tentatives expirées sont supprimées de la limite, autorisant de nouvelles connexions.
+
+**Limitation de périmètre:**
+- Cette protection s'applique au **niveau réseau local uniquement** (réseau WiFi privé).
+- Pas de persistance en base de données.
+- Le rate limiter est réinitialisé à chaque redémarrage du serveur.
+- En production avec un reverse proxy (Nginx, HAProxy), il est recommandé d'appliquer également un rate limiting au niveau du proxy.
