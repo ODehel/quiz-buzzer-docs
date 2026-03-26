@@ -80,6 +80,12 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 | CA-22 | Tout message reçu d'un client non authentifié (après le timeout ou hors séquence) est ignoré | Aucune réponse, la connexion est fermée si le timeout expire |
 | CA-23 | Tout message reçu d'un client authentifié autre que l'authentification initiale est ignoré silencieusement (hors périmètre de cette US) | Aucune erreur, aucune réponse |
 
+### Rate limiting
+
+| # | Critère | Résultat attendu |
+|---|---|---|
+| CA-26 | Si une adresse IP dépasse 15 tentatives de connexion WebSocket par minute, la connexion est détruite | La connexion est fermée immédiatement sans upgrade WebSocket, l'événement `WEBSOCKET_RATE_LIMITED` est loggé au niveau `WARN` |
+
 ### Sécurité et transversalité
 
 | # | Critère | Résultat attendu |
@@ -289,6 +295,17 @@ Map<sub (UUIDv7), { ws, role, username, connectedAt }>
   "buzzers_connected": 2,
   "buzzers_max": 10,
   "admin_connected": 1
+}
+```
+
+**Rate limiting :**
+
+```json
+{
+  "timestamp": "2026-03-09T14:30:10.000Z",
+  "level": "WARN",
+  "event": "WEBSOCKET_RATE_LIMITED",
+  "ip": "192.168.1.200"
 }
 ```
 
