@@ -246,9 +246,9 @@ Le token émis par cet endpoint est utilisé dans deux contextes :
 | Contexte | Mécanisme | US associée |
 |---|---|---|
 | **API REST** | Header `Authorization: Bearer <token>` à chaque requête | US-004 et suivantes |
-| **WebSocket** | Authentification post-connexion (premier message) | US dédiée (à définir) |
+| **WebSocket** | Authentification post-connexion (premier message) | US-009 |
 
-> **Note :** L'authentification WebSocket sera spécifiée dans une US dédiée. Le token JWT émis ici sera réutilisé tel quel pour l'authentification WebSocket.
+> **Note :** L'authentification WebSocket est spécifiée dans **[US-009 — Connexion WebSocket des buzzers et de l'application Angular](US-009-websocket-connection.md)**. Le token JWT émis ici est réutilisé pour l'authentification WebSocket. L'expiration du token (`expires_in`) est exposée au client dans la réponse `auth_success` du WebSocket pour permettre une gestion proactive de l'expiration côté client (ESP32, Angular).
 
 ---
 

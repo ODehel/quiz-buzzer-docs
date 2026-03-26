@@ -41,7 +41,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 |---|---|---|
 | CA-4 | Après l'ouverture de la connexion WebSocket, le client doit envoyer un message d'authentification contenant son token JWT | Format : `{ "type": "auth", "token": "<JWT>" }` |
 | CA-5 | Le token JWT est vérifié (signature HS256, expiration, claims `sub` et `role`) | Réutilisation du secret `JWT_SECRET` existant (US-003) |
-| CA-6 | Si le token est valide, le serveur envoie un message de confirmation | `{ "type": "auth_success", "role": "buzzer", "username": "quiz_buzzer_01" }` |
+| CA-6 | Si le token est valide, le serveur envoie un message de confirmation | `{ "type": "auth_success", "role": "buzzer", "username": "quiz_buzzer_01", "expires_in": 3600 }` |
 | CA-7 | Si le token est invalide (signature, malformé), le serveur ferme la connexion | Code de fermeture `4001` avec raison "Invalid token." |
 | CA-8 | Si le token est expiré, le serveur ferme la connexion | Code de fermeture `4002` avec raison "Token expired." |
 | CA-9 | Si le client n'envoie pas de message d'authentification dans les 60 secondes, le serveur ferme la connexion | Code de fermeture `4003` avec raison "Authentication timeout." |
@@ -145,7 +145,8 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 {
   "type": "auth_success",
   "role": "buzzer",
-  "username": "quiz_buzzer_01"
+  "username": "quiz_buzzer_01",
+  "expires_in": 3600
 }
 ```
 
@@ -153,9 +154,13 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 {
   "type": "auth_success",
   "role": "admin",
-  "username": "admin"
+  "username": "admin",
+  "expires_in": 3600
 }
 ```
+
+**Notes:**
+- `expires_in` : Nombre de secondes avant l'expiration du token JWT (US-003)
 
 ### Codes de fermeture WebSocket
 
