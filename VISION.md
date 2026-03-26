@@ -221,6 +221,7 @@ Toute la codebase de **tous les projets** (serveur Node.js, Angular, firmware ES
 | US-011 | Workflow d'une question MCQ | ✅ Documentée |
 | US-012 | Workflow d'une question SPEED | ✅ Documentée |
 | US-013 | Consultation des resultats d'une partie | ✅ Documentée |
+| US-014 | Affichage du classement intermédiaire à la demande | ✅ Documentée |
 
 ---
 
