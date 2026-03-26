@@ -145,8 +145,8 @@ Content-Type: application/json
 | Critère | Résultat attendu |
 |---|---|
 | **Routes avec body** (POST, PUT, PATCH) exigent `Content-Type: application/json` | Autre type → `415 UNSUPPORTED_MEDIA_TYPE` |
-| Les routes **sans body** (GET, DELETE) peuvent accepter optionnellement un `Content-Type` | Si fourni, doit être `application/json`, sinon → `415` |
-| Le serveur ne doit pas interpréter d'autres formats (XML, form-encoded, etc.) | Rejeter avec `415` |
+| Les routes **sans body** (GET, DELETE) ignorent le `Content-Type` | Quelle que soit sa valeur, aucune validation n'est effectuée |
+| Le serveur ne doit pas interpréter d'autres formats (XML, form-encoded, etc.) sur les routes qui attendent JSON | Rejeter avec `415` |
 
 **Format de la réponse `415 UNSUPPORTED_MEDIA_TYPE` :**
 
@@ -276,11 +276,11 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X POST "$BASE_URL/api/v1/themes" \
   -d '{"name": "Musique"}'
 # Attendu : 415 UNSUPPORTED_MEDIA_TYPE
 
-# DELETE avec Content-Type: text/xml
+# DELETE avec n'importe quel Content-Type (ignoré sur GET/DELETE)
 curl -s -w "\n→ HTTP %{http_code}\n" -X DELETE "$BASE_URL/api/v1/themes/some-id" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: text/xml"
-# Attendu : 415 UNSUPPORTED_MEDIA_TYPE
+# Attendu : 204 (ignoré sur GET/DELETE, pas de validation du Content-Type)
 ```
 
 ---
