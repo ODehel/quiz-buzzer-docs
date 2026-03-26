@@ -39,8 +39,8 @@ Actuellement, les resultats sont diffuses question par question via WebSocket (`
 | CA-2 | La reponse contient `game_id`, `quiz_id`, `status`, `ranking` et `questions` | Tous les champs presents |
 | CA-3 | Le classement (`ranking`) est trie par score decroissant, puis par temps cumule croissant en cas d'egalite | Le participant avec le score le plus eleve a le `rank` 1 ; a score egal, le plus rapide est classe devant |
 | CA-4 | Chaque entree du classement contient `rank`, `order`, `name`, `score`, `total_time_ms` | Tous les champs presents |
-| CA-5 | Le detail par question (`questions`) contient `question_id` et `answers` | Tous les champs presents |
-| CA-6 | Chaque reponse contient `participant_order`, `answer`, `time_ms`, `points_earned`, `cumulative_score` | Tous les champs presents |
+| CA-5 | Le detail par question (`questions`) contient `question_id` et `answers` (liste, possiblement vide) | Tous les champs presents ; `answers` peut contenir 0 a N entrees selon le type et le resultat de la question |
+| CA-6 | Chaque entree de `answers` contient `participant_order`, `answer`, `time_ms`, `points_earned`, `cumulative_score` | Tous les champs presents ; pour SPEED, `answer` vaut `"SPEED_WIN"` uniquement pour le gagnant |
 | CA-7 | Partie en statut autre que `COMPLETED` (ex: `PENDING`, `OPEN`) | `409 GAME_NOT_COMPLETED` |
 | CA-8 | ID inexistant | `404 NOT_FOUND` |
 | CA-9 | ID mal forme | `400 INVALID_UUID` |
@@ -85,7 +85,7 @@ Les criteres suivants s'appliquent a cette route :
   "quiz_id": "018e4f5c-0000-7000-8000-000000000001",
   "status": "COMPLETED",
   "ranking": [
-    { "rank": 1, "order": 1, "name": "Alice", "score": 20, "total_time_ms": 6000 },
+    { "rank": 1, "order": 1, "name": "Alice", "score": 30, "total_time_ms": 6000 },
     { "rank": 2, "order": 3, "name": "Charlie", "score": 15, "total_time_ms": 7600 },
     { "rank": 3, "order": 2, "name": "Bob", "score": 10, "total_time_ms": 11000 }
   ],
@@ -121,30 +121,35 @@ Les criteres suivants s'appliquent a cette route :
       "answers": [
         {
           "participant_order": 1,
-          "answer": "C",
+          "answer": "SPEED_WIN",
           "time_ms": 2800,
           "points_earned": 10,
           "cumulative_score": 20
-        },
-        {
-          "participant_order": 2,
-          "answer": "D",
-          "time_ms": 6000,
-          "points_earned": 10,
-          "cumulative_score": 10
-        },
-        {
-          "participant_order": 3,
-          "answer": "B",
-          "time_ms": 3500,
-          "points_earned": 5,
-          "cumulative_score": 15
         }
       ]
+    },
+    {
+      "question_id": "018e4f5b-0000-7000-8000-000000000003",
+      "answers": []
     }
   ]
 }
 ```
+
+**Notes sur le format `questions[].answers` selon le type de question :**
+
+- **Question 1 (MCQ)** — `answers` contient **3 entrees** (une par participant) :
+  - Participant 1 : reponse correcte (A) → `points_earned: 10`
+  - Participant 2 : reponse incorrecte (B) → `points_earned: 0`
+  - Participant 3 : reponse correcte (A) → `points_earned: 10`
+
+- **Question 2 (SPEED avec gagnant)** — `answers` contient **1 entree** (le gagnant uniquement) :
+  - Participant 1 a buzze le premier et donne la bonne reponse → `answer: "SPEED_WIN"`, `points_earned: 10`
+  - Participants 2 et 3 : aucune entree (n'ont pas buzze ou ont ete invalides, leur score cumule inchange)
+
+- **Question 3 (SPEED sans gagnant)** — `answers` est **vide** `[]` :
+  - Aucun participant n'a repondu correctement (timer expire, tous invalides, etc.)
+  - Tous les participants conservent leur score cumule precedent
 
 ---
 
@@ -264,3 +269,18 @@ L'endpoint effectue une seule requete pour charger toutes les reponses d'une par
 ### Score final
 
 Le score final de chaque participant est determine par la derniere valeur de `GAA_CUMULATIVE_SCORE` enregistree dans `T_GAME_ANSWER_GAA` pour ce participant. Les reponses sont triees par `GAA_QUESTION_ID` puis `GAA_PARTICIPANT_ORDER`, donc la derniere entree pour un participant represente son score cumule final.
+
+### Asymetrie SPEED/MCQ dans la liste `questions[].answers`
+
+**Difference fondamentale** : Le nombre de lignes dans `T_GAME_ANSWER_GAA` par question depend du type :
+
+- **Questions MCQ** (Multiple Choice Question) : une ligne est inseree **par participant**, quel que soit son resultat (correct ou incorrect). L'array `answers` contient donc autant d'entrees que de participants.
+  - Exemple : 3 participants jouent une MCQ → `answers` contient **3 entrees** (une par joueur, avec `answer` = lettre choisie, `points_earned` >= 0)
+
+- **Questions SPEED** : une seule ligne est inseree pour le **gagnant uniquement**. Aucune ligne n'est creee si la question expire ou si le dernier joueur est invalide.
+  - Gagnant identifie : l'array `answers` contient **1 entree** avec `answer: "SPEED_WIN"`, `time_ms` = temps depuis le demarrage, `points_earned` = points attribues
+  - Aucun gagnant (expiration/tous invalides) : l'array `answers` est **vide** `[]`
+
+**Consequence pour la reconstruction du classement** : Les participants qui n'apparaissent pas dans `answers` d'une question SPEED n'ont pas buzze, n'ont pas repondu, ou ont ete invalides. Leur score cumule reste inchange par rapport a la question precedente.
+
+**Note importante pour les requetes ranking** : Contrairement aux MCQ ou chaque participant a une entree par question, en SPEED seul le gagnant apparait. L'absence de ligne pour un participant dans une question SPEED **ne signifie pas un score nul**, mais une non-participation ou invalidation a cette question specifique.
