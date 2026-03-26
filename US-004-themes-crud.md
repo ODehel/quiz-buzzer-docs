@@ -48,7 +48,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 | CA-10 | ID inexistant | `404 NOT_FOUND` |
 | CA-11 | ID mal formé (pas un UUID valide) | `400 INVALID_UUID` |
 | CA-12 | Un body éventuel est ignoré silencieusement | Aucune erreur |
-| CA-12a | Si un `Content-Type` est fourni, il doit être `application/json` | Sinon → `415 UNSUPPORTED_MEDIA_TYPE` |
+| CA-12a | Le `Content-Type` est ignoré sur les requêtes GET | Aucune validation, quelle que soit sa valeur |
 
 ### Lecture de la liste — `GET /api/v1/themes`
 
@@ -61,7 +61,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 | CA-17 | Paramètres de pagination invalides (négatifs, zéro, non numériques) | `400 INVALID_PAGINATION` |
 | CA-18 | Page au-delà du total | `200 OK` avec `data: []` et métadonnées correctes |
 | CA-19 | Aucun thème en base | `200 OK` avec `{ "data": [], "page": 1, "limit": 20, "total": 0, "total_pages": 0 }` |
-| CA-19a | Si un `Content-Type` est fourni, il doit être `application/json` | Sinon → `415 UNSUPPORTED_MEDIA_TYPE` |
+| CA-19a | Le `Content-Type` est ignoré sur les requêtes GET | Aucune validation, quelle que soit sa valeur |
 
 ### Modification — `PUT /api/v1/themes/:id`
 
@@ -84,7 +84,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 | CA-29 | ID inexistant | `404 NOT_FOUND` |
 | CA-30 | Le thème a des questions associées | `409 THEME_HAS_QUESTIONS` |
 | CA-31 | Un body éventuel est ignoré silencieusement | Aucune erreur |
-| CA-31a | Si un `Content-Type` est fourni, il doit être `application/json` | Sinon → `415 UNSUPPORTED_MEDIA_TYPE` |
+| CA-31a | Le `Content-Type` est ignoré sur les requêtes DELETE | Aucune validation, quelle que soit sa valeur |
 
 ### Sécurité et transversalité
 
@@ -206,12 +206,13 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/themes/not-a-uui
   -H "Authorization: Bearer $TOKEN"
 ```
 
-**CA-12a** — Content-Type incorrect sur GET ressource → `415 UNSUPPORTED_MEDIA_TYPE`
+**CA-12a** — Content-Type ignoré sur GET ressource → `200 OK` (même avec Content-Type incorrect)
 
 ```bash
 curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/themes/$THEME_ID" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: text/plain"
+# Attendu : 200 OK (Content-Type est ignoré sur GET)
 ```
 
 ### Lecture de la liste — `GET /api/v1/themes`
@@ -237,12 +238,13 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/themes?page=999"
   -H "Authorization: Bearer $TOKEN"
 ```
 
-**CA-19a** — Content-Type incorrect sur GET collection → `415 UNSUPPORTED_MEDIA_TYPE`
+**CA-19a** — Content-Type ignoré sur GET collection → `200 OK` (même avec Content-Type incorrect)
 
 ```bash
 curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/themes" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: text/plain"
+# Attendu : 200 OK (Content-Type est ignoré sur GET)
 ```
 
 ### Modification — `PUT /api/v1/themes/:id`
@@ -298,12 +300,13 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X DELETE "$BASE_URL/api/v1/themes/$THEME
   -H "Authorization: Bearer $TOKEN"
 ```
 
-**CA-31a** — Content-Type incorrect sur DELETE → `415 UNSUPPORTED_MEDIA_TYPE`
+**CA-31a** — Content-Type ignoré sur DELETE → `204 No Content` (même avec Content-Type incorrect)
 
 ```bash
 curl -s -w "\n→ HTTP %{http_code}\n" -X DELETE "$BASE_URL/api/v1/themes/$THEME_ID" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: text/plain"
+# Attendu : 204 No Content (Content-Type est ignoré sur DELETE)
 ```
 
 ### Sécurité et transversalité
