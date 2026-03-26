@@ -536,9 +536,11 @@ Le registre des connexions WebSocket (`Map<sub, { ws, role, username, connectedA
 
 Le serveur Node.js est mono-thread mais la boucle d'événements peut traiter un message `answer` et le callback `timer_end` dans le même cycle. Une **file de traitement synchrone** garantit qu'une réponse est soit acceptée avant l'expiration, soit rejetée après. Le timestamp serveur de réception du message `answer` est comparé au timestamp d'expiration du chrono pour trancher les cas limites.
 
-### Traitement atomique de la persistance
+### Traitement atomique de la persistance — MCQ uniquement
 
 La sauvegarde des scores en fin de question implique plusieurs écritures en base (`T_GAME_ANSWER_GAA` + `T_GAME_GAM`). Ces écritures doivent être effectuées dans une **transaction SQLite atomique**. En cas d'échec, la transaction est rollbackée avant le retry suivant.
+
+**Note** : Cette persistance systématique (une ligne par participant) s'applique aux questions MCQ. Pour les questions SPEED (US-012), seul le gagnant est persisté dans `T_GAME_ANSWER_GAA`, ou aucune ligne si aucun gagnant (voir [US-012 — Cohérence MCQ / SPEED](US-012-speed-question-workflow.md#cohérence-mcq--speed-dans-t_game_answer_gaa)).
 
 ### Buzzers non connectés en cours de partie
 
