@@ -466,7 +466,16 @@ Un joueur est considéré "disponible" s'il n'a pas encore été invalidé sur c
 
 ### Cohérence MCQ / SPEED dans `T_GAME_ANSWER_GAA`
 
-En MCQ, une ligne est insérée pour chaque participant. En SPEED, une seule ligne est insérée (le gagnant uniquement). Cette asymétrie est intentionnelle (YAGNI) et documentée dans les spécifications de persistance. Les requêtes de classement doivent en tenir compte : l'absence de ligne en SPEED ne signifie pas que le score cumulé est nul, mais que la question s'est terminée sans gagnant ou que seul le gagnant est enregistré.
+**Asymétrie intentionnelle** (YAGNI, CA-26, CA-27) :
+
+- **MCQ** : une ligne est insérée **par participant**, quel que soit le résultat (correct ou incorrect)
+- **SPEED** :
+  - Cas 1 — Gagnant identifié (CA-26) : une seule ligne est insérée (le gagnant) avec `answer: "SPEED_WIN"`
+  - Cas 2 — Aucun gagnant (CA-27) : **aucune ligne n'est insérée** (timer expiré, tous les joueurs invalidés)
+
+**Conséquence pour la reconstruction du classement** : Les requêtes de classement doivent en tenir compte. L'absence de ligne en SPEED ne signifie pas que le score cumulé est nul, mais que la question s'est terminée sans gagnant ou que seul le gagnant est enregistré. Le score cumulé d'un participant qui n'apparaît pas dans une question SPEED reste inchangé par rapport à la question précédente.
+
+Cette asymétrie est documentée dans [US-013 — Consultation des résultats d'une partie](US-013-game-results.md#asymetrie-speedmcq-dans-la-liste-questionsanswers) (Point de vigilance : Asymétrie SPEED/MCQ dans la liste `questions[].answers`).
 
 ### Extension de la contrainte CHECK sur `GAM_STATUS`
 
