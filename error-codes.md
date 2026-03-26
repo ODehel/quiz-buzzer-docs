@@ -215,6 +215,8 @@ Pour une vue d'ensemble rapide, voici tous les codes documentés :
 | `ID_MISMATCH` | 400 | Toutes | Standard |
 | `INVALID_PAGINATION` | 400 | Toutes | Standard |
 | `IMMUTABLE_FIELD` | 400 | Toutes | Standard |
+| `INVALID_THEME` | 400 | US-005/006 | Questions |
+| `INVALID_FILTER` | 400 | US-005/006 | Questions |
 | `INVALID_CREDENTIALS` | 401 | US-003 | Auth |
 | `UNAUTHORIZED` | 401 | Toutes | Standard |
 | `FORBIDDEN` | 403 | Toutes | Standard |
@@ -228,6 +230,7 @@ Pour une vue d'ensemble rapide, voici tous les codes documentés :
 | `RATE_LIMIT_EXCEEDED` | 429 | Toutes | Standard |
 | `THEME_ALREADY_EXISTS` | 409 | US-004 | Theme |
 | `THEME_HAS_QUESTIONS` | 409 | US-004 | Theme |
+| `QUESTION_ALREADY_EXISTS` | 409 | US-005/006 | Questions |
 | `QUIZ_ALREADY_EXISTS` | 409 | US-008 | Quiz |
 | `QUESTION_IN_QUIZ` | 409 | US-008 | Quiz |
 | `ACTIVE_GAME_EXISTS` | 409 | US-010 | Game |
