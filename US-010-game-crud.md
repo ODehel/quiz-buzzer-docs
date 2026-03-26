@@ -51,10 +51,13 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 | # | Critère | Résultat attendu |
 |---|---|---|
-| CA-15 | Récupérer la liste de toutes les parties | `200 OK` avec tableau de parties (voir format ci-dessous) |
-| CA-16 | Aucune partie en base | `200 OK` avec `[]` |
-| CA-17 | Tri par date de création décroissante (plus récentes en premier) | Ordre garanti |
-| CA-18 | Chaque partie retournée contient tous les champs enregistrés en base | `id`, `quiz_id`, `status`, `created_at`, `last_updated_at`, `participants` (tableau ordonné) |
+| CA-15 | Récupérer la liste de toutes les parties avec pagination | `200 OK` avec objet paginé (`data`, `page`, `limit`, `total`, `total_pages`) |
+| CA-16 | Aucune partie en base | `200 OK` avec `data: []`, `total: 0`, `total_pages: 0` |
+| CA-17 | Tri par date de création décroissante dans le tableau `data` (plus récentes en premier) | Ordre garanti |
+| CA-18 | Chaque partie du tableau `data` contient tous les champs enregistrés en base | `id`, `quiz_id`, `status`, `created_at`, `last_updated_at`, `participants` (tableau ordonné) |
+| CA-18a | Pagination par défaut : `page=1` et `limit=20` | Si `?page` et `?limit` sont omis, utilise les valeurs par défaut |
+| CA-18b | Limite maximale : `limit` ne peut pas dépasser 100 | Sinon → `400 INVALID_PAGINATION` |
+| CA-18c | Page et limit doivent être des entiers positifs | `page ≥ 1`, `limit ≥ 1` et `limit ≤ 100`, sinon → `400 INVALID_PAGINATION` |
 
 ### Lecture par ID — `GET /api/v1/games/:id`
 
@@ -243,10 +246,31 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X POST "$BASE_URL/api/v1/games" \
 
 ### Lecture de la liste — `GET /api/v1/games`
 
-**CA-15** — Lister toutes les parties → `200 OK`
+**CA-15** — Lister les parties (page 1, limite par défaut 20) → `200 OK`
 
 ```bash
 curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/games" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**CA-18a** — Paginer : page 2, limit 10
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/games?page=2&limit=10" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**CA-18b** — Limit invalide (> 100) → `400 INVALID_PAGINATION`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/games?limit=101" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**CA-18c** — Page invalide (< 1) → `400 INVALID_PAGINATION`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X GET "$BASE_URL/api/v1/games?page=0" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -432,23 +456,46 @@ CREATE TABLE IF NOT EXISTS T_GAME_PARTICIPANT_GPA
 }
 ```
 
-### Format JSON — Réponse GET (liste et par ID)
+### Format JSON — Réponse GET (liste avec pagination)
 
 ```json
-[
-  {
-    "id": "018e4f5d-0000-7000-8000-000000000001",
-    "quiz_id": "018e4f5c-0000-7000-8000-000000000001",
-    "status": "PENDING",
-    "created_at": "2026-03-14T10:00:00.000Z",
-    "last_updated_at": null,
-    "participants": [
-      { "order": 1, "name": "Alice" },
-      { "order": 2, "name": "Bob" },
-      { "order": 3, "name": "Charlie" }
-    ]
-  }
-]
+{
+  "data": [
+    {
+      "id": "018e4f5d-0000-7000-8000-000000000001",
+      "quiz_id": "018e4f5c-0000-7000-8000-000000000001",
+      "status": "PENDING",
+      "created_at": "2026-03-14T10:00:00.000Z",
+      "last_updated_at": null,
+      "participants": [
+        { "order": 1, "name": "Alice" },
+        { "order": 2, "name": "Bob" },
+        { "order": 3, "name": "Charlie" }
+      ]
+    }
+  ],
+  "page": 1,
+  "limit": 20,
+  "total": 42,
+  "total_pages": 3
+}
+```
+
+### Format JSON — Réponse GET (par ID)
+
+```json
+{
+  "id": "018e4f5d-0000-7000-8000-000000000001",
+  "quiz_id": "018e4f5c-0000-7000-8000-000000000001",
+  "status": "PENDING",
+  "created_at": "2026-03-14T10:00:00.000Z",
+  "last_updated_at": null,
+  "participants": [
+    { "order": 1, "name": "Alice" },
+    { "order": 2, "name": "Bob" },
+    { "order": 3, "name": "Charlie" }
+  ]
+}
 ```
 
 ### Format JSON — Body PUT
@@ -530,6 +577,7 @@ Voir le [Catalogue centralisé des codes d'erreur](error-codes.md#1️⃣-codes-
 | `ACTIVE_GAME_EXISTS` | `409` | `"A game is already active. Delete it before creating a new one."` | Création impossible : une partie active (`PENDING` ou `OPEN`) existe déjà |
 | `PARTICIPANT_NOT_FOUND` | `404` | `"No participant found at order <n> for this game."` | Position de participant inexistante (PATCH) |
 | `INVALID_TRANSITION` | `422` | `"Cannot transition from <current> to <target>."` | Transition de statut interdite par la machine à états |
+| `INVALID_PAGINATION` | `400` | `"Invalid pagination parameters."` | Paramètres `page` ou `limit` invalides (page < 1, limit < 1, limit > 100, ou non-entier) |
 
 ---
 
@@ -553,6 +601,25 @@ Voir le [Catalogue centralisé des codes d'erreur](error-codes.md#1️⃣-codes-
 ---
 
 ## 🔍 Points de vigilance
+
+### Pagination de l'endpoint `GET /api/v1/games`
+
+L'endpoint de liste `GET /api/v1/games` retourne une réponse paginée pour éviter de charger toutes les parties en mémoire. Les paramètres de pagination sont :
+
+- `page` (défaut : `1`) — Numéro de page, doit être ≥ 1
+- `limit` (défaut : `20`) — Nombre de parties par page, doit être entre 1 et 100
+
+La réponse contient :
+- `data` — Tableau des parties pour la page actuelle
+- `page` — Numéro de page demandé
+- `limit` — Limite appliquée
+- `total` — Nombre total de parties en base
+- `total_pages` — Nombre total de pages
+
+Exemples :
+- `GET /api/v1/games` → page 1, limit 20 (défaut)
+- `GET /api/v1/games?page=2&limit=50` → page 2, limit 50
+- `GET /api/v1/games?limit=101` → erreur `400 INVALID_PAGINATION` (limit > 100)
 
 ### Définition anticipée du CHECK sur `GAM_STATUS` — Éviter les recréations destructives
 
