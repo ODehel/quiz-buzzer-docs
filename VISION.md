@@ -222,6 +222,10 @@ Toute la codebase de **tous les projets** (serveur Node.js, Angular, firmware ES
 | US-012 | Workflow d'une question SPEED | ✅ Documentée |
 | US-013 | Consultation des resultats d'une partie | ✅ Documentée |
 | US-014 | Affichage du classement intermédiaire à la demande | ✅ Documentée |
+| US-015 | Heartbeat WebSocket | ✅ Documentée |
+| US-016 | Upload et gestion des fichiers médias des questions | ✅ Documentée |
+| US-017 | Gestion des jingles et sons personnalisés | ✅ Documentée |
+| US-018 | Déclenchement des sons système préchargés sur les buzzers | ✅ Documentée |
 
 ---
 
