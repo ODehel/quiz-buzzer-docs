@@ -67,7 +67,7 @@ Codes communs à **toutes les US**, appliquées globalement par le serveur :
 | `QUIZ_ALREADY_EXISTS` | `409` | `"A quiz with this name already exists."` | Doublon de nom de quiz (comparaison insensible à la casse) |
 | `QUESTION_NOT_FOUND` | `404` | `"Question not found: <id>."` | Question référencée dans le quiz inexistante |
 | `QUESTION_IN_QUIZ` | `409` | `"Cannot delete this question: it belongs to one or more quizzes."` | Suppression d'une question utilisée dans un quiz |
-| `QUIZ_IN_USE` | `403` | `"Cannot delete this quiz: it is referenced by an active game."` | Suppression d'un quiz référencé par une partie active (`PENDING` ou `OPEN`) |
+| `QUIZ_IN_USE` | `403` | `"Cannot delete this quiz: it is referenced by an active game."` | Suppression d'un quiz référencé par une partie active (tous les états sauf `COMPLETED` ou `IN_ERROR`) |
 
 ---
 
@@ -76,7 +76,7 @@ Codes communs à **toutes les US**, appliquées globalement par le serveur :
 | Code erreur | Code HTTP | Message | Contexte |
 |---|---|---|---|
 | `QUIZ_NOT_FOUND` | `404` | `"The requested quiz was not found."` | Quiz référencé inexistant |
-| `ACTIVE_GAME_EXISTS` | `409` | `"A game is already active. Delete it before creating a new one."` | Création impossible : une partie active (`PENDING` ou `OPEN`) existe déjà |
+| `ACTIVE_GAME_EXISTS` | `409` | `"A game is already active. Delete it before creating a new one."` | Création impossible : une partie active (tous les états sauf `COMPLETED` ou `IN_ERROR`) existe déjà |
 | `PARTICIPANT_NOT_FOUND` | `404` | `"No participant found at order <n> for this game."` | Position de participant inexistante (PATCH) |
 | `INVALID_TRANSITION` | `422` | `"Cannot transition from <current> to <target>."` | Transition de statut interdite par la machine à états |
 
