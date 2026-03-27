@@ -146,7 +146,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
   "type": "auth_success",
   "role": "buzzer",
   "username": "quiz_buzzer_01",
-  "expires_in": 3600
+  "expires_in": 2847
 }
 ```
 
@@ -155,12 +155,12 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
   "type": "auth_success",
   "role": "admin",
   "username": "admin",
-  "expires_in": 3600
+  "expires_in": 2847
 }
 ```
 
 **Notes:**
-- `expires_in` : Nombre de secondes avant l'expiration du token JWT (US-003)
+- `expires_in` : Nombre de secondes **avant l'expiration actuelle** du token JWT (US-003), **calculé dynamiquement** à l'instant de l'envoi du message `auth_success` comme `Math.floor(token.exp - Date.now() / 1000)`. Cette valeur décroît avec le temps : si un client se reconnecte 50 minutes après l'émission du token, `expires_in` reflétera le temps réel restant, pas l'expiration initiale du token.
 
 ### Codes de fermeture WebSocket
 
