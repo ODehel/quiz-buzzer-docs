@@ -158,6 +158,8 @@ PENDING ──► OPEN ──► COMPLETED          IN_ERROR (statut final)
 | `* → IN_ERROR` | ❌ | ✅ | Serveur uniquement |
 | `IN_ERROR → *` | ❌ | ❌ | ❌ |
 
+> ⚠️ **Machine à états complète** — Cette US-010 définit les états de base du jeu (`PENDING`, `OPEN`, `COMPLETED`, `IN_ERROR`). Cependant, le CHECK SQL inclut dès l'US-010 tous les états documentés (notamment `QUESTION_TITLE`, `QUESTION_OPEN`, `QUESTION_BUZZED`, `QUESTION_CLOSED`) pour éviter des altérations destructives de la table en SQLite. Ces états supplémentaires restent **inutilisés en US-010** et seront progressivement **activés dans US-011** (workflow MCQ) et **US-012** (workflow SPEED). Consultez ces US pour la machine à états complète avec toutes les transitions impliquant les états de questions.
+
 ---
 
 ## 🔄 Diagramme de flux
