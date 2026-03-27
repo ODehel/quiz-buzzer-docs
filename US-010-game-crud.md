@@ -697,6 +697,35 @@ Toute opération impliquant `T_GAME_GAM` et `T_GAME_PARTICIPANT_GPA` simultaném
 
 `T_GAME_PARTICIPANT_GPA` déclare `ON DELETE CASCADE` sur `GPA_GAME_ID`. La suppression d'une partie entraîne automatiquement la suppression de tous ses participants, sans action supplémentaire côté application.
 
+### Nettoyage des ressources en mémoire lors de la suppression d'une partie active
+
+La suppression d'une partie (`DELETE /api/v1/games/:id`) entraîne la suppression de toutes les données en base (avec cascade). **Cependant**, si une partie est supprimée pendant que des timers sont actifs en mémoire (états `QUESTION_OPEN`, `QUESTION_BUZZED` avec `setInterval`/`setTimeout` en cours d'exécution dans l'orchestrateur), ces timers orphelins continueront de s'exécuter et tenteront de mettre à jour une partie inexistante en base, causant des erreurs SQLite.
+
+#### Problème illustré
+
+Scénario :
+1. Partie lancée, quiz en cours → état `QUESTION_OPEN` ou `QUESTION_BUZZED`
+2. Un timer est actif : `createGameTimer()` a créé un `setInterval` et un `setTimeout`
+3. Admin appelle `DELETE /api/v1/games/:id`
+4. ✅ Partie supprimée en base (cascade OK)
+5. ❌ Timer orphelin continue de tourner en mémoire
+6. ❌ À l'expiration, le timer appelle le callback `onExpire` (ex: `handleSpeedTimerExpire()`)
+7. ❌ Ce callback tente `updateGameStatus(db, game.GAM_ID, ...)` → erreur SQLite : clé étrangère n'existe plus
+
+#### Solution
+
+L'implémentation doit signaler la suppression à la couche orchestrateur via un callback `onGameDeleted()` (similaire à `onGameStatusChange()`) qui :
+
+1. **Avant la suppression SQL** : arrête tous les timers en cours via `cleanupTimer()`
+2. **Vide l'état en mémoire** : `currentProcessor = null`, `currentSpeedProcessor = null`, `participantNames = null`, `currentQuestion = null`
+3. **Puis autorise la suppression SQL** : aucun timer orphelin ne reste en mémoire après cette étape
+
+#### Implémentation technique
+
+- Le callback `onGameDeleted(gameId)` doit être appelé **avant** la suppression SQL dans `deleteGame()`
+- La couche WebSocket passe ce callback via l'objet de configuration, similaire à `onGameStatusChange`
+- Un test d'intégration doit vérifier qu'aucune erreur SQLite n'est loggée après suppression d'une partie active (timer stoppé avec succès)
+
 ### Activation de la garde `QUIZ_IN_USE`
 
 La garde définie dans l'US-008 CA-31 doit être activée par cette US-010. Lors de l'implémentation du handler `DELETE /api/v1/quizzes/:id` en US-008, un contrôle doit vérifier l'existence d'une partie active :
