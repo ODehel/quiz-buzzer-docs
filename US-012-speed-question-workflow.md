@@ -212,6 +212,67 @@ invalidate_answer reçu, plus aucun joueur disponible OU timerExpiredDuringBuzz 
 
 Le serveur résout le type de la question courante via `GAM_CURRENT_QUESTION_INDEX` et la jointure avec `T_QUIZ_QUESTION_QQN` + `T_QUESTION_QST`. Si `QST_TYPE = 'SPEED'`, le serveur saute `QUESTION_TITLE` et passe directement en `QUESTION_OPEN`. Angular n'a pas besoin de connaître le type — il envoie toujours `trigger_title`.
 
+### Asymétrie des réponses à `trigger_title` — MCQ vs SPEED
+
+**Problème :** Angular envoie le même message `{ "type": "trigger_title" }` pour MCQ et SPEED, mais le serveur répond différemment selon le type détecté. Cette asymétrie doit être gérée côté client.
+
+**Comportement du serveur :**
+
+| Type question | Transition d'état | Message broadcast | Contient |
+|---|---|---|---|
+| **MCQ** (US-011) | `OPEN → QUESTION_TITLE` | `question_title` | `question_index`, `question_type: "MCQ"`, `title`, `time_limit` |
+| **SPEED** (US-012) | `OPEN → QUESTION_OPEN` (skip `QUESTION_TITLE`) | `question_open` | `question_index`, `question_type: "SPEED"`, `title`, `started_at`, `time_limit` |
+
+**Conséquence pour Angular :**
+
+1. **Angular envoie :** `{ "type": "trigger_title" }`
+2. **Angular reçoit en retour :** **exactement un des deux messages** suivants (jamais les deux) :
+   - `question_title` si la question est MCQ → Angular doit se positionner en état `QUESTION_TITLE` et attendre un `trigger_choices` avant d'afficher les choix
+   - `question_open` si la question est SPEED → Angular doit se positionner en état `QUESTION_OPEN` et **démarrer immédiatement le chronomètre** (la valeur `started_at` sert de référence pour la synchronisation)
+
+3. **Angular ne doit PAS :**
+   - Attendre une séquence `question_title` → `question_open` pour SPEED (elle ne se produira jamais)
+   - Émettre une demande de type de question avant `trigger_title` — la détection est côté serveur
+   - Implémenter une boucle d'attente ou un timeout en cas d'absence de `question_title`
+
+**Schéma temporel :**
+
+```
+MCQ :
+  Angular envoie: trigger_title
+  Serveur répond: question_title  ← Angular décale vers QUESTION_TITLE
+    [attente trigger_choices]
+  Angular envoie: trigger_choices
+  Serveur répond: question_choices  ← Angular décale vers QUESTION_OPEN, démarre chrono
+
+SPEED :
+  Angular envoie: trigger_title
+  Serveur répond: question_open  ← Angular décale vers QUESTION_OPEN, démarre chrono immédiatement
+    [aucun message question_title ne sera reçu]
+```
+
+**Exemple de gestion côté Angular :**
+
+```typescript
+// Dans le gestionnaire WebSocket, Angular doit traiter les deux cas :
+
+socket.on('question_title', (msg) => {
+  // MCQ uniquement
+  this.gameState = 'QUESTION_TITLE';
+  this.currentQuestion = msg;
+  // Afficher le titre, attendre que le maître clique sur "trigger_choices"
+});
+
+socket.on('question_open', (msg) => {
+  // SPEED uniquement (ou MCQ après trigger_choices, selon le contexte)
+  this.gameState = 'QUESTION_OPEN';
+  this.currentQuestion = msg;
+  this.startTimer(msg.started_at, msg.time_limit);
+  // Pour SPEED : décider si question_type = 'SPEED'
+  // Pour MCQ : décider si question_type = 'MCQ' (arrive après question_title)
+});
+```
+
 ### Format des messages WebSocket
 
 **Pilotage — Angular → Serveur**
