@@ -118,7 +118,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 | # | Critère | Résultat attendu |
 |---|---|---|
-| CA-52 | La garde `QUIZ_IN_USE` (US-008 CA-31) est activée : suppression d'un quiz avec `DELETE /api/v1/quizzes/:id` échoue si la partie est en état `PENDING` ou `OPEN` | `403 FORBIDDEN` avec code `QUIZ_IN_USE` (voir détail en US-008 CA-31) |
+| CA-52 | La garde `QUIZ_IN_USE` (US-008 CA-31) est activée : suppression d'un quiz avec `DELETE /api/v1/quizzes/:id` échoue si la partie est en état actif (`GAM_STATUS NOT IN ('COMPLETED', 'IN_ERROR')`, cf. [US-011](#dépendance-dimplémentation-avec-us-011)) | `403 FORBIDDEN` avec code `QUIZ_IN_USE` (voir détail en US-008 CA-31) |
 
 ### Sécurité et transversalité
 
@@ -697,18 +697,20 @@ Toute opération impliquant `T_GAME_GAM` et `T_GAME_PARTICIPANT_GPA` simultaném
 
 ### Activation de la garde `QUIZ_IN_USE`
 
-La garde définie dans l'US-008 CA-31 doit être activée par cette US-010. Lors de l'implémentation du handler `DELETE /api/v1/quizzes/:id` en US-008, un contrôle doit vérifier l'existence d'une partie active (état `PENDING` ou `OPEN`) :
+La garde définie dans l'US-008 CA-31 doit être activée par cette US-010. Lors de l'implémentation du handler `DELETE /api/v1/quizzes/:id` en US-008, un contrôle doit vérifier l'existence d'une partie active :
 
 ```sql
 SELECT COUNT(*) FROM T_GAME_GAM
 WHERE GAM_QUIZ_ID = ?
-  AND GAM_STATUS IN ('PENDING', 'OPEN')
+  AND GAM_STATUS NOT IN ('COMPLETED', 'IN_ERROR')
 ```
 
 - Si le résultat > 0 → `403 FORBIDDEN` avec code `QUIZ_IN_USE` (voir message exact en US-008 CA-31)
 - Si le résultat = 0 → suppression autorisée
 
 > **Timing** : Bien que définie en US-008, cette vérification n'est fonctionnelle qu'après US-010 car la table `T_GAME_GAM` n'existe pas avant.
+>
+> **Clarification US-011** : À l'introduction initiale (US-010), une partie active englobait `PENDING` ou `OPEN`. Lors de l'extension du workflow (US-011), les états intermédiaires (`QUESTION_TITLE`, `QUESTION_OPEN`, `QUESTION_CLOSED`) deviennent également actifs. La formulation générique `GAM_STATUS NOT IN ('COMPLETED', 'IN_ERROR')` couvre tous ces états présents et futurs sans nécessiter une mise à jour du code. Voir [US-011 — Points de vigilance](US-011-mcq-question-workflow.md#dépendance-dimplémentation-avec-us-010-et-clarification-de-la-garde-quiz_in_use).
 
 ### Ordre d'implémentation recommandé
 
