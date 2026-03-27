@@ -1,6 +1,4 @@
-![Page de couverture — Vision globale](diagrams/covers/VISION-cover.png)
-
-# Quiz Buzzer — Vision globale du projet
+# VISION.md — Quiz Buzzer
 
 ## 📋 Contexte projet
 
@@ -12,144 +10,6 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 | **App mobile** | Android / NFC | Configuration WiFi des buzzers |
 | **App maître de jeu** | Angular | Interface de gestion des parties |
 | **Serveur (hub)** | Node.js / JavaScript | Communication WebSocket entre l'app Angular et les buzzers, gestion du workflow des parties |
-
----
-
-## 🎯 Vision du projet
-
-> **Quiz Buzzer** est un dispositif complet pour créer et animer des quiz en présentiel.
-> Il repose sur quatre applications communicant sur un réseau **WiFi local**, sans accès internet.
-> Le serveur Node.js et l'application Angular tournent sur le **même PC Windows**.
-> L'application Angular est **indépendante** du serveur Node.js.
-
----
-
-## 🕹️ Matériel — Buzzer ESP32-S3
-
-Chaque buzzer est un périphérique physique autonome embarquant :
-
-| Composant | Rôle |
-|---|---|
-| Écran LCD TFT | Affichage des questions, propositions et classements |
-| 4 boutons poussoir A, B, C, D | Réponses aux questions MCQ |
-| 1 gros bouton buzzer | Réponse aux questions SPEED |
-| Haut-parleurs | Diffusion de sons et jingles |
-| Batterie | Alimentation autonome |
-
-Le dispositif supporte **jusqu'à 10 buzzers simultanés** (contrainte financière et organisationnelle).
-
-> ⚠️ **À compléter** — Les états affichés sur l'écran LCD TFT du buzzer restent à préciser pour les situations suivantes : écran d'attente entre deux questions, affichage lors d'un buzze (avant validation du maître du jeu), affichage après bonne réponse, affichage après mauvaise réponse, affichage lors de l'élimination d'un joueur en mode SPEED, affichage en fin de partie.
-
----
-
-## 🎮 Déroulement d'une partie
-
-### Préparation
-
-Le maître du jeu crée une partie depuis Angular en associant :
-- Un **quiz** (ensemble ordonné de questions)
-- Des **participants** (noms libres, de 1 à 10)
-
-La partie démarre en statut `PENDING`, puis passe en `OPEN` à l'initiative du maître du jeu.
-
-### Pilotage
-
-C'est le **maître du jeu** qui pilote manuellement chaque étape depuis Angular. Les transitions d'état sont déclenchées par ses interactions. L'application Angular n'est visible que par le maître du jeu.
-
-### Classement intermédiaire
-
-Le maître du jeu peut afficher le classement à **n'importe quel moment** de la partie. Il est affiché simultanément sur Angular et sur les buzzers.
-
-### Fin de partie
-
-Le maître du jeu déclenche la fin de la partie. Le **classement final** est affiché simultanément sur Angular et sur tous les buzzers.
-
----
-
-## ❓ Types de questions
-
-### Mode MCQ — Questions à choix multiples
-
-| Étape | Déclencheur | Action |
-|---|---|---|
-| 1 | Maître du jeu | Affichage de l'**intitulé** de la question sur Angular et les buzzers |
-| 2 | Maître du jeu | Affichage des **4 propositions** A/B/C/D + démarrage simultané du chronomètre |
-| 3 | Joueur | Appui sur **A, B, C ou D** — réponse immédiate, irréversible, buzzer bloqué ensuite |
-| 4 | Automatique | Quand tous les joueurs ont répondu **ou** que le temps expire |
-| 5 | Maître du jeu | Déclenchement de l'affichage de la **correction** sur les buzzers |
-
-- Tous les joueurs ayant donné la bonne réponse remportent les points de la question.
-- Une fois sa réponse envoyée, un joueur ne peut plus interagir jusqu'à la question suivante.
-- Si le temps expire sans qu'un joueur ait répondu, son temps de réponse est égal à `time_limit`.
-
-### Mode SPEED — Questions de rapidité
-
-| Étape | Déclencheur | Action |
-|---|---|---|
-| 1 | Maître du jeu | Affichage de l'**intitulé** + démarrage simultané du chronomètre — buzzers actifs |
-| 2 | Joueur | Appui sur le **gros bouton buzzer** — tous les autres buzzers sont bloqués |
-| 3 | Joueur | Réponse **orale** |
-| 4 | Maître du jeu | **Validation ou invalidation** de la réponse depuis Angular |
-
-**Si la réponse est valide :** le joueur remporte les points de la question.
-
-**Si la réponse est invalide :** le joueur est éliminé de la question, le chronomètre reprend là où il s'était arrêté, les autres joueurs peuvent à nouveau buzzer.
-
-**Si le temps expire sans bonne réponse :** tout le monde est déclaré perdant, aucun point n'est attribué, le temps enregistré est `time_limit` pour tous.
-
-> **Note :** Le maître du jeu ne peut pas passer une question sans attribuer de points.
-
----
-
-## 🏆 Scoring et classement
-
-### Attribution des points
-
-- Les points attribués sont ceux **définis sur la question** (valeur fixe entre 1 et 50)
-- **Aucun bonus de rapidité**
-- **Aucune pénalité** pour mauvaise réponse
-
-### Critères de départage (par ordre de priorité)
-
-| Priorité | Critère | Avantage |
-|---|---|---|
-| 1 | Total de points | Le plus élevé gagne |
-| 2 | Temps de réponse cumulé | Le plus court gagne |
-
-### Calcul du temps de réponse
-
-- Le temps de réponse est enregistré **par joueur par question**
-- En cas d'expiration du chrono sans réponse, le temps enregistré est égal à `time_limit` de la question
-- Les scores et réponses sont sauvegardés en base **à la fin de chaque question complètement terminée**
-
----
-
-## ⚡ Synchronisation SPEED — Compensation de latence
-
-Pour déterminer qui a buzzé en premier en mode SPEED, deux timestamps sont combinés :
-
-| Source | Description |
-|---|---|
-| **Timestamp buzzer** | Horodatage local de l'ESP32 au moment de l'appui |
-| **Timestamp serveur** | Horodatage de réception du message WebSocket côté serveur |
-
-Une **logique de compensation de latence** est appliquée pour trancher en cas de buzzes quasi-simultanés. Le serveur fait autorité sur le résultat final.
-
----
-
-## 🔊 Sons et jingles
-
-Deux catégories de sons coexistent :
-
-| Catégorie | Stockage | Déclenchement |
-|---|---|---|
-| Sons système (buzzer pressé, attente…) | Préchargés sur chaque ESP32 | Signal WebSocket du serveur (identifiant de son) |
-| Jingles et sons personnalisés | Stockés sur le serveur Node.js | Envoyés via WebSocket vers un ou plusieurs buzzers ciblés |
-
-- Chaque buzzer possède un **son de buzzer unique** qui lui est propre.
-- Le maître du jeu peut diffuser des sons depuis Angular vers **un ou plusieurs buzzers précis**.
-
-> ⚠️ **À compléter** — La liste précise des sons préchargés sur chaque ESP32 reste à définir (sons système : buzzer pressé, bonne réponse, mauvaise réponse, élimination, fin de partie, attente, etc.).
 
 ---
 
@@ -220,12 +80,16 @@ Toute la codebase de **tous les projets** (serveur Node.js, Angular, firmware ES
 | US-010 | CRUD des parties | ✅ Documentée |
 | US-011 | Workflow d'une question MCQ | ✅ Documentée |
 | US-012 | Workflow d'une question SPEED | ✅ Documentée |
-| US-013 | Consultation des resultats d'une partie | ✅ Documentée |
+| US-013 | Consultation des résultats d'une partie | ✅ Documentée |
 | US-014 | Affichage du classement intermédiaire à la demande | ✅ Documentée |
 | US-015 | Heartbeat WebSocket | ✅ Documentée |
 | US-016 | Upload et gestion des fichiers médias des questions | ✅ Documentée |
 | US-017 | Gestion des jingles et sons personnalisés | ✅ Documentée |
 | US-018 | Déclenchement des sons système préchargés sur les buzzers | ✅ Documentée |
+| US-019 | Reprise de partie après crash serveur | ✅ Documentée |
+| US-020 | Health check | ✅ Documentée |
+| US-021 | Refresh du token JWT (WebSocket) | ✅ Documentée |
+| US-022 | Logging et observabilité | ✅ Documentée |
 
 ---
 
@@ -254,3 +118,4 @@ Les buzzers ESP32-S3 sont des périphériques embarqués à ressources limitées
 | Version | Date | Description |
 |---|---|---|
 | 1.0 | 2026-03-16 | Version initiale |
+| 1.1 | 2026-03-27 | Ajout US-019 à US-022 (reprise crash, health check, refresh JWT, logging) |
