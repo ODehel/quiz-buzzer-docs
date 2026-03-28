@@ -189,5 +189,5 @@ Si un buzzer se déconnecte entre le moment où l'utilisateur ouvre le select et
 ---
 
 **Dernière mise à jour** : 2026-03-28
-**Statut** : Rédigée — en attente d'implémentation (Sprint 4)
+**Statut** : Implémentée (Sprint 4)
 **Sprint** : 4
