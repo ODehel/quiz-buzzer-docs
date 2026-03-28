@@ -213,5 +213,5 @@ Après une suppression réussie (`204`), la liste est mise à jour localement vi
 ---
 
 **Dernière mise à jour** : 2026-03-28
-**Statut** : Rédigée — en attente d'implémentation (Sprint 2)
+**Statut** : Implémentée
 **Sprint** : 2
