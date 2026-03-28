@@ -97,6 +97,17 @@ Codes communs à **toutes les US**, appliquées globalement par le serveur :
 
 ---
 
+#### **Refresh token WebSocket (US-021)**
+
+| Code erreur | Code WS fermeture | Message | Contexte |
+|---|---|---|---|
+| `TOKEN_MISMATCH` | `4001` | `"Token identity does not match the current session."` | `sub` ou `role` du nouveau token ≠ session courante lors d'un `auth_refresh` |
+| `TOKEN_EXPIRED` | `4002` | `"The provided token has already expired."` | Nouveau token déjà expiré lors d'un `auth_refresh` |
+| `TOKEN_INVALID` | `4001` | `"The provided token is invalid."` | Signature invalide ou format incorrect lors d'un `auth_refresh` |
+| `INVALID_MESSAGE` | _(connexion maintenue)_ | `"Missing or invalid 'token' field."` | Champ `token` absent ou non-string dans `auth_refresh` |
+
+---
+
 ## 📋 Format standard des réponses d'erreur
 
 Toutes les réponses d'erreur de l'API suivent ce format JSON standardisé :
@@ -236,6 +247,9 @@ Pour une vue d'ensemble rapide, voici tous les codes documentés :
 | `ACTIVE_GAME_EXISTS` | 409 | US-010 | Game |
 | `INVALID_TRANSITION` | 422 | US-010 | Game |
 | `GAME_NOT_COMPLETED` | 409 | US-013 | Game Results |
+| `TOKEN_MISMATCH` | WS 4001 | US-021 | Token Refresh |
+| `TOKEN_EXPIRED` | WS 4002 | US-021 | Token Refresh |
+| `TOKEN_INVALID` | WS 4001 | US-021 | Token Refresh |
 | `INTERNAL_SERVER_ERROR` | 500 | Toutes | Standard |
 
 ---
