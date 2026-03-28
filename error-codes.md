@@ -26,7 +26,7 @@ Codes communs à **toutes les US**, appliquées globalement par le serveur :
 | `METHOD_NOT_ALLOWED` | `405` | `"HTTP method <METHOD> is not allowed on this resource."` | Méthode HTTP non supportée (message dynamique) |
 | `UNSUPPORTED_MEDIA_TYPE` | `415` | `"Content-Type must be 'application/json'."` | Content-Type incorrect |
 | `RATE_LIMIT_EXCEEDED` | `429` | `"Too many requests. Please retry in 60 seconds."` | Dépassement du rate limit (header `Retry-After: 60`) |
-| `INTERNAL_SERVER_ERROR` | `500` | `"An unexpected error occurred. Please try again later."` | Erreur serveur (aucun détail technique exposé) |
+| `INTERNAL_SERVER_ERROR` | `500` | `"An unexpected error occurred. Please try again later."` | Erreur serveur (aucun détail technique exposé). Inclut un champ `correlation_id` (UUIDv7) pour traçabilité — voir US-022 CA-19 |
 
 ---
 
@@ -119,6 +119,17 @@ Toutes les réponses d'erreur de l'API suivent ce format JSON standardisé :
   "message": "Human-readable message"
 }
 ```
+
+> **Cas particulier — Erreur 500** : les réponses `INTERNAL_SERVER_ERROR` incluent un champ supplémentaire `correlation_id` (UUIDv7) pour faciliter la traçabilité dans les logs serveur (voir US-022 CA-19).
+>
+> ```json
+> {
+>   "status": 500,
+>   "error": "INTERNAL_SERVER_ERROR",
+>   "message": "An unexpected error occurred. Please try again later.",
+>   "correlation_id": "018e4f5d-0000-7000-8000-000000000001"
+> }
+> ```
 
 ### Exemples
 
@@ -278,6 +289,6 @@ Ce catalogue utilise l'anglais pour tous les messages. En cas de besoin de local
 
 ---
 
-**Dernière mise à jour** : 2026-03-25
+**Dernière mise à jour** : 2026-03-28
 **Mainteneur** : Architecture API Quiz Buzzer
 **Statut** : Production
