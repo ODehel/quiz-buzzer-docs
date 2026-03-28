@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Buzzer — Nouvelle partie</title>
+
+<!--
+════════════════════════════════════════════════════════════════════
+  MAQUETTE ÉCRAN 6/12 — CRÉATION DE PARTIE
+════════════════════════════════════════════════════════════════════
+  Composant Angular  : GameCreateComponent
+  Sélecteur          : <app-game-create>
+  Fichier            : src/app/games/game-create.component.ts
+  Route              : /games/new
+  Guards             : authGuard, noActiveGameGuard
+  Sprint             : 4
+  US couverte        : US-ANG-006 (CA-13 à CA-28)
+
+  ── Critères d'acceptance couverts ──────────────────────────────
+  CA-13  GET /api/v1/quizzes?limit=100 au montage → select de quiz
+  CA-15  Select : option par défaut désactivée "— Sélectionner un quiz —"
+  CA-16  Sélection quiz → GET /api/v1/quizzes/:id → bloc aperçu
+         (total questions, MCQ/SPEED, niveaux min–max)
+  CA-17  Liste vide → "Aucun quiz disponible" + lien vers création
+  CA-18  Formulaire démarre avec 1 participant vide ; max 10
+  CA-19  Validation : nom non vide, ≤ 50 chars → erreur inline
+  CA-20  Noms uniques insensible à la casse → erreur inline "Ce nom est déjà utilisé"
+  CA-21  Bouton × retire un participant ; désactivé si 1 seul
+  CA-22  Compteur N / 10 affiché
+  CA-23  Bouton "Créer la partie" disabled si quiz non sélectionné
+         ou liste participants invalide
+  CA-24  POST /api/v1/games { quiz_id, participants: [...] }
+  CA-25  201 → GameStateService.initFromGame() → navigate('/pilot/lobby')
+  CA-26  409 ACTIVE_GAME_EXISTS → toast "Une partie est déjà en cours"
+  CA-27  404 QUIZ_NOT_FOUND → toast "Le quiz sélectionné n'existe plus"
+
+  ── Signals utilisés ─────────────────────────────────────────────
+  quizzes           → signal<QuizSummary[]>([])
+  selectedQuizId    → signal<string | null>(null)
+  quizPreview       → signal<QuizDetail | null>(null)
+  isLoadingPreview  → signal<boolean>(false)
+  participants      → signal<string[]>([''])
+  fieldErrors       → signal<Record<string, string>>({})
+  isSubmitting      → signal<boolean>(false)
+  isValid           → computed<boolean>
+                      (selectedQuizId ≠ null
+                       AND tous noms non-vides ≤ 50 chars
+                       AND pas de doublons)
+
+  ── Endpoints REST consommés ─────────────────────────────────────
+  GET  /api/v1/quizzes?limit=100        → select de quiz (au montage)
+  GET  /api/v1/quizzes/:id              → aperçu du quiz sélectionné (CA-16)
+  POST /api/v1/games                    → création de la partie (CA-24)
+════════════════════════════════════════════════════════════════════
+-->
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
+
+  :root {
+    --bg:         #0f1117;
+    --surface:    #1a1d27;
+    --surface2:   #21263a;
+    --border:     #2e3348;
+    --text:       #e8eaf0;
+    --muted:      #6b7280;
+    --accent:     #4f8ef7;
+    --accent-dim: #1e3a6e;
+    --green:      #22c55e;
+    --amber:      #f59e0b;
+    --red:        #ef4444;
+    --sidebar-w:  220px;
+    --topbar-h:   52px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Topbar ── */
+  .topbar {
+    height: var(--topbar-h);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center;
+    padding: 0 20px; gap: 16px; flex-shrink: 0;
+  }
+  .topbar-logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 16px; letter-spacing: -0.5px; color: var(--accent); }
+  .topbar-logo span { color: var(--text); }
+  .topbar-spacer { flex: 1; }
+  .ws-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+  .topbar-server { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+  .ws-label { color: var(--green); font-weight: 500; }
+
+  /* ── Layout ── */
+  .layout { display: flex; flex: 1; overflow: hidden; }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: var(--sidebar-w);
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    padding: 16px 0; flex-shrink: 0;
+  }
+  .nav-section-label { font-size: 10px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); padding: 8px 16px 4px; }
+  .nav-link { display: flex; align-items: center; gap: 10px; padding: 8px 16px; cursor: pointer; color: var(--muted); font-size: 13.5px; text-decoration: none; transition: all .15s; position: relative; }
+  .nav-link:hover { background: var(--surface2); color: var(--text); }
+  .nav-link.active { color: var(--accent); background: var(--accent-dim); font-weight: 500; }
+  .nav-link.active::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent); border-radius: 0 2px 2px 0; }
+  .nav-divider { height: 1px; background: var(--border); margin: 8px 16px; }
+  .nav-icon { width: 15px; height: 15px; fill: currentColor; flex-shrink: 0; opacity: .7; }
+
+  /* ── Main ── */
+  .main { flex: 1; overflow-y: auto; padding: 24px 28px; }
+
+  /* ── Breadcrumb ── */
+  .breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); margin-bottom: 16px; }
+  .breadcrumb a { color: var(--muted); text-decoration: none; }
+  .breadcrumb a:hover { color: var(--accent); }
+
+  /* ── Page header ── */
+  .page-header { margin-bottom: 28px; }
+  .page-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 22px; letter-spacing: -0.5px; margin-bottom: 4px; }
+  .page-sub { font-size: 13px; color: var(--muted); }
+
+  /* ── Grille formulaire ── */
+  .form-grid { display: grid; grid-template-columns: 1fr 340px; gap: 20px; align-items: start; }
+
+  /* ── Card ── */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 16px; }
+  .card:last-child { margin-bottom: 0; }
+  .card-header { display: flex; align-items: center; justify-content: space-between; padding: 13px 16px; border-bottom: 1px solid var(--border); }
+  .card-title { font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); }
+  .card-body { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+
+  /* ── Champs ── */
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field-label { font-size: 12px; font-weight: 600; color: var(--muted); display: flex; align-items: center; justify-content: space-between; }
+  .field-select, .field-input {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-family: 'DM Sans', sans-serif;
+    font-size: 13.5px; padding: 9px 12px; outline: none; width: 100%;
+    transition: border-color .15s;
+  }
+  .field-select:focus, .field-input:focus { border-color: var(--accent); }
+  .field-input.error { border-color: var(--red); }
+  .field-error { font-size: 11px; color: var(--red); }
+  .field-hint  { font-size: 11px; color: var(--muted); }
+
+  /* ── Aperçu quiz [CA-16] ── */
+  .quiz-preview {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .preview-name { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; }
+  .preview-stats { display: flex; gap: 16px; }
+  .preview-stat { display: flex; flex-direction: column; gap: 2px; }
+  .preview-stat-val { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; color: var(--accent); line-height: 1; }
+  .preview-stat-lbl { font-size: 11px; color: var(--muted); }
+  .preview-types { display: flex; gap: 8px; }
+  .preview-type-chip {
+    display: flex; align-items: center; gap: 5px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 4px 8px;
+    font-size: 11px; font-weight: 600;
+  }
+  .chip-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .chip-mcq   { color: #7eb3ff; } .chip-mcq   .chip-dot { background: #7eb3ff; }
+  .chip-speed { color: #c084fc; } .chip-speed .chip-dot { background: #c084fc; }
+  /* Niveaux min–max */
+  .preview-levels { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+  .level-range { display: flex; gap: 4px; }
+  .lvl-badge {
+    width: 22px; height: 22px;
+    border-radius: 5px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700;
+    color: var(--text);
+  }
+  .lvl-badge.active-1 { background: #052a12; border-color: #4ade80; color: #4ade80; }
+  .lvl-badge.active-5 { background: #2a0808; border-color: #f87171; color: #f87171; }
+
+  /* ── Participants [CA-18 à CA-22] ── */
+  .participants-list { display: flex; flex-direction: column; gap: 8px; }
+  .participant-row { display: flex; align-items: center; gap: 8px; }
+  .participant-num {
+    font-size: 12px; font-weight: 700; color: var(--muted);
+    width: 16px; text-align: right; flex-shrink: 0;
+  }
+  .participant-input {
+    flex: 1;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text);
+    font-family: 'DM Sans', sans-serif; font-size: 13.5px;
+    padding: 8px 10px; outline: none; transition: border-color .15s;
+  }
+  .participant-input:focus { border-color: var(--accent); }
+  .participant-input.error { border-color: var(--red); }
+  /* [CA-21] Bouton × */
+  .btn-remove-p {
+    width: 26px; height: 26px; border-radius: 6px;
+    border: 1px solid var(--border); background: transparent;
+    color: var(--muted); font-size: 14px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; transition: all .15s;
+  }
+  .btn-remove-p:hover { background: #2a0808; border-color: var(--red); color: var(--red); }
+  .btn-remove-p:disabled { opacity: .3; cursor: not-allowed; }
+  /* Bouton + Ajouter */
+  .btn-add-p {
+    display: flex; align-items: center; gap: 6px;
+    background: transparent; border: 1px dashed var(--border);
+    border-radius: 8px; color: var(--muted);
+    font-size: 12px; font-weight: 500; cursor: pointer;
+    padding: 7px 12px; font-family: 'DM Sans', sans-serif;
+    width: 100%; justify-content: center; transition: all .15s;
+  }
+  .btn-add-p:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+  /* ── Colonne droite ── */
+  .sidebar-right { display: flex; flex-direction: column; gap: 16px; }
+  .btn-primary {
+    background: var(--accent); color: #fff; border: none;
+    padding: 11px 20px; border-radius: 9px; font-size: 14px; font-weight: 600;
+    cursor: pointer; font-family: 'DM Sans', sans-serif;
+    transition: opacity .15s; width: 100%;
+  }
+  .btn-primary:hover { opacity: .88; }
+  .btn-primary:disabled { opacity: .35; cursor: not-allowed; }
+  .btn-ghost-full {
+    background: transparent; border: 1px solid var(--border); color: var(--muted);
+    padding: 9px 20px; border-radius: 9px; font-size: 13px; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; transition: all .15s; width: 100%;
+  }
+  .btn-ghost-full:hover { background: var(--surface2); color: var(--text); }
+
+  /* ── Toast [CA-26] ── */
+  .toast-error {
+    position: fixed; bottom: 24px; right: 24px;
+    background: #1a0808; border: 1px solid var(--red);
+    color: #fca5a5; padding: 14px 16px; border-radius: 10px;
+    font-size: 13px; max-width: 360px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.4);
+    display: flex; flex-direction: column; gap: 8px; z-index: 100;
+  }
+  .toast-error-header { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+  .toast-error svg { width: 16px; height: 16px; fill: var(--red); flex-shrink: 0; }
+  .toast-link { color: var(--accent); font-size: 12px; text-decoration: underline; cursor: pointer; }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- Topbar -->
+<header class="topbar">
+  <div class="topbar-logo">Quiz<span>Buzzer</span></div>
+  <div class="topbar-spacer"></div>
+  <div class="topbar-server">
+    <div class="ws-dot"></div>
+    <span class="ws-label">Connecté</span>
+    <span style="color:var(--border)">|</span>
+    <span style="color:var(--muted)">192.168.1.10:3000</span>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- Sidebar nav -->
+  <nav class="sidebar">
+    <div class="nav-section-label">Navigation</div>
+    <a class="nav-link" href="#"><svg class="nav-icon" viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>Tableau de bord</a>
+    <div class="nav-divider"></div>
+    <div class="nav-section-label">Contenu</div>
+    <a class="nav-link" href="#"><svg class="nav-icon" viewBox="0 0 24 24"><path d="M17.63 5.84C17.27 5.33 16.67 5 16 5L5 5.01C3.9 5.01 3 5.9 3 7v10c0 1.1.9 1.99 2 1.99L16 19c.67 0 1.27-.33 1.63-.84L22 12l-4.37-6.16z"/></svg>Thèmes</a>
+    <a class="nav-link" href="#"><svg class="nav-icon" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg>Questions</a>
+    <a class="nav-link" href="#"><svg class="nav-icon" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg>Quiz</a>
+    <a class="nav-link" href="#"><svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 3v9.28c-.47-.17-.97-.28-1.5-.28C8.01 12 6 14.01 6 16.5S8.01 21 10.5 21c2.31 0 4.2-1.75 4.45-4H15V6h4V3h-7z"/></svg>Jingles</a>
+    <div class="nav-divider"></div>
+    <div class="nav-section-label">Parties</div>
+    <a class="nav-link active" href="#"><svg class="nav-icon" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14l-5-5 1.41-1.41L12 14.17l7.59-7.59L21 8l-9 9z"/></svg>Toutes les parties</a>
+  </nav>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- Breadcrumb -->
+    <div class="breadcrumb">
+      <a href="#">Parties</a>
+      <span>›</span>
+      <span>Nouvelle partie</span>
+    </div>
+
+    <div class="page-header">
+      <h1 class="page-title">Nouvelle partie</h1>
+      <p class="page-sub">Choisissez un quiz et enregistrez les noms des joueurs.</p>
+    </div>
+
+    <div class="form-grid">
+
+      <!-- Colonne gauche -->
+      <div>
+
+        <!-- Section : Sélection du quiz [CA-15, CA-16] -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Quiz</span>
+          </div>
+          <div class="card-body">
+
+            <!-- [CA-15] Select avec option désactivée par défaut -->
+            <!-- Au montage : GET /api/v1/quizzes?limit=100 [CA-13] -->
+            <div class="field">
+              <label class="field-label">Sélectionner un quiz <span style="color:var(--red)">*</span></label>
+              <select class="field-select">
+                <option value="" disabled>— Sélectionner un quiz —</option>
+                <option selected>Culture Générale Saison 1</option>
+                <option>Culture Générale Saison 2</option>
+                <option>Histoire de France</option>
+                <option>Sciences &amp; Nature</option>
+                <option>Géographie Mondiale</option>
+              </select>
+            </div>
+
+            <!-- [CA-16] Aperçu — affiché après GET /api/v1/quizzes/:id -->
+            <div class="quiz-preview">
+              <div class="preview-name">Culture Générale Saison 1</div>
+              <div class="preview-stats">
+                <div class="preview-stat">
+                  <span class="preview-stat-val">20</span>
+                  <span class="preview-stat-lbl">questions</span>
+                </div>
+                <div class="preview-stat">
+                  <span class="preview-stat-val" style="color:var(--green)">~8</span>
+                  <span class="preview-stat-lbl">min estimées</span>
+                </div>
+              </div>
+              <!-- Répartition MCQ/SPEED -->
+              <div class="preview-types">
+                <div class="preview-type-chip chip-mcq">
+                  <div class="chip-dot"></div>
+                  13 MCQ
+                </div>
+                <div class="preview-type-chip chip-speed">
+                  <div class="chip-dot"></div>
+                  7 SPEED
+                </div>
+              </div>
+              <!-- Niveaux min → max -->
+              <div class="preview-levels">
+                <span>Niveaux :</span>
+                <div class="level-range">
+                  <div class="lvl-badge active-1">1</div>
+                  <div class="lvl-badge">2</div>
+                  <div class="lvl-badge">3</div>
+                  <div class="lvl-badge">4</div>
+                  <div class="lvl-badge active-5">5</div>
+                </div>
+                <span style="font-size:11px">min 1 → max 5</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Section : Participants [CA-18 à CA-22] -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Participants</span>
+            <!-- [CA-22] Compteur N / 10 -->
+            <span style="font-size:12px;color:var(--muted)">
+              <strong style="color:var(--text)">4</strong> / 10
+            </span>
+          </div>
+          <div class="card-body">
+            <div class="participants-list">
+
+              <!-- Participant 1 — valide -->
+              <div class="participant-row">
+                <span class="participant-num">1</span>
+                <input type="text" class="participant-input" value="Alice">
+                <!-- [CA-21] Désactivé si dernier participant restant -->
+                <button class="btn-remove-p" disabled title="Au moins 1 participant requis">×</button>
+              </div>
+
+              <!-- Participant 2 — valide -->
+              <div class="participant-row">
+                <span class="participant-num">2</span>
+                <input type="text" class="participant-input" value="Bob">
+                <button class="btn-remove-p">×</button>
+              </div>
+
+              <!-- Participant 3 — [CA-20] doublon "Alice" → erreur inline -->
+              <div>
+                <div class="participant-row">
+                  <span class="participant-num">3</span>
+                  <input type="text" class="participant-input error" value="alice">
+                  <button class="btn-remove-p">×</button>
+                </div>
+                <!-- [CA-20] Validation insensible à la casse -->
+                <div class="field-error" style="margin-left:24px;margin-top:3px">Ce nom est déjà utilisé.</div>
+              </div>
+
+              <!-- Participant 4 — valide -->
+              <div class="participant-row">
+                <span class="participant-num">4</span>
+                <input type="text" class="participant-input" value="Charlie">
+                <button class="btn-remove-p">×</button>
+              </div>
+
+            </div>
+
+            <!-- [CA-18] Bouton + Ajouter (disponible jusqu'à 10) -->
+            <button class="btn-add-p">
+              <svg style="width:13px;height:13px;fill:currentColor" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+              Ajouter un participant
+            </button>
+
+          </div>
+        </div>
+
+      </div><!-- /colonne gauche -->
+
+      <!-- Colonne droite -->
+      <div class="sidebar-right">
+
+        <!-- Actions [CA-23, CA-24, CA-25] -->
+        <div class="card">
+          <div class="card-header"><span class="card-title">Lancer</span></div>
+          <div class="card-body" style="gap:10px">
+
+            <!-- [CA-23] Désactivé si participants invalides (doublon détecté) -->
+            <button class="btn-primary" disabled>
+              ▶ Créer la partie
+            </button>
+            <button class="btn-ghost-full">Annuler</button>
+
+            <!-- Raison du blocage -->
+            <div style="font-size:11px;color:var(--red);display:flex;align-items:center;gap:5px">
+              <svg style="width:12px;height:12px;fill:var(--red)" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+              Deux participants portent le même nom.
+            </div>
+          </div>
+        </div>
+
+        <!-- Récapitulatif de la partie -->
+        <div class="card">
+          <div class="card-header"><span class="card-title">Récapitulatif</span></div>
+          <div class="card-body" style="gap:10px">
+            <div style="display:flex;flex-direction:column;gap:7px;font-size:13px">
+              <div style="display:flex;justify-content:space-between">
+                <span style="color:var(--muted)">Quiz</span>
+                <span style="font-weight:500">Culture Générale S1</span>
+              </div>
+              <div style="display:flex;justify-content:space-between">
+                <span style="color:var(--muted)">Questions</span>
+                <span>20 (13 MCQ · 7 SPEED)</span>
+              </div>
+              <div style="display:flex;justify-content:space-between">
+                <span style="color:var(--muted)">Participants</span>
+                <span>4 joueurs</span>
+              </div>
+              <div style="display:flex;justify-content:space-between">
+                <span style="color:var(--muted)">Durée estimée</span>
+                <span>~8 minutes</span>
+              </div>
+            </div>
+            <div style="height:1px;background:var(--border)"></div>
+            <div style="font-size:11px;color:var(--muted)">
+              Après création, vous serez redirigé vers le lobby pour attendre la connexion des buzzers.
+            </div>
+          </div>
+        </div>
+
+        <!-- Payload POST -->
+        <div class="card">
+          <div class="card-header"><span class="card-title">Payload · POST /api/v1/games</span></div>
+          <div class="card-body" style="padding:12px">
+            <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:11px;font-size:11px;font-family:'Courier New',monospace;color:var(--muted);line-height:1.7">
+<span style="color:#7eb3ff">"quiz_id"</span>: <span style="color:#fbbf24">"018e4f5c…"</span>,<br>
+<span style="color:#7eb3ff">"participants"</span>: [<br>
+&nbsp;&nbsp;<span style="color:#fbbf24">"Alice"</span>,<br>
+&nbsp;&nbsp;<span style="color:#fbbf24">"Bob"</span>,<br>
+&nbsp;&nbsp;<span style="color:var(--red)">"alice"</span> <span style="color:var(--red)">← doublon</span>,<br>
+&nbsp;&nbsp;<span style="color:#fbbf24">"Charlie"</span><br>
+]
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /colonne droite -->
+
+    </div><!-- /form-grid -->
+
+  </main>
+</div>
+
+<!-- Toast ACTIVE_GAME_EXISTS [CA-26] — affiché si POST → 409 -->
+<!-- Décommenter pour visualiser -->
+<!--
+<div class="toast-error">
+  <div class="toast-error-header">
+    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+    Une partie est déjà en cours
+  </div>
+  <div style="font-size:12px;color:#fca5a5">Vous devez terminer ou supprimer la partie active avant d'en créer une nouvelle.</div>
+  <a class="toast-link">Reprendre la partie en cours →</a>
+</div>
+-->
+
+</body>
+</html>

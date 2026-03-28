@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Buzzer — Classement intermédiaire</title>
+
+<!--
+════════════════════════════════════════════════════════════════════
+  MAQUETTE ÉCRAN 11/12 — OVERLAY CLASSEMENT INTERMÉDIAIRE
+════════════════════════════════════════════════════════════════════
+  Composant Angular  : RankingComponent (overlay)
+  Sélecteur          : <app-ranking>
+  Fichier            : src/app/pilot/play/ranking/ranking.component.ts
+  Monté par          : PlayComponent si gs.state().ranking !== null
+  Route              : /pilot/play (pas de route propre — overlay)
+  Sprint             : 6
+  US couverte        : US-ANG-008 (CA-35 à CA-40)
+
+  ── Critères d'acceptance couverts ──────────────────────────────
+  CA-35  Bouton "Classement" disponible dans tous les états actifs
+         (présent dans SoundPanelComponent)
+  CA-36  Clic → ws.send({ type: 'trigger_intermediate_ranking' })
+         via @Output() → PlayComponent
+  CA-37  Réception intermediate_ranking →
+         GameStateService.state().ranking signal mis à jour
+         → RankingComponent monté en overlay PAR DESSUS PlayComponent
+         → workflow en cours NON interrompu (CA-2 US-014)
+  CA-38  Overlay affiche : rang, nom, score cumulé, temps cumulé
+         pour chaque participant (issu du signal ranking[])
+  CA-39  Fermeture → GameStateService.dismissRanking()
+         → signal ranking remis à null → RankingComponent démonté
+  CA-40  Erreur INVALID_STATE → toast "Classement indisponible"
+         (si trigger en PENDING/COMPLETED/IN_ERROR)
+
+  ── Architecture de l'overlay ────────────────────────────────────
+  PlayComponent template :
+    @if (gs.state().ranking) {
+      <app-ranking (close)="gs.dismissRanking()" />
+    }
+  → Superposé via position:fixed + z-index élevé
+  → Le workflow en dessous (MCQ QUESTION_OPEN) continue sans interruption
+  → Signal ranking source : intermediate_ranking WS message
+
+  ── Données simulées ─────────────────────────────────────────────
+  Après Q10/20 (mi-parcours)
+  ranking = [
+    { rank:1, name:'Alice',   cumulative_score:2140, total_time_ms:31200 },
+    { rank:2, name:'Diana',   cumulative_score:1980, total_time_ms:38500 },
+    { rank:3, name:'Charlie', cumulative_score:1620, total_time_ms:52100 },
+    { rank:4, name:'Bob',     cumulative_score:1340, total_time_ms:29800 }
+  ]
+  Contexte : interrompu pendant QUESTION_OPEN MCQ (Q11)
+  → Chrono continue derrière l'overlay (non bloquant)
+
+  ── Signal utilisé ───────────────────────────────────────────────
+  gs.state().ranking  → signal<RankingEntry[] | null>
+                        null = overlay démonté
+                        RankingEntry[] = overlay monté
+════════════════════════════════════════════════════════════════════
+-->
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
+
+  :root {
+    --bg:         #0b0d14;
+    --surface:    #13161f;
+    --surface2:   #1c2030;
+    --border:     #252a3a;
+    --text:       #e8eaf0;
+    --muted:      #5a6278;
+    --accent:     #4f8ef7;
+    --accent-dim: #162240;
+    --green:      #22c55e;
+    --green-dim:  #052a12;
+    --amber:      #f59e0b;
+    --red:        #ef4444;
+    --topbar-h:   48px;
+    --gold:       #fbbf24;
+    --silver:     #94a3b8;
+    --bronze:     #c2845a;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  @keyframes pulse     { 0%,100%{opacity:1} 50%{opacity:.4} }
+  @keyframes overlay-in {
+    from { opacity:0; transform:scale(.97); }
+    to   { opacity:1; transform:scale(1); }
+  }
+  @keyframes podium-rise {
+    from { transform: scaleY(0); transform-origin: bottom; }
+    to   { transform: scaleY(1); transform-origin: bottom; }
+  }
+  @keyframes row-in {
+    from { opacity:0; transform:translateX(-12px); }
+    to   { opacity:1; transform:translateX(0); }
+  }
+
+  /* ── Topbar (arrière-plan assombri) ── */
+  .topbar {
+    height: var(--topbar-h);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center;
+    padding: 0 16px; gap: 12px; flex-shrink: 0;
+    filter: brightness(.35);
+  }
+  .topbar-logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 15px; letter-spacing: -0.5px; color: var(--accent); }
+  .topbar-logo span { color: var(--text); }
+
+  /* ── Layout arrière-plan — pilotage MCQ en cours (assombri) ── */
+  .bg-layout {
+    display: grid;
+    grid-template-columns: 260px 1fr 280px;
+    flex: 1; overflow: hidden;
+    filter: brightness(.25) blur(2px);
+    pointer-events: none; /* non interactif pendant l'overlay */
+  }
+  .bg-col { border-right: 1px solid var(--border); background: var(--surface); height: 100%; }
+  .bg-mid { background: var(--bg); }
+  .bg-right { border-left: 1px solid var(--border); background: var(--surface); }
+
+  /* Contenu minimal arrière-plan */
+  .bg-content { padding: 20px; color: var(--muted); font-size: 12px; }
+
+  /* ══════════════════════════════════
+     OVERLAY — RankingComponent [CA-37, CA-38, CA-39]
+     ══════════════════════════════════ */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    /* Fond semi-transparent */
+    background: rgba(5, 7, 15, 0.82);
+    backdrop-filter: blur(4px);
+  }
+
+  .ranking-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    width: 100%;
+    max-width: 680px;
+    max-height: 90vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 40px 80px rgba(0,0,0,.6);
+    animation: overlay-in .25s ease-out;
+  }
+
+  /* En-tête overlay */
+  .ranking-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+    flex-shrink: 0;
+  }
+  .ranking-title-wrap { display: flex; flex-direction: column; gap: 2px; }
+  .ranking-title {
+    font-family: 'Syne', sans-serif; font-size: 17px; font-weight: 800;
+    letter-spacing: -.3px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .ranking-badge {
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px;
+    padding: 3px 8px; border-radius: 4px;
+    background: var(--accent-dim); color: var(--accent); border: 1px solid #2a4a8a;
+  }
+  .ranking-sub { font-size: 11px; color: var(--muted); }
+
+  /* Bouton fermeture [CA-39] */
+  .btn-close {
+    width: 32px; height: 32px; border-radius: 8px;
+    border: 1px solid var(--border); background: transparent;
+    color: var(--muted); font-size: 16px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .15s; flex-shrink: 0;
+  }
+  .btn-close:hover { background: var(--surface); color: var(--text); border-color: #3d4a6a; }
+
+  /* Corps scrollable */
+  .ranking-body {
+    flex: 1; overflow-y: auto; padding: 20px 22px;
+    display: flex; flex-direction: column; gap: 20px;
+  }
+
+  /* ── Podium ── */
+  .podium-section {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 12px;
+    padding: 0 10px 0;
+  }
+
+  /* Colonne podium : 2e / 1er / 3e */
+  .podium-col {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    flex: 1;
+  }
+
+  /* Avatar joueur */
+  .podium-avatar {
+    width: 48px; height: 48px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 800;
+    border: 2px solid; flex-shrink: 0;
+  }
+  .podium-avatar.gold   { background: rgba(251,191,36,.1);  border-color: var(--gold);   color: var(--gold);   box-shadow: 0 0 16px rgba(251,191,36,.3); }
+  .podium-avatar.silver { background: rgba(148,163,184,.1); border-color: var(--silver); color: var(--silver); }
+  .podium-avatar.bronze { background: rgba(194,132,90,.1);  border-color: var(--bronze); color: var(--bronze); }
+
+  .podium-name {
+    font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700;
+    text-align: center;
+  }
+  .podium-score {
+    font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 800;
+    text-align: center;
+  }
+  .podium-score.gold   { color: var(--gold); }
+  .podium-score.silver { color: var(--silver); }
+  .podium-score.bronze { color: var(--bronze); }
+
+  /* Marche du podium */
+  .podium-step {
+    width: 100%; border-radius: 8px 8px 0 0;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800;
+  }
+  .podium-step.gold   { height: 80px; background: linear-gradient(180deg, rgba(251,191,36,.2) 0%, rgba(251,191,36,.08) 100%); border: 1px solid rgba(251,191,36,.3); color: var(--gold); animation: podium-rise .4s .1s ease-out both; }
+  .podium-step.silver { height: 60px; background: linear-gradient(180deg, rgba(148,163,184,.15) 0%, rgba(148,163,184,.05) 100%); border: 1px solid rgba(148,163,184,.25); color: var(--silver); animation: podium-rise .4s .2s ease-out both; }
+  .podium-step.bronze { height: 44px; background: linear-gradient(180deg, rgba(194,132,90,.15) 0%, rgba(194,132,90,.05) 100%); border: 1px solid rgba(194,132,90,.25); color: var(--bronze); animation: podium-rise .4s .3s ease-out both; }
+
+  /* ── Tableau classement complet [CA-38] ── */
+  .ranking-table { display: flex; flex-direction: column; gap: 6px; }
+  .ranking-table-title {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .9px; color: var(--muted); margin-bottom: 4px;
+  }
+
+  /* En-tête colonnes */
+  .ranking-table-header {
+    display: grid;
+    grid-template-columns: 32px 1fr 100px 100px;
+    padding: 6px 14px;
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .7px; color: var(--muted);
+    gap: 8px;
+  }
+
+  /* Ligne joueur [CA-38] */
+  .ranking-row {
+    display: grid;
+    grid-template-columns: 32px 1fr 100px 100px;
+    align-items: center;
+    padding: 12px 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    gap: 8px;
+    animation: row-in .3s ease-out both;
+  }
+  .ranking-row:nth-child(2) { animation-delay: .05s; }
+  .ranking-row:nth-child(3) { animation-delay: .1s; }
+  .ranking-row:nth-child(4) { animation-delay: .15s; }
+  /* Surbrillance 1er rang */
+  .ranking-row.rank-1 {
+    background: linear-gradient(135deg, rgba(251,191,36,.08) 0%, var(--surface2) 100%);
+    border-color: rgba(251,191,36,.25);
+  }
+
+  /* Rang */
+  .rk-rank {
+    font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 800;
+    text-align: center;
+  }
+  .rk-rank.gold   { color: var(--gold); }
+  .rk-rank.silver { color: var(--silver); }
+  .rk-rank.bronze { color: var(--bronze); }
+  .rk-rank.other  { color: var(--muted); }
+
+  /* Nom */
+  .rk-name { font-size: 14px; font-weight: 600; }
+
+  /* Score cumulé [CA-38] */
+  .rk-score {
+    font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 800;
+    text-align: right; color: var(--accent);
+  }
+  .rk-score-label { font-size: 10px; color: var(--muted); margin-top: 1px; text-align: right; }
+
+  /* Temps cumulé [CA-38] */
+  .rk-time { font-size: 12px; color: var(--muted); text-align: right; }
+  .rk-time strong { color: var(--text); font-size: 13px; }
+
+  /* Pied de l'overlay */
+  .ranking-footer {
+    padding: 14px 22px;
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0; background: var(--surface2);
+  }
+  .ranking-context { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .context-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--amber); animation: pulse 1.5s ease-in-out infinite; }
+  .btn-dismiss {
+    background: var(--accent); border: none; border-radius: 9px;
+    color: #fff; padding: 9px 18px; font-size: 13px; font-weight: 600;
+    font-family: 'DM Sans', sans-serif; cursor: pointer; transition: opacity .15s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .btn-dismiss:hover { opacity: .88; }
+
+  ::-webkit-scrollbar { width: 3px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- Topbar arrière-plan (assombri, non interactif) -->
+<header class="topbar">
+  <div class="topbar-logo">Quiz<span>Buzzer</span></div>
+  <span style="font-size:12px;color:#5a6278">Culture Générale S1 · Q11 / 20 · QUESTION OUVERTE</span>
+</header>
+
+<!-- Arrière-plan pilotage MCQ assombri (non interactif) [CA-37] -->
+<div class="bg-layout">
+  <div class="bg-col">
+    <div class="bg-content">PlayerListComponent<br>Alice, Bob, Charlie, Diana…</div>
+  </div>
+  <div class="bg-mid">
+    <div class="bg-content">McqControlComponent<br>Q11 · QUESTION_OPEN<br>Chrono : 22s…<br>Choix A/B/C/D</div>
+  </div>
+  <div class="bg-right">
+    <div class="bg-content">SoundPanelComponent<br>Sons · Jingles · Scores</div>
+  </div>
+</div>
+
+<!-- ══ OVERLAY RankingComponent [CA-37 à CA-39] ══ -->
+<!-- Monté par PlayComponent quand gs.state().ranking !== null -->
+<!-- Position:fixed — superposé sur PlayComponent sans l'interrompre -->
+<div class="overlay">
+  <div class="ranking-panel">
+
+    <!-- En-tête -->
+    <div class="ranking-header">
+      <div class="ranking-title-wrap">
+        <div class="ranking-title">
+          🏆 Classement intermédiaire
+          <span class="ranking-badge">Mi-parcours</span>
+        </div>
+        <!-- [CA-37] Calcul basé sur la dernière question terminée (Q10) -->
+        <div class="ranking-sub">
+          Après Q10 / 20 · Source : scores persistés en base (dernière question terminée)
+        </div>
+      </div>
+      <!-- [CA-39] Fermeture → GameStateService.dismissRanking() → ranking = null -->
+      <button class="btn-close" title="Fermer le classement"
+        onclick="document.querySelector('.overlay').style.display='none'">
+        ✕
+      </button>
+    </div>
+
+    <!-- Corps -->
+    <div class="ranking-body">
+
+      <!-- ── Podium visuel — top 3 ── -->
+      <div class="podium-section">
+
+        <!-- 2e — Diana -->
+        <div class="podium-col">
+          <div class="podium-avatar silver">D</div>
+          <div class="podium-name">Diana</div>
+          <div class="podium-score silver">1 980</div>
+          <div class="podium-step silver">2</div>
+        </div>
+
+        <!-- 1er — Alice (au centre, plus haute marche) -->
+        <div class="podium-col">
+          <div class="podium-avatar gold">A</div>
+          <div class="podium-name">Alice</div>
+          <div class="podium-score gold">2 140</div>
+          <div class="podium-step gold">1</div>
+        </div>
+
+        <!-- 3e — Charlie -->
+        <div class="podium-col">
+          <div class="podium-avatar bronze">C</div>
+          <div class="podium-name">Charlie</div>
+          <div class="podium-score bronze">1 620</div>
+          <div class="podium-step bronze">3</div>
+        </div>
+
+      </div>
+
+      <!-- ── Tableau classement complet [CA-38] ── -->
+      <div class="ranking-table">
+        <div class="ranking-table-title">Classement complet</div>
+
+        <!-- En-tête colonnes -->
+        <div class="ranking-table-header">
+          <div>Rang</div>
+          <div>Joueur</div>
+          <div style="text-align:right">Score</div>
+          <div style="text-align:right">Temps cumulé</div>
+        </div>
+
+        <!-- 1er — Alice [CA-38] rang, nom, score cumulé, temps cumulé -->
+        <div class="ranking-row rank-1">
+          <div class="rk-rank gold">1</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:28px;height:28px;border-radius:50%;background:rgba(251,191,36,.1);border:1.5px solid var(--gold);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:11px;font-weight:800;color:var(--gold);flex-shrink:0">A</div>
+            <div>
+              <div class="rk-name">Alice</div>
+              <div style="font-size:10px;color:var(--muted)">10 bonnes réponses</div>
+            </div>
+          </div>
+          <div>
+            <div class="rk-score">2 140</div>
+            <div class="rk-score-label">points</div>
+          </div>
+          <div>
+            <div class="rk-time"><strong>31.2 s</strong></div>
+            <div style="font-size:10px;color:var(--muted)">moy. par Q</div>
+          </div>
+        </div>
+
+        <!-- 2e — Diana -->
+        <div class="ranking-row">
+          <div class="rk-rank silver">2</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:28px;height:28px;border-radius:50%;background:rgba(148,163,184,.08);border:1.5px solid var(--silver);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:11px;font-weight:800;color:var(--silver);flex-shrink:0">D</div>
+            <div>
+              <div class="rk-name">Diana</div>
+              <div style="font-size:10px;color:var(--muted)">9 bonnes réponses</div>
+            </div>
+          </div>
+          <div>
+            <div class="rk-score">1 980</div>
+            <div class="rk-score-label">points</div>
+          </div>
+          <div>
+            <div class="rk-time"><strong>38.5 s</strong></div>
+            <div style="font-size:10px;color:var(--muted)">moy. par Q</div>
+          </div>
+        </div>
+
+        <!-- 3e — Charlie -->
+        <div class="ranking-row">
+          <div class="rk-rank bronze">3</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:28px;height:28px;border-radius:50%;background:rgba(194,132,90,.08);border:1.5px solid var(--bronze);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:11px;font-weight:800;color:var(--bronze);flex-shrink:0">C</div>
+            <div>
+              <div class="rk-name">Charlie</div>
+              <div style="font-size:10px;color:var(--muted)">7 bonnes réponses</div>
+            </div>
+          </div>
+          <div>
+            <div class="rk-score">1 620</div>
+            <div class="rk-score-label">points</div>
+          </div>
+          <div>
+            <div class="rk-time"><strong>52.1 s</strong></div>
+            <div style="font-size:10px;color:var(--muted)">moy. par Q</div>
+          </div>
+        </div>
+
+        <!-- 4e — Bob -->
+        <div class="ranking-row">
+          <div class="rk-rank other">4</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:28px;height:28px;border-radius:50%;background:var(--surface);border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:11px;font-weight:800;color:var(--muted);flex-shrink:0">B</div>
+            <div>
+              <div class="rk-name" style="color:var(--muted)">Bob</div>
+              <div style="font-size:10px;color:var(--muted)">6 bonnes réponses</div>
+            </div>
+          </div>
+          <div>
+            <div class="rk-score" style="color:var(--muted)">1 340</div>
+            <div class="rk-score-label">points</div>
+          </div>
+          <div>
+            <div class="rk-time" style="color:var(--muted)"><strong style="color:var(--muted)">29.8 s</strong></div>
+            <div style="font-size:10px;color:var(--muted)">moy. par Q</div>
+          </div>
+        </div>
+
+      </div><!-- /.ranking-table -->
+
+    </div><!-- /.ranking-body -->
+
+    <!-- Pied -->
+    <div class="ranking-footer">
+      <!-- [CA-37] Contexte : workflow Q11 en cours derrière l'overlay -->
+      <div class="ranking-context">
+        <div class="context-dot"></div>
+        La question Q11 est en cours derrière cet overlay
+        — le chrono continue de tourner
+      </div>
+      <!-- [CA-39] Fermeture → gs.dismissRanking() → ranking = null -->
+      <button class="btn-dismiss"
+        onclick="document.querySelector('.overlay').style.display='none'">
+        <svg style="width:13px;height:13px;fill:#fff" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        Reprendre la partie
+      </button>
+    </div>
+
+  </div><!-- /.ranking-panel -->
+</div><!-- /.overlay -->
+
+</body>
+</html>

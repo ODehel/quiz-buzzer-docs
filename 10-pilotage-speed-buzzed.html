@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Buzzer — Pilotage SPEED QUESTION_BUZZED</title>
+
+<!--
+════════════════════════════════════════════════════════════════════
+  MAQUETTE ÉCRAN 10/12 — PILOTAGE SPEED — état QUESTION_BUZZED
+════════════════════════════════════════════════════════════════════
+  Composant Angular  : PlayComponent (orchestrateur)
+                       SpeedControlComponent (colonne centre)
+                       PlayerListComponent   (colonne gauche)
+                       SoundPanelComponent   (colonne droite)
+  Fichiers           : src/app/pilot/play/play.component.ts
+                       src/app/pilot/play/speed-control/speed-control.component.ts
+                       src/app/pilot/play/player-list/player-list.component.ts
+                       src/app/pilot/play/sound-panel/sound-panel.component.ts
+  Route              : /pilot/play
+  Guards             : authGuard, activeGameGuard
+  Sprint             : 7
+  US couverte        : US-ANG-008 (CA-23 à CA-31)
+
+  ── Critères d'acceptance couverts ──────────────────────────────
+  CA-23  question_open reçu → titre affiché, SpeedControlComponent monté
+         (questionType === 'SPEED' détecté dans dispatch())
+  CA-24  Boutons Valider/Invalider DÉSACTIVÉS en QUESTION_OPEN (avant buzz)
+         → ici simulés en QUESTION_BUZZED donc ACTIFS
+  CA-26  buzz_locked reçu → currentBuzzer = 'quiz_buzzer_03' (Charlie)
+         chrono SUSPENDU à 14s, boutons Valider + Invalider ACTIVÉS
+  CA-27  PlayerListComponent :
+         Charlie → badge "BUZZÉ" (violet, pulsant)
+         Alice, Bob, Diana → badge "BLOQUÉ" (gris)
+  CA-28  Clic "Valider" → ws.send({ type: 'validate_answer' }) via @Output()
+         → les 2 boutons désactivés immédiatement
+  CA-29  Clic "Invalider" → ws.send({ type: 'invalidate_answer' })
+         → les 2 boutons désactivés immédiatement
+  CA-30  buzz_unlocked (après invalidation) → chrono reprend à remaining_s,
+         currentBuzzer = null, statut → QUESTION_OPEN
+  CA-31  timer_end reçu en QUESTION_BUZZED → hint "Temps écoulé" affiché,
+         boutons toujours actifs (serveur attend la décision du MJ)
+  [CA-31 simulé ici : timer_end non encore reçu, chrono suspendu à 14s]
+
+  ── Différences vs écrans 8/9 (MCQ) ─────────────────────────────
+  • SpeedControlComponent monté (pas McqControlComponent)
+  • Pas de 4 choix A/B/C/D — 1 seule réponse orale à juger
+  • Chrono suspendu (valeur figée, pas animée) + badge "SUSPENDU"
+  • Carte buzzeur en évidence (violet pulsant)
+  • Boutons "Valider" (vert) et "Invalider" (rouge) côte à côte
+  • PlayerListComponent : statuts "BUZZÉ" / "BLOQUÉ" au lieu des réponses
+  • Status chip : BUZZER ACTIF (violet)
+
+  ── Signals mis à jour par buzz_locked ──────────────────────────
+  gs.status()              → 'QUESTION_BUZZED'
+  gs.state().questionType  → 'SPEED'
+  gs.state().currentBuzzer → 'quiz_buzzer_03'   ← username du buzzeur
+  gs.state().remainingSeconds → 14               ← valeur figée
+  gs.state().participants  → [{name:'Alice',order:1}, {name:'Bob',order:2},
+                               {name:'Charlie',order:3}, {name:'Diana',order:4}]
+  gs.connectedBuzzers()    → ['quiz_buzzer_01','quiz_buzzer_02',
+                               'quiz_buzzer_03','quiz_buzzer_04']
+  participantsWithBuzzer   → computed (association N-ième participant ↔ N-ième buzzer)
+  → quiz_buzzer_03 = Charlie (3e participant ↔ 3e buzzer connecté)
+
+  ── Messages WebSocket ───────────────────────────────────────────
+  Reçu   : buzz_locked { buzzer_username: 'quiz_buzzer_03' }
+  À envoyer (via @Output → PlayComponent → ws.send) :
+    validate_answer   → { type: 'validate_answer' }
+    invalidate_answer → { type: 'invalidate_answer' }
+════════════════════════════════════════════════════════════════════
+-->
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
+
+  :root {
+    --bg:         #0b0d14;
+    --surface:    #13161f;
+    --surface2:   #1c2030;
+    --border:     #252a3a;
+    --text:       #e8eaf0;
+    --muted:      #5a6278;
+    --accent:     #4f8ef7;
+    --accent-dim: #162240;
+    --green:      #22c55e;
+    --green-dim:  #052a12;
+    --green-border:#0a4a20;
+    --amber:      #f59e0b;
+    --red:        #ef4444;
+    --red-dim:    #2a0808;
+    --purple:     #a855f7;
+    --purple-dim: #2a1040;
+    --purple-border:#5a2a90;
+    --topbar-h:   48px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Topbar ── */
+  .topbar {
+    height: var(--topbar-h);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center;
+    padding: 0 16px; gap: 12px; flex-shrink: 0;
+  }
+  .topbar-logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 15px; letter-spacing: -0.5px; color: var(--accent); }
+  .topbar-logo span { color: var(--text); }
+  .topbar-divider { width: 1px; height: 20px; background: var(--border); }
+  .topbar-quiz { font-size: 12px; color: var(--muted); }
+  .topbar-quiz strong { color: var(--text); }
+  .topbar-spacer { flex: 1; }
+
+  /* Status chip QUESTION_BUZZED → violet */
+  .status-chip {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px;
+    padding: 4px 10px; border-radius: 20px;
+    background: var(--purple-dim); color: var(--purple); border: 1px solid var(--purple-border);
+  }
+  .chip-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--purple); animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+  @keyframes buzz-in {
+    0%   { transform: scale(.8);  opacity: 0; }
+    60%  { transform: scale(1.04); opacity: 1; }
+    100% { transform: scale(1);  opacity: 1; }
+  }
+
+  .ws-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 5px var(--green); }
+  .ws-label { font-size: 11px; color: var(--green); font-weight: 500; }
+
+  /* ── Layout 3 colonnes ── */
+  .play-layout {
+    display: grid;
+    grid-template-columns: 260px 1fr 280px;
+    flex: 1; overflow: hidden;
+  }
+  .col { display: flex; flex-direction: column; overflow: hidden; height: 100%; }
+  .col-left  { border-right: 1px solid var(--border); background: var(--surface); }
+  .col-mid   { background: var(--bg); padding: 20px 22px; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; }
+  .col-right { border-left: 1px solid var(--border); background: var(--surface); }
+  .col-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 11px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .col-title { font-family: 'Syne', sans-serif; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .9px; color: var(--muted); }
+
+  /* ══════════════════════════════════
+     COLONNE GAUCHE — PlayerListComponent [CA-27]
+     BUZZÉ / BLOQUÉ
+     ══════════════════════════════════ */
+  .player-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px; border-bottom: 1px solid var(--border);
+  }
+  .player-row:last-child { border-bottom: none; }
+  .p-num { font-size: 11px; font-weight: 700; color: var(--muted); width: 14px; flex-shrink: 0; }
+  .p-name { font-size: 13px; font-weight: 500; flex: 1; }
+  /* [CA-27] Badge BUZZÉ — violet pulsant */
+  .badge-buzzed {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 5px;
+    background: var(--purple-dim); color: var(--purple);
+    border: 1px solid var(--purple-border);
+    animation: pulse .8s ease-in-out infinite;
+    text-transform: uppercase; letter-spacing: .4px;
+  }
+  .badge-buzzed-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--purple); }
+  /* [CA-27] Badge BLOQUÉ — gris */
+  .badge-blocked {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 5px;
+    background: var(--surface2); color: var(--muted);
+    border: 1px solid var(--border);
+    text-transform: uppercase; letter-spacing: .4px;
+  }
+
+  /* Pied : légende */
+  .player-legend {
+    padding: 8px 14px; border-top: 1px solid var(--border); flex-shrink: 0;
+    font-size: 10px; color: var(--muted); background: var(--bg);
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .legend-row { display: flex; align-items: center; gap: 6px; }
+  .legend-dot-p { width: 7px; height: 7px; border-radius: 50%; background: var(--purple); }
+  .legend-dot-g { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+
+  /* ══════════════════════════════════
+     COLONNE CENTRE — SpeedControlComponent [CA-26 à CA-31]
+     ══════════════════════════════════ */
+  .question-meta {
+    display: flex; align-items: center; gap: 10px; font-size: 11px; color: var(--muted);
+  }
+  .q-index {
+    font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 700;
+    color: var(--purple); background: var(--purple-dim);
+    border: 1px solid var(--purple-border); padding: 2px 8px; border-radius: 5px;
+  }
+  .q-type-badge {
+    padding: 2px 7px; border-radius: 5px; font-size: 10px; font-weight: 700;
+    background: var(--purple-dim); color: var(--purple); border: 1px solid var(--purple-border);
+  }
+
+  .question-title {
+    font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700;
+    line-height: 1.35; letter-spacing: -.3px;
+  }
+
+  /* ── Chrono SUSPENDU [CA-26] ── */
+  .timer-suspended {
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .timer-row-s { display: flex; align-items: center; gap: 12px; }
+  .timer-val-s {
+    font-family: 'Syne', sans-serif; font-size: 36px; font-weight: 800;
+    color: var(--amber); letter-spacing: -1px; line-height: 1;
+    /* Figé — pas d'animation de tick */
+  }
+  .suspended-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px;
+    padding: 4px 8px; border-radius: 5px;
+    background: #2a1a00; color: var(--amber); border: 1px solid #5a3a00;
+  }
+  .timer-bar-track { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+  /* 14/30 ≈ 47% — barre figée, amber */
+  .timer-bar-suspended { height: 100%; border-radius: 3px; background: var(--amber); width: 47%; }
+
+  /* ── Carte buzzeur [CA-26] ── */
+  .buzzer-card {
+    background: var(--purple-dim);
+    border: 1.5px solid var(--purple);
+    border-radius: 14px;
+    padding: 20px 22px;
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+    text-align: center;
+    animation: buzz-in .35s ease-out;
+    box-shadow: 0 0 30px rgba(168,85,247,.15);
+  }
+  .buzzer-card-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--purple); }
+  .buzzer-avatar {
+    width: 56px; height: 56px; border-radius: 50%;
+    background: var(--purple-dim); border: 2px solid var(--purple);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 800; color: var(--purple);
+    box-shadow: 0 0 20px rgba(168,85,247,.3);
+    animation: pulse .8s ease-in-out infinite;
+  }
+  .buzzer-participant-name {
+    font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; color: var(--text);
+    letter-spacing: -.3px;
+  }
+  .buzzer-username { font-size: 12px; color: var(--muted); }
+  .buzzer-time {
+    font-size: 13px; color: var(--purple); font-weight: 600;
+    background: rgba(168,85,247,.1); padding: 4px 12px; border-radius: 20px;
+    border: 1px solid rgba(168,85,247,.3);
+  }
+
+  /* ── Boutons Valider / Invalider [CA-28, CA-29] ── */
+  .decision-btns {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  }
+  .btn-validate {
+    background: var(--green); border: none; border-radius: 10px;
+    color: #fff; padding: 13px; font-size: 14px; font-weight: 700;
+    font-family: 'DM Sans', sans-serif; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+    transition: opacity .15s;
+  }
+  .btn-validate:hover { opacity: .88; }
+  .btn-validate:disabled { opacity: .35; cursor: not-allowed; }
+
+  .btn-invalidate {
+    background: var(--red-dim); border: 1px solid var(--red); border-radius: 10px;
+    color: var(--red); padding: 13px; font-size: 14px; font-weight: 700;
+    font-family: 'DM Sans', sans-serif; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+    transition: all .15s;
+  }
+  .btn-invalidate:hover { background: #3a0a0a; }
+  .btn-invalidate:disabled { opacity: .35; cursor: not-allowed; }
+
+  /* Hint boutons */
+  .decision-hints { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .decision-hint { font-size: 10px; color: var(--muted); text-align: center; line-height: 1.4; }
+
+  /* [CA-31] Timer_end pendant QUESTION_BUZZED — décommenter pour simuler */
+  /* .timer-end-warning { ... } */
+
+  /* ══════════════════════════════════
+     COLONNE DROITE — SoundPanelComponent
+     ══════════════════════════════════ */
+  .col-right-body { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+  .sound-section { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+  .sound-section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin-bottom: 8px; }
+  .sound-btns { display: flex; flex-direction: column; gap: 6px; }
+  .sound-btn {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 7px; padding: 8px 10px; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; color: var(--text);
+    font-size: 12px; font-weight: 500; transition: all .15s; width: 100%;
+  }
+  .sound-btn:hover { border-color: var(--accent); }
+  .sound-btn-active { border-color: var(--purple); background: var(--purple-dim); color: var(--purple); }
+  .sound-icon { font-size: 14px; flex-shrink: 0; }
+
+  .ranking-btn {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 7px; padding: 10px 12px; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; color: var(--text);
+    font-size: 12px; font-weight: 600; width: 100%; transition: all .15s;
+  }
+  .ranking-btn:hover { border-color: var(--amber); color: var(--amber); }
+
+  .scores-list { display: flex; flex-direction: column; }
+  .score-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 14px; border-bottom: 1px solid var(--border);
+  }
+  .score-row:last-child { border-bottom: none; }
+  .score-rank {
+    font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 800;
+    width: 18px; text-align: center; color: var(--muted); flex-shrink: 0;
+  }
+  .score-rank.gold   { color: #fbbf24; }
+  .score-rank.silver { color: #94a3b8; }
+  .score-rank.bronze { color: #c2845a; }
+  .score-name { font-size: 12px; flex: 1; }
+  .score-val { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; color: var(--accent); }
+
+  ::-webkit-scrollbar { width: 3px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- Topbar -->
+<header class="topbar">
+  <div class="topbar-logo">Quiz<span>Buzzer</span></div>
+  <div class="topbar-divider"></div>
+  <div class="topbar-quiz">
+    <strong>Culture Générale S1</strong>
+    &nbsp;·&nbsp; Question <strong>8</strong> / 20
+  </div>
+  <div class="topbar-spacer"></div>
+  <!-- Status QUESTION_BUZZED → violet pulsant -->
+  <div class="status-chip">
+    <div class="chip-dot"></div>
+    BUZZER ACTIF
+  </div>
+  <div class="topbar-divider"></div>
+  <div class="ws-dot"></div>
+  <span class="ws-label">Connecté</span>
+</header>
+
+<div class="play-layout">
+
+  <!-- ══ COLONNE GAUCHE — PlayerListComponent [CA-27] ══ -->
+  <!-- BUZZÉ pour Charlie, BLOQUÉ pour Alice/Bob/Diana -->
+  <div class="col col-left">
+    <div class="col-header">
+      <span class="col-title">Joueurs</span>
+      <span style="font-size:11px;color:var(--purple);font-weight:600">1 buzzeur actif</span>
+    </div>
+
+    <div style="flex:1;overflow-y:auto">
+
+      <!-- Alice → BLOQUÉE [CA-27] -->
+      <div class="player-row">
+        <span class="p-num">1</span>
+        <span class="p-name">Alice</span>
+        <div class="badge-blocked">
+          <span>Bloqué</span>
+        </div>
+      </div>
+
+      <!-- Bob → BLOQUÉ [CA-27] -->
+      <div class="player-row">
+        <span class="p-num">2</span>
+        <span class="p-name">Bob</span>
+        <div class="badge-blocked">
+          <span>Bloqué</span>
+        </div>
+      </div>
+
+      <!-- Charlie → BUZZÉ [CA-27] — quiz_buzzer_03 = 3e buzzer connecté = Charlie -->
+      <div class="player-row" style="background:rgba(168,85,247,.06)">
+        <span class="p-num" style="color:var(--purple)">3</span>
+        <span class="p-name" style="color:var(--text);font-weight:700">Charlie</span>
+        <div class="badge-buzzed">
+          <div class="badge-buzzed-dot"></div>
+          Buzzé
+        </div>
+      </div>
+
+      <!-- Diana → BLOQUÉE [CA-27] -->
+      <div class="player-row">
+        <span class="p-num">4</span>
+        <span class="p-name">Diana</span>
+        <div class="badge-blocked">
+          <span>Bloqué</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Légende association buzzer ↔ participant -->
+    <div class="player-legend">
+      <div class="legend-row">
+        <div class="legend-dot-p"></div>
+        <span>quiz_buzzer_03 → Charlie (3e participant)</span>
+      </div>
+      <div class="legend-row">
+        <div class="legend-dot-g"></div>
+        <span>Buzzes bloqués jusqu'à la décision du MJ</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ COLONNE CENTRE — SpeedControlComponent [CA-23, CA-26 à CA-31] ══ -->
+  <div class="col col-mid">
+
+    <!-- Métadonnées question SPEED [CA-23] -->
+    <div class="question-meta">
+      <span class="q-index">Q8 / 20</span>
+      <span class="q-type-badge">SPEED</span>
+      <span>30 secondes · 350 pts</span>
+    </div>
+
+    <!-- Titre [CA-23] — question orale, pas de choix à afficher -->
+    <div class="question-title">
+      Quel est le nom du plus long fleuve du monde ?
+    </div>
+
+    <!-- Chrono SUSPENDU [CA-26] — figé à 14s, barre amber figée -->
+    <div class="timer-suspended">
+      <div class="timer-row-s">
+        <div class="timer-val-s">14</div>
+        <div class="suspended-badge">
+          ⏸ Suspendu
+        </div>
+      </div>
+      <div class="timer-bar-track">
+        <!-- 14/30 ≈ 47% — barre figée [CA-26] chrono suspendu après buzz_locked -->
+        <div class="timer-bar-suspended"></div>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px">
+        Suspendu lors du buzz · 14 s restantes mémorisées
+        <!-- [CA-30] buzz_unlocked → reprend depuis cette valeur -->
+      </div>
+    </div>
+
+    <!-- Carte buzzeur [CA-26] — animation buzz-in -->
+    <!-- Source : gs.state().currentBuzzer = 'quiz_buzzer_03'
+         participantsWithBuzzer computed → 3e buzzer = 3e participant = Charlie -->
+    <div class="buzzer-card">
+      <div class="buzzer-card-label">🎯 Buzzeur actif</div>
+      <div class="buzzer-avatar">C</div>
+      <div class="buzzer-participant-name">Charlie</div>
+      <div class="buzzer-username">quiz_buzzer_03</div>
+      <div class="buzzer-time">⚡ Buzzé à t = 16 s (après 16 s d'attente)</div>
+    </div>
+
+    <!-- Boutons Valider / Invalider [CA-28, CA-29] -->
+    <div class="decision-btns">
+      <!-- [CA-28] Valider → ws.send({ type: 'validate_answer' }) → désactivé immédiatement -->
+      <button class="btn-validate"
+        onclick="this.disabled=true; document.querySelector('.btn-invalidate').disabled=true; this.textContent='Envoi…'">
+        <svg style="width:16px;height:16px;fill:#fff" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+        Valider
+      </button>
+      <!-- [CA-29] Invalider → ws.send({ type: 'invalidate_answer' }) → désactivé immédiatement -->
+      <button class="btn-invalidate"
+        onclick="this.disabled=true; document.querySelector('.btn-validate').disabled=true; this.textContent='Envoi…'">
+        <svg style="width:16px;height:16px;fill:currentColor" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        Invalider
+      </button>
+    </div>
+
+    <!-- Hints boutons [CA-30] -->
+    <div class="decision-hints">
+      <div class="decision-hint">
+        Réponse correcte<br>
+        <code style="font-size:10px;background:var(--surface);padding:1px 4px;border-radius:3px">validate_answer</code><br>
+        → question_result_summary → QUESTION_CLOSED
+      </div>
+      <div class="decision-hint">
+        Réponse incorrecte<br>
+        <code style="font-size:10px;background:var(--surface);padding:1px 4px;border-radius:3px">invalidate_answer</code><br>
+        → [CA-30] buzz_unlocked → QUESTION_OPEN<br>
+        <span style="color:var(--muted)">Chrono reprend à 14 s</span>
+      </div>
+    </div>
+
+    <!--
+    ── [CA-31] Timer_end reçu PENDANT QUESTION_BUZZED — décommenter pour simuler
+    <div style="background:#2a1a00;border:1px solid #6a3a00;border-radius:10px;padding:12px 14px;display:flex;gap:10px;align-items:flex-start">
+      <span style="font-size:16px">⏰</span>
+      <div>
+        <div style="font-size:13px;font-weight:700;color:var(--amber)">Temps écoulé</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px">
+          Le serveur attend votre décision. Validez ou invalidez la réponse de Charlie.
+        </div>
+      </div>
+    </div>
+    -->
+
+  </div>
+
+  <!-- ══ COLONNE DROITE — SoundPanelComponent ══ -->
+  <div class="col col-right">
+    <div class="col-header">
+      <span class="col-title">Sons &amp; Classement</span>
+    </div>
+    <div class="col-right-body">
+
+      <!-- Sons système — "Tension" actif -->
+      <div class="sound-section">
+        <div class="sound-section-title">Sons système</div>
+        <div class="sound-btns">
+          <button class="sound-btn sound-btn-active">
+            <span class="sound-icon">⚡</span>
+            <span>Tension</span>
+            <span style="margin-left:auto;font-size:10px">● actif</span>
+          </button>
+          <button class="sound-btn">
+            <span class="sound-icon">🎵</span>
+            Suspense
+          </button>
+          <button class="sound-btn">
+            <span class="sound-icon">🔇</span>
+            Silence
+          </button>
+        </div>
+      </div>
+
+      <!-- Jingles -->
+      <div class="sound-section">
+        <div class="sound-section-title">Jingles</div>
+        <select style="background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;padding:7px 10px;outline:none;width:100%;margin-bottom:6px">
+          <option>— Choisir un jingle —</option>
+          <option>Roulement de tambour</option>
+          <option>Fanfare victoire</option>
+          <option>Tension maximale</option>
+        </select>
+        <button style="background:var(--accent);border:none;border-radius:7px;color:#fff;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;padding:7px 12px;cursor:pointer;width:100%">
+          ▶ Jouer
+        </button>
+      </div>
+
+      <!-- Classement -->
+      <div class="sound-section">
+        <div class="sound-section-title">Classement</div>
+        <button class="ranking-btn">
+          <svg style="width:13px;height:13px;fill:currentColor" viewBox="0 0 24 24"><path d="M7 21h3V7H7v14zm-4 0h3v-7H3v7zm8 0h3V3h-3v18zm4 0h3v-11h-3v11z"/></svg>
+          Afficher le classement
+        </button>
+      </div>
+
+      <!-- Scores cumulés après Q7 -->
+      <div class="col-header">
+        <span class="col-title">Scores après Q7</span>
+      </div>
+      <div class="scores-list">
+        <div class="score-row">
+          <span class="score-rank gold">1</span>
+          <span class="score-name">Alice</span>
+          <span class="score-val">1 140</span>
+        </div>
+        <div class="score-row">
+          <span class="score-rank silver">2</span>
+          <span class="score-name">Diana</span>
+          <span class="score-val">1 050</span>
+        </div>
+        <div class="score-row">
+          <span class="score-rank bronze">3</span>
+          <span class="score-name">Charlie</span>
+          <span class="score-val">  740</span>
+        </div>
+        <div class="score-row">
+          <span class="score-rank">4</span>
+          <span class="score-name">Bob</span>
+          <span class="score-val">  620</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

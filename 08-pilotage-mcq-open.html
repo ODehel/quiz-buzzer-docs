@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Buzzer — Pilotage MCQ QUESTION_OPEN</title>
+
+<!--
+════════════════════════════════════════════════════════════════════
+  MAQUETTE ÉCRAN 8/12 — PILOTAGE MCQ — état QUESTION_OPEN
+════════════════════════════════════════════════════════════════════
+  Composant Angular  : PlayComponent (orchestrateur)
+                       McqControlComponent  (colonne centre)
+                       PlayerListComponent  (colonne gauche)
+                       SoundPanelComponent  (colonne droite)
+  Fichiers           : src/app/pilot/play/play.component.ts
+                       src/app/pilot/play/mcq-control/mcq-control.component.ts
+                       src/app/pilot/play/player-list/player-list.component.ts
+                       src/app/pilot/play/sound-panel/sound-panel.component.ts
+  Route              : /pilot/play
+  Guards             : authGuard, activeGameGuard
+  Sprint             : 6
+  US couverte        : US-ANG-008 (CA-1 à CA-17)
+
+  ── Critères d'acceptance couverts ──────────────────────────────
+  CA-1   PlayComponent affiché si status QUESTION_OPEN
+  CA-2   McqControlComponent monté (questionType === 'MCQ')
+  CA-4   PlayerListComponent + SoundPanelComponent : colonnes permanentes
+  CA-11  question_choices reçu → 4 choix A/B/C/D affichés
+         Chrono démarré depuis started_at (18s restantes simulées)
+  CA-12  player_answered temps réel → PlayerListComponent :
+         Alice A/3.1s ✓ | Bob C/5.2s | Charlie en attente | Diana A/7.4s
+  CA-13  Compteur 3 / 4 affiché sous les choix
+  CA-14  all_answered NON reçu → bouton "Corriger" désactivé
+  CA-15  timer_end NON reçu → bouton "Corriger" désactivé
+  CA-16  Bouton "Corriger" désactivé → aucun appel envoyé
+  CA-5   Pas en état OPEN → bouton "Déclencher la question" absent
+
+  ── Layout PlayComponent ─────────────────────────────────────────
+  [PlayerListComponent] | [McqControlComponent] | [SoundPanelComponent]
+  Colonnes : 260px | 1fr | 280px
+  Seul PlayComponent appelle ws.send() — sous-composants émettent via @Output()
+
+  ── Signals utilisés ─────────────────────────────────────────────
+  gs.status()              → 'QUESTION_OPEN'
+  gs.state().questionType  → 'MCQ'
+  gs.state().questionIndex → 4  (5e question, index 0-based)
+  gs.state().questionTitle → "Quelle est la capitale de l'Australie ?"
+  gs.state().choices       → ['Sydney','Canberra','Melbourne','Perth']
+  gs.state().timeLimit     → 30
+  gs.state().remainingSeconds → 18  (signal calculé localement)
+  gs.state().playerAnswers → [{name:'Alice',answer:'B',time_ms:3100},
+                               {name:'Bob',answer:'A',time_ms:5200},
+                               {name:'Diana',answer:'B',time_ms:7400}]
+  gs.state().allAnswered   → false
+  gs.state().timerEnded    → false
+  gs.canCorrect()          → computed = allAnswered || timerEnded → false
+  gs.state().participants  → ['Alice','Bob','Charlie','Diana']
+  gs.connectedBuzzers()    → ['quiz_buzzer_01','quiz_buzzer_02',
+                               'quiz_buzzer_03','quiz_buzzer_04']
+
+  ── Messages WebSocket reçus (état courant) ──────────────────────
+  question_choices → 4 choix + started_at + time_limit → chrono démarré
+  player_answered  × 3 → Alice(B/3.1s), Bob(A/5.2s), Diana(B/7.4s)
+  [all_answered et timer_end non encore reçus]
+
+  ── Messages WebSocket à envoyer (via PlayComponent) ────────────
+  trigger_correction → émis par McqControlComponent via @Output()
+                       seulement quand canCorrect() === true
+════════════════════════════════════════════════════════════════════
+-->
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg:         #0b0d14;
+    --surface:    #13161f;
+    --surface2:   #1c2030;
+    --border:     #252a3a;
+    --text:       #e8eaf0;
+    --muted:      #5a6278;
+    --accent:     #4f8ef7;
+    --accent-dim: #162240;
+    --green:      #22c55e;
+    --green-dim:  #052a12;
+    --amber:      #f59e0b;
+    --red:        #ef4444;
+    --purple:     #a855f7;
+    --topbar-h:   48px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Topbar pilotage ── */
+  .topbar {
+    height: var(--topbar-h);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center;
+    padding: 0 16px; gap: 12px; flex-shrink: 0;
+  }
+  .topbar-logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 15px; letter-spacing: -0.5px; color: var(--accent); }
+  .topbar-logo span { color: var(--text); }
+  .topbar-divider { width: 1px; height: 20px; background: var(--border); }
+  /* Badge quiz + progression */
+  .topbar-quiz { font-size: 12px; color: var(--muted); }
+  .topbar-quiz strong { color: var(--text); }
+  .topbar-spacer { flex: 1; }
+  /* Statut QUESTION_OPEN */
+  .status-chip {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px;
+    padding: 4px 10px; border-radius: 20px;
+    background: var(--accent-dim); color: var(--accent); border: 1px solid #2a4a8a;
+  }
+  .chip-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 1.5s ease-in-out infinite; }
+  @keyframes pulse  { 0%,100%{opacity:1} 50%{opacity:.4} }
+  @keyframes tick   { 0%{transform:scaleX(1)} 50%{transform:scaleX(.97)} 100%{transform:scaleX(1)} }
+  @keyframes spin   { to{transform:rotate(360deg)} }
+  /* WS indicator */
+  .ws-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 5px var(--green); animation: pulse 2s ease-in-out infinite; }
+  .ws-label { font-size: 11px; color: var(--green); font-weight: 500; }
+
+  /* ── Layout 3 colonnes ── */
+  .play-layout {
+    display: grid;
+    grid-template-columns: 260px 1fr 280px;
+    flex: 1;
+    overflow: hidden;
+    gap: 0;
+  }
+
+  /* ── Colonne générique ── */
+  .col {
+    display: flex; flex-direction: column;
+    overflow: hidden; height: 100%;
+  }
+  .col-left  { border-right: 1px solid var(--border); background: var(--surface); }
+  .col-mid   { background: var(--bg); padding: 20px 22px; overflow-y: auto; gap: 16px; display: flex; flex-direction: column; }
+  .col-right { border-left: 1px solid var(--border); background: var(--surface); }
+
+  /* ── En-têtes de colonne ── */
+  .col-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 11px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .col-title { font-family: 'Syne', sans-serif; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .9px; color: var(--muted); }
+
+  /* ══════════════════════════════════
+     COLONNE GAUCHE — PlayerListComponent
+     ══════════════════════════════════ */
+
+  /* [CA-12] Ligne joueur */
+  .player-row {
+    display: flex; flex-direction: column; gap: 3px;
+    padding: 10px 14px; border-bottom: 1px solid var(--border);
+  }
+  .player-row:last-child { border-bottom: none; }
+  .player-top { display: flex; align-items: center; gap: 8px; }
+  .player-num { font-size: 11px; font-weight: 700; color: var(--muted); width: 14px; flex-shrink: 0; }
+  .player-name { font-size: 13px; font-weight: 500; flex: 1; }
+
+  /* Badge réponse */
+  .answer-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 5px;
+  }
+  .answer-chip.answered { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .answer-chip.pending  { background: transparent; color: var(--muted); border: 1px dashed var(--border); font-weight: 400; font-style: italic; }
+  .player-time { font-size: 11px; color: var(--muted); margin-left: 22px; }
+
+  /* Compteur global [CA-13] */
+  .answer-counter {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px; border-top: 1px solid var(--border); flex-shrink: 0;
+    background: var(--bg);
+  }
+  .counter-label { font-size: 11px; color: var(--muted); }
+  .counter-val { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; }
+  .counter-val .n { color: var(--accent); }
+  .counter-val .total { color: var(--muted); font-size: 12px; }
+
+  /* ══════════════════════════════════
+     COLONNE CENTRE — McqControlComponent
+     ══════════════════════════════════ */
+
+  /* Progression + titre */
+  .question-meta {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 11px; color: var(--muted);
+  }
+  .q-index {
+    font-family: 'Syne', sans-serif; font-weight: 700;
+    font-size: 11px; color: var(--accent);
+    background: var(--accent-dim); border: 1px solid #2a4a8a;
+    padding: 2px 8px; border-radius: 5px;
+  }
+  .q-type-badge {
+    padding: 2px 7px; border-radius: 5px; font-size: 10px; font-weight: 700;
+    background: #1a2a4a; color: #7eb3ff; border: 1px solid #2a4070;
+  }
+
+  .question-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 18px; font-weight: 700; line-height: 1.35;
+    letter-spacing: -.3px;
+  }
+
+  /* ── Chronomètre [CA-11] ── */
+  .timer-block {
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .timer-row { display: flex; align-items: center; justify-content: space-between; }
+  .timer-val {
+    font-family: 'Syne', sans-serif; font-size: 36px; font-weight: 800;
+    color: var(--amber); letter-spacing: -1px; line-height: 1;
+    animation: tick 1s ease-in-out infinite;
+  }
+  .timer-val.critical { color: var(--red); }
+  .timer-label { font-size: 11px; color: var(--muted); }
+  .timer-bar-track { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+  .timer-bar-fill {
+    height: 100%; border-radius: 3px;
+    /* 18/30 = 60% — amber */
+    background: linear-gradient(90deg, var(--amber), #fb923c);
+    transition: width 1s linear;
+  }
+  .timer-bar-fill.critical { background: var(--red); }
+
+  /* ── Choix MCQ [CA-11] ── */
+  .choices-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  }
+  .choice-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 14px;
+    display: flex; align-items: flex-start; gap: 10px;
+    transition: border-color .15s;
+  }
+  .choice-card:hover { border-color: #3d4a6a; }
+  .choice-letter {
+    font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 800;
+    width: 24px; height: 24px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; color: var(--muted);
+    background: var(--surface2); border: 1px solid var(--border);
+  }
+  .choice-text { font-size: 13px; font-weight: 500; line-height: 1.4; padding-top: 3px; }
+  /* Indicateur de réponses sur le choix */
+  .choice-pips { display: flex; gap: 3px; margin-top: 6px; }
+  .pip { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+
+  /* ── Bouton Corriger [CA-14, CA-15, CA-16] ── */
+  .corriger-wrap { display: flex; flex-direction: column; gap: 6px; }
+  .btn-corriger {
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--muted); padding: 12px 20px; border-radius: 10px;
+    font-size: 14px; font-weight: 700; font-family: 'DM Sans', sans-serif;
+    cursor: not-allowed; width: 100%; transition: all .15s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    opacity: .45;
+  }
+  /* État actif (canCorrect = true) — décommenter pour simuler */
+  /* .btn-corriger.active { background: var(--accent); border-color: var(--accent); color:#fff; opacity:1; cursor:pointer; } */
+  .corriger-hint { font-size: 11px; color: var(--muted); text-align: center; }
+
+  /* ══════════════════════════════════
+     COLONNE DROITE — SoundPanelComponent
+     ══════════════════════════════════ */
+  .col-right-body { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+
+  /* Section sons système */
+  .sound-section { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+  .sound-section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin-bottom: 8px; }
+  .sound-btns { display: flex; flex-direction: column; gap: 6px; }
+  .sound-btn {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 7px; padding: 8px 10px; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; color: var(--text);
+    font-size: 12px; font-weight: 500; transition: all .15s;
+    width: 100%;
+  }
+  .sound-btn:hover { background: var(--surface2); border-color: var(--accent); }
+  .sound-icon { font-size: 14px; flex-shrink: 0; }
+  .sound-btn-active { border-color: var(--accent); background: var(--accent-dim); color: var(--accent); }
+
+  /* Jingles select */
+  .jingle-select {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 7px; color: var(--text); font-family: 'DM Sans', sans-serif;
+    font-size: 12px; padding: 7px 10px; outline: none; width: 100%;
+    margin-bottom: 6px;
+  }
+  .btn-play-jingle {
+    background: var(--accent); border: none; border-radius: 7px;
+    color: #fff; font-family: 'DM Sans', sans-serif; font-size: 12px;
+    font-weight: 600; padding: 7px 12px; cursor: pointer; width: 100%;
+    transition: opacity .15s;
+  }
+  .btn-play-jingle:hover { opacity: .88; }
+
+  /* Classement */
+  .ranking-btn {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 7px; padding: 10px 12px; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; color: var(--text);
+    font-size: 12px; font-weight: 600; width: 100%; transition: all .15s;
+  }
+  .ranking-btn:hover { border-color: var(--amber); color: var(--amber); }
+
+  /* Scores cumulés */
+  .scores-list { display: flex; flex-direction: column; }
+  .score-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 14px; border-bottom: 1px solid var(--border);
+  }
+  .score-row:last-child { border-bottom: none; }
+  .score-rank {
+    font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 800;
+    width: 18px; text-align: center; color: var(--muted); flex-shrink: 0;
+  }
+  .score-rank.gold   { color: #fbbf24; }
+  .score-rank.silver { color: #94a3b8; }
+  .score-rank.bronze { color: #c2845a; }
+  .score-name { font-size: 12px; flex: 1; }
+  .score-val {
+    font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700;
+    color: var(--accent);
+  }
+
+  ::-webkit-scrollbar { width: 3px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- Topbar -->
+<header class="topbar">
+  <div class="topbar-logo">Quiz<span>Buzzer</span></div>
+  <div class="topbar-divider"></div>
+  <!-- Nom du quiz + progression [CA-8] -->
+  <div class="topbar-quiz">
+    <strong>Culture Générale S1</strong>
+    &nbsp;·&nbsp; Question <strong>5</strong> / 20
+  </div>
+  <div class="topbar-spacer"></div>
+  <!-- Statut -->
+  <div class="status-chip">
+    <div class="chip-dot"></div>
+    QUESTION OUVERTE
+  </div>
+  <div class="topbar-divider"></div>
+  <div class="ws-dot"></div>
+  <span class="ws-label">Connecté</span>
+</header>
+
+<!-- Layout 3 colonnes -->
+<div class="play-layout">
+
+  <!-- ══ COLONNE GAUCHE — PlayerListComponent [CA-4, CA-12, CA-13] ══ -->
+  <div class="col col-left">
+    <div class="col-header">
+      <span class="col-title">Joueurs</span>
+      <!-- [CA-13] compteur réponses -->
+      <span style="font-size:11px;color:var(--muted)">
+        <strong style="color:var(--accent)">3</strong> / 4 ont répondu
+      </span>
+    </div>
+
+    <div style="flex:1;overflow-y:auto">
+
+      <!-- Alice — a répondu B en 3.1s [CA-12] -->
+      <div class="player-row">
+        <div class="player-top">
+          <span class="player-num">1</span>
+          <span class="player-name">Alice</span>
+          <span class="answer-chip answered">B</span>
+        </div>
+        <div class="player-time">3.1 s</div>
+      </div>
+
+      <!-- Bob — a répondu A en 5.2s [CA-12] -->
+      <div class="player-row">
+        <div class="player-top">
+          <span class="player-num">2</span>
+          <span class="player-name">Bob</span>
+          <span class="answer-chip answered">A</span>
+        </div>
+        <div class="player-time">5.2 s</div>
+      </div>
+
+      <!-- Charlie — en attente [CA-12] -->
+      <div class="player-row">
+        <div class="player-top">
+          <span class="player-num">3</span>
+          <span class="player-name">Charlie</span>
+          <span class="answer-chip pending">En attente…</span>
+        </div>
+        <div class="player-time" style="font-style:italic">—</div>
+      </div>
+
+      <!-- Diana — a répondu B en 7.4s [CA-12] -->
+      <div class="player-row">
+        <div class="player-top">
+          <span class="player-num">4</span>
+          <span class="player-name">Diana</span>
+          <span class="answer-chip answered">B</span>
+        </div>
+        <div class="player-time">7.4 s</div>
+      </div>
+
+    </div>
+
+    <!-- [CA-13] Compteur global en pied -->
+    <div class="answer-counter">
+      <span class="counter-label">Réponses reçues</span>
+      <span class="counter-val">
+        <span class="n">3</span>
+        <span class="total"> / 4</span>
+      </span>
+    </div>
+  </div>
+
+  <!-- ══ COLONNE CENTRE — McqControlComponent [CA-2, CA-11 à CA-17] ══ -->
+  <div class="col col-mid">
+
+    <!-- Métadonnées question [CA-8] -->
+    <div class="question-meta">
+      <span class="q-index">Q5 / 20</span>
+      <span class="q-type-badge">MCQ</span>
+      <span>30 secondes · 200 pts</span>
+    </div>
+
+    <!-- Titre de la question [CA-11] -->
+    <div class="question-title">
+      Quelle est la capitale de l'Australie ?
+    </div>
+
+    <!-- Chronomètre [CA-11] — 18s restantes sur 30s -->
+    <div class="timer-block">
+      <div class="timer-row">
+        <div>
+          <div class="timer-val">18</div>
+          <div class="timer-label">secondes restantes</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:11px;color:var(--muted)">Démarré à 14:31:22</div>
+          <div style="font-size:11px;color:var(--muted)">Limite : 30 s</div>
+        </div>
+      </div>
+      <!-- Barre de progression : 18/30 = 60% — orange -->
+      <div class="timer-bar-track">
+        <div class="timer-bar-fill" style="width:60%"></div>
+      </div>
+    </div>
+
+    <!-- 4 Choix MCQ [CA-11] -->
+    <!-- Les choix affichés sont issus de gs.state().choices -->
+    <div class="choices-grid">
+
+      <!-- Choix A — Sydney · 1 réponse reçue (Bob) -->
+      <div class="choice-card">
+        <div class="choice-letter">A</div>
+        <div style="flex:1">
+          <div class="choice-text">Sydney</div>
+          <!-- Pip = réponse reçue sur ce choix -->
+          <div class="choice-pips">
+            <div class="pip" title="Bob"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Choix B — Canberra · 2 réponses reçues (Alice, Diana) -->
+      <div class="choice-card" style="border-color:#3d4a6a">
+        <div class="choice-letter" style="background:var(--accent-dim);border-color:var(--accent);color:var(--accent)">B</div>
+        <div style="flex:1">
+          <div class="choice-text">Canberra</div>
+          <div class="choice-pips">
+            <div class="pip" title="Alice"></div>
+            <div class="pip" title="Diana"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Choix C — Melbourne · 0 réponse -->
+      <div class="choice-card">
+        <div class="choice-letter">C</div>
+        <div style="flex:1">
+          <div class="choice-text">Melbourne</div>
+          <div class="choice-pips"></div>
+        </div>
+      </div>
+
+      <!-- Choix D — Perth · 0 réponse -->
+      <div class="choice-card">
+        <div class="choice-letter">D</div>
+        <div style="flex:1">
+          <div class="choice-text">Perth</div>
+          <div class="choice-pips"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Bouton "Corriger" [CA-14, CA-15, CA-16] -->
+    <!-- DÉSACTIVÉ : all_answered=false ET timerEnded=false → canCorrect()=false -->
+    <div class="corriger-wrap">
+      <button class="btn-corriger" disabled>
+        <svg style="width:14px;height:14px;fill:currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+        Corriger
+      </button>
+      <!-- [CA-14] Condition d'activation -->
+      <div class="corriger-hint">
+        En attente de Charlie ·
+        <strong style="color:var(--amber)">18 s</strong> restantes
+        — Le bouton s'active quand tous ont répondu <em>ou</em> le chrono expire
+      </div>
+    </div>
+
+    <!--
+    ── Bouton Corriger ACTIF — simuler quand canCorrect()=true [CA-14 ou CA-15]
+    <div class="corriger-wrap">
+      <button class="btn-corriger active" onclick="this.disabled=true;this.textContent='Envoi…'">
+        ✓ Corriger
+      </button>
+      <div class="corriger-hint" style="color:var(--green)">
+        Tous les joueurs ont répondu — ws.send({ type: 'trigger_correction' })
+      </div>
+    </div>
+    -->
+
+  </div>
+
+  <!-- ══ COLONNE DROITE — SoundPanelComponent [CA-4] ══ -->
+  <div class="col col-right">
+    <div class="col-header">
+      <span class="col-title">Sons &amp; Classement</span>
+    </div>
+    <div class="col-right-body">
+
+      <!-- Sons système -->
+      <div class="sound-section">
+        <div class="sound-section-title">Sons système</div>
+        <div class="sound-btns">
+          <!-- Son actif simulé : SUSPENSE en cours -->
+          <button class="sound-btn sound-btn-active">
+            <span class="sound-icon">🎵</span>
+            <span>Suspense</span>
+            <span style="margin-left:auto;font-size:10px">● en cours</span>
+          </button>
+          <button class="sound-btn">
+            <span class="sound-icon">⏰</span>
+            Compte à rebours
+          </button>
+          <button class="sound-btn">
+            <span class="sound-icon">🔇</span>
+            Silence
+          </button>
+        </div>
+      </div>
+
+      <!-- Jingles -->
+      <div class="sound-section">
+        <div class="sound-section-title">Jingles</div>
+        <select class="jingle-select">
+          <option>— Choisir un jingle —</option>
+          <option>Fanfare victoire</option>
+          <option>Roulement de tambour</option>
+          <option>Tension maximale</option>
+        </select>
+        <button class="btn-play-jingle">▶ Jouer</button>
+      </div>
+
+      <!-- Classement intermédiaire [CA-35, CA-36] -->
+      <div class="sound-section">
+        <div class="sound-section-title">Classement</div>
+        <!-- [CA-36] trigger_intermediate_ranking via @Output() → PlayComponent → ws.send() -->
+        <button class="ranking-btn">
+          <svg style="width:13px;height:13px;fill:currentColor" viewBox="0 0 24 24"><path d="M7 21h3V7H7v14zm-4 0h3v-7H3v7zm8 0h3V3h-3v18zm4 0h3v-11h-3v11z"/></svg>
+          Afficher le classement
+        </button>
+      </div>
+
+      <!-- Scores cumulés en temps réel [CA-20 partiel] -->
+      <div class="col-header" style="margin-top:auto">
+        <span class="col-title">Scores cumulés</span>
+        <span style="font-size:10px;color:var(--muted)">Q4 terminée</span>
+      </div>
+      <div class="scores-list">
+        <div class="score-row">
+          <span class="score-rank gold">1</span>
+          <span class="score-name">Alice</span>
+          <span class="score-val">720 pts</span>
+        </div>
+        <div class="score-row">
+          <span class="score-rank silver">2</span>
+          <span class="score-name">Diana</span>
+          <span class="score-val">680 pts</span>
+        </div>
+        <div class="score-row">
+          <span class="score-rank bronze">3</span>
+          <span class="score-name">Charlie</span>
+          <span class="score-val">540 pts</span>
+        </div>
+        <div class="score-row">
+          <span class="score-rank">4</span>
+          <span class="score-name">Bob</span>
+          <span class="score-val">420 pts</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- /play-layout -->
+
+</body>
+</html>

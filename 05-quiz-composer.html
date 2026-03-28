@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Buzzer — Compositeur de quiz</title>
+
+<!--
+════════════════════════════════════════════════════════════════════
+  MAQUETTE ÉCRAN 5/12 — COMPOSITEUR DE QUIZ (mode création)
+════════════════════════════════════════════════════════════════════
+  Composant Angular  : QuizFormComponent
+  Sélecteur          : <app-quiz-form>
+  Fichier            : src/app/content/quizzes/quiz-form.component.ts
+  Route              : /content/quizzes/new    (mode création)
+                       /content/quizzes/:id    (mode édition)
+  Guards             : authGuard, noActiveGameGuard
+  Sprint             : 3
+  US couverte        : US-ANG-004 (CA-9 à CA-31)
+
+  ── Critères d'acceptance couverts ──────────────────────────────
+  CA-9   Mode création : banque vide, GET /api/v1/questions?page=1&limit=20
+  CA-10  Mode édition  : GET /api/v1/quizzes/:id + GET /api/v1/questions en parallèle
+  CA-12  Banque : filtres thème, type, niveau — réutilise QuestionService.getAll()
+  CA-13  Questions déjà dans la composition → grisées + coche verte (selectedIdSet)
+  CA-14  Clic "+" → ajout en fin de composition + grisage dans banque
+  CA-15  Questions grisées non cliquables (pointer-events:none)
+  CA-16  Changement de page banque → grisage persistant (Set<id>)
+  CA-17  Composition : questions numérotées dans l'ordre d'ajout
+  CA-18  Drag-and-drop @angular/cdk/drag-drop → réordonne selectedQuestions signal
+  CA-19  Bouton × → retire de la composition, disponible à nouveau dans la banque
+  CA-20  Compteur N / 10 min — vert si N≥10, rouge si N<10
+  CA-21  Bouton "Enregistrer" disabled si N<10 ou nom vide
+  CA-22  Nom : obligatoire, commence par majuscule
+  CA-23  Compteur 40 chars sous le champ nom
+  CA-24  POST /api/v1/quizzes avec { name, question_ids } dans l'ordre du signal
+  CA-26  409 QUIZ_ALREADY_EXISTS → erreur inline sous le champ nom
+  CA-28  PUT /api/v1/quizzes/:id (édition) — remplace toute la liste
+  CA-29  Aucun changement détecté → pas d'appel réseau
+
+  ── Signals utilisés ─────────────────────────────────────────────
+  quizName              → signal<string>('')
+  selectedQuestions     → signal<Question[]>([])     ← source de vérité ordonnée
+  selectedIds           → computed<string[]>         ← dérivé de selectedQuestions
+  selectedIdSet         → computed<Set<string>>      ← O(1) pour grisage
+  isValid               → computed<boolean>          ← nom non vide ET count ≥ 10
+  hasChanges            → computed<boolean>          ← édition uniquement
+  bankQuestions         → signal<Question[]>([])
+  bankFilters           → signal<QuestionFilters>({})
+  bankPage              → signal<PagedMeta>({page:1, total_pages:5, total:142})
+  isSubmitting          → signal<boolean>(false)
+  nameError             → signal<string|null>(null)
+
+  ── Endpoints REST consommés ─────────────────────────────────────
+  GET  /api/v1/questions?page=N[&theme_id=…][&type=…][&level_min=…][&level_max=…]
+       → banque de questions (à chaque changement de filtre ou de page)
+  GET  /api/v1/quizzes/:id
+       → chargement en mode édition (présélection des questions)
+  POST /api/v1/quizzes               → création (CA-24)
+  PUT  /api/v1/quizzes/:id           → sauvegarde édition (CA-28)
+════════════════════════════════════════════════════════════════════
+-->
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
+
+  :root {
+    --bg:         #0f1117;
+    --surface:    #1a1d27;
+    --surface2:   #21263a;
+    --border:     #2e3348;
+    --text:       #e8eaf0;
+    --muted:      #6b7280;
+    --accent:     #4f8ef7;
+    --accent-dim: #1e3a6e;
+    --green:      #22c55e;
+    --amber:      #f59e0b;
+    --red:        #ef4444;
+    --sidebar-w:  220px;
+    --topbar-h:   52px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Topbar ── */
+  .topbar {
+    height: var(--topbar-h);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center;
+    padding: 0 20px; gap: 16px; flex-shrink: 0;
+  }
+  .topbar-logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 16px; letter-spacing: -0.5px; color: var(--accent); }
+  .topbar-logo span { color: var(--text); }
+  .topbar-spacer { flex: 1; }
+  .ws-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+  .topbar-server { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+  .ws-label { color: var(--green); font-weight: 500; }
+
+  /* ── Layout ── */
+  .layout { display: flex; flex: 1; overflow: hidden; }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: var(--sidebar-w);
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    padding: 16px 0; flex-shrink: 0;
+  }
+  .nav-section-label { font-size: 10px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); padding: 8px 16px 4px; }
+  .nav-link { display: flex; align-items: center; gap: 10px; padding: 8px 16px; cursor: pointer; color: var(--muted); font-size: 13.5px; text-decoration: none; transition: all .15s; position: relative; }
+  .nav-link:hover { background: var(--surface2); color: var(--text); }
+  .nav-link.active { color: var(--accent); background: var(--accent-dim); font-weight: 500; }
+  .nav-link.active::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent); border-radius: 0 2px 2px 0; }
+  .nav-divider { height: 1px; background: var(--border); margin: 8px 16px; }
+  .nav-icon { width: 15px; height: 15px; fill: currentColor; flex-shrink: 0; opacity: .7; }
+
+  /* ── Main ── */
+  .main {
+    flex: 1;
+    overflow: hidden;
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* ── Page header ── */
+  .page-header { display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
+  .page-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 20px; letter-spacing: -0.5px; }
+
+  /* Champ nom quiz */
+  .quiz-name-wrap { position: relative; flex: 1; max-width: 360px; }
+  .quiz-name-input {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    padding: 9px 48px 9px 12px;
+    outline: none;
+    transition: border-color .15s;
+  }
+  .quiz-name-input:focus { border-color: var(--accent); }
+  /* [CA-23] Compteur 40 chars */
+  .quiz-name-counter {
+    position: absolute;
+    right: 10px; top: 50%;
+    transform: translateY(-50%);
+    font-size: 11px;
+    color: var(--muted);
+  }
+  /* [CA-26] Erreur nom */
+  .name-error { font-size: 11px; color: var(--red); margin-top: 4px; }
+
+  /* Boutons actions */
+  .btn-primary {
+    background: var(--accent); color: #fff; border: none;
+    padding: 9px 18px; border-radius: 9px; font-size: 13px; font-weight: 600;
+    cursor: pointer; font-family: 'DM Sans', sans-serif; transition: opacity .15s;
+    white-space: nowrap;
+  }
+  .btn-primary:hover { opacity: .88; }
+  .btn-primary:disabled { opacity: .35; cursor: not-allowed; }
+  .btn-ghost {
+    background: transparent; border: 1px solid var(--border); color: var(--muted);
+    padding: 9px 14px; border-radius: 9px; font-size: 13px; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; transition: all .15s; white-space: nowrap;
+  }
+  .btn-ghost:hover { background: var(--surface2); color: var(--text); }
+
+  /* ── Compositeur — layout 2 colonnes ── */
+  .composer {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 16px;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  /* ── Panneau ── */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .panel-title { font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); }
+  .panel-body { flex: 1; overflow-y: auto; }
+
+  /* ── Filtres banque [CA-12] ── */
+  .bank-filters {
+    display: flex;
+    gap: 8px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  .f-select {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 7px;
+    color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 12px;
+    padding: 5px 8px; outline: none; cursor: pointer;
+  }
+  .f-select:focus { border-color: var(--accent); }
+
+  /* ── Ligne banque ── */
+  .bank-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    transition: background .12s;
+    cursor: pointer;
+  }
+  .bank-row:last-child { border-bottom: none; }
+  .bank-row:hover:not(.grised) { background: var(--surface2); }
+
+  /* [CA-13, CA-15] Question déjà dans la composition → grisée, non cliquable */
+  .bank-row.grised {
+    opacity: .38;
+    pointer-events: none;
+    cursor: default;
+  }
+  /* Coche verte [CA-13] */
+  .check-icon {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--green);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .check-icon svg { width: 9px; height: 9px; fill: #fff; }
+
+  .bank-row-info { flex: 1; min-width: 0; }
+  .bank-row-title { font-size: 12.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bank-row-meta { display: flex; gap: 6px; align-items: center; margin-top: 2px; }
+  .badge-xs {
+    font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 4px;
+  }
+  .badge-xs.mcq  { background: #1a2a4a; color: #7eb3ff; }
+  .badge-xs.speed { background: #2a1a3a; color: #c084fc; }
+  .level-dots-xs { display: flex; gap: 2px; }
+  .ldot-xs { width: 5px; height: 5px; border-radius: 50%; background: var(--border); }
+  .ldot-xs.on { background: var(--amber); }
+  .bank-meta-text { font-size: 11px; color: var(--muted); }
+
+  /* Bouton + [CA-14] */
+  .btn-add {
+    width: 24px; height: 24px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: all .15s;
+    line-height: 1;
+  }
+  .bank-row:hover .btn-add { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* ── Pagination banque ── */
+  .bank-pager {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .pager-btn {
+    width: 26px; height: 26px;
+    border-radius: 6px; border: 1px solid var(--border);
+    background: transparent; color: var(--muted);
+    font-size: 11px; cursor: pointer; font-family: 'DM Sans', sans-serif;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .12s;
+  }
+  .pager-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .pager-btn:disabled { opacity: .3; cursor: default; }
+  .pager-btn:not(.active):hover { background: var(--surface2); color: var(--text); }
+
+  /* ── Colonne composition ── */
+
+  /* [CA-20] Compteur */
+  .comp-counter {
+    font-family: 'Syne', sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+  }
+  .comp-counter.ok   { color: var(--green); }
+  .comp-counter.warn { color: var(--red); }
+  .comp-min { font-size: 11px; color: var(--muted); }
+
+  /* Ligne composition [CA-17, CA-18, CA-19] */
+  .comp-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    transition: background .12s;
+    /* Curseur drag */
+    cursor: grab;
+  }
+  .comp-row:active { cursor: grabbing; }
+  .comp-row:last-child { border-bottom: none; }
+  .comp-row:hover { background: var(--surface2); }
+
+  /* Numéro position */
+  .comp-num {
+    font-family: 'Syne', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted);
+    width: 20px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  /* Handle drag [CA-18] */
+  .drag-handle {
+    width: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex-shrink: 0;
+    opacity: .35;
+    cursor: grab;
+  }
+  .drag-handle span {
+    display: block;
+    width: 14px; height: 2px;
+    background: var(--muted);
+    border-radius: 1px;
+  }
+  .comp-row:hover .drag-handle { opacity: .7; }
+
+  .comp-row-info { flex: 1; min-width: 0; }
+  .comp-row-title { font-size: 12.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .comp-row-meta { display: flex; gap: 5px; align-items: center; margin-top: 2px; }
+
+  /* Bouton × [CA-19] */
+  .btn-remove {
+    width: 22px; height: 22px;
+    border-radius: 5px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--muted);
+    font-size: 14px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: all .15s;
+  }
+  .btn-remove:hover { background: #2a0808; border-color: var(--red); color: var(--red); }
+
+  /* Zone vide drag-and-drop — placeholder */
+  .comp-empty {
+    padding: 32px 20px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    border: 2px dashed var(--border);
+    margin: 12px;
+    border-radius: 10px;
+  }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- Topbar -->
+<header class="topbar">
+  <div class="topbar-logo">Quiz<span>Buzzer</span></div>
+  <div class="topbar-spacer"></div>
+  <div class="topbar-server">
+    <div class="ws-dot"></div>
+    <span class="ws-label">Connecté</span>
+    <span style="color:var(--border)">|</span>
+    <span style="color:var(--muted)">192.168.1.10:3000</span>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- Sidebar nav -->
+  <nav class="sidebar">
+    <div class="nav-section-label">Navigation</div>
+    <a class="nav-link" href="#">
+      <svg class="nav-icon" viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+      Tableau de bord
+    </a>
+    <div class="nav-divider"></div>
+    <div class="nav-section-label">Contenu</div>
+    <a class="nav-link" href="#"><svg class="nav-icon" viewBox="0 0 24 24"><path d="M17.63 5.84C17.27 5.33 16.67 5 16 5L5 5.01C3.9 5.01 3 5.9 3 7v10c0 1.1.9 1.99 2 1.99L16 19c.67 0 1.27-.33 1.63-.84L22 12l-4.37-6.16z"/></svg>Thèmes</a>
+    <a class="nav-link" href="#"><svg class="nav-icon" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg>Questions</a>
+    <a class="nav-link active" href="#"><svg class="nav-icon" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg>Quiz</a>
+    <a class="nav-link" href="#"><svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 3v9.28c-.47-.17-.97-.28-1.5-.28C8.01 12 6 14.01 6 16.5S8.01 21 10.5 21c2.31 0 4.2-1.75 4.45-4H15V6h4V3h-7z"/></svg>Jingles</a>
+    <div class="nav-divider"></div>
+    <div class="nav-section-label">Parties</div>
+    <a class="nav-link" href="#"><svg class="nav-icon" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14l-5-5 1.41-1.41L12 14.17l7.59-7.59L21 8l-9 9z"/></svg>Toutes les parties</a>
+  </nav>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- Header : nom + actions [CA-22, CA-23, CA-21, CA-24] -->
+    <div class="page-header">
+      <span class="page-title">Nouveau quiz</span>
+
+      <!-- Champ nom [CA-22, CA-23] -->
+      <div>
+        <div class="quiz-name-wrap">
+          <input type="text" class="quiz-name-input" value="Culture Générale Saison 3" placeholder="Nom du quiz…" maxlength="40">
+          <!-- [CA-23] Compteur 28/40 -->
+          <span class="quiz-name-counter">28/40</span>
+        </div>
+        <!-- [CA-26] Décommenter pour simuler l'erreur 409 -->
+        <!-- <div class="name-error">Ce nom existe déjà.</div> -->
+      </div>
+
+      <div style="display:flex;gap:8px;margin-left:auto">
+        <!-- [CA-21] Désactivé si N<10 ou nom vide -->
+        <!-- Ici N=8 < 10 → button disabled -->
+        <button class="btn-primary" disabled>Créer le quiz</button>
+        <button class="btn-ghost">Annuler</button>
+      </div>
+    </div>
+
+    <!-- Compositeur 2 colonnes -->
+    <div class="composer">
+
+      <!-- ── Colonne gauche : Banque de questions ── -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Banque de questions</span>
+          <span style="font-size:11px;color:var(--muted)"><strong style="color:var(--text)">142</strong> questions disponibles</span>
+        </div>
+
+        <!-- Filtres [CA-12] — GET /api/v1/questions à chaque changement -->
+        <div class="bank-filters">
+          <select class="f-select">
+            <option value="">Tous les thèmes</option>
+            <option selected>Géographie</option>
+            <option>Sciences &amp; Nature</option>
+            <option>Histoire</option>
+          </select>
+          <select class="f-select">
+            <option value="">MCQ + SPEED</option>
+            <option>MCQ</option>
+            <option>SPEED</option>
+          </select>
+          <select class="f-select">
+            <option value="">Tous niveaux</option>
+            <option>Niv. 1</option>
+            <option>Niv. 2</option>
+            <option selected>Niv. 3</option>
+            <option>Niv. 4</option>
+            <option>Niv. 5</option>
+          </select>
+          <span style="font-size:11px;color:var(--muted);align-self:center;margin-left:4px">28 résultats</span>
+        </div>
+
+        <div class="panel-body">
+
+          <!-- Ligne 1 — disponible (non sélectionnée) -->
+          <div class="bank-row">
+            <div class="bank-row-info">
+              <div class="bank-row-title">Quelle est la capitale de l'Australie ?</div>
+              <div class="bank-row-meta">
+                <span class="badge-xs mcq">MCQ</span>
+                <div class="level-dots-xs">
+                  <div class="ldot-xs on"></div><div class="ldot-xs on"></div><div class="ldot-xs on"></div>
+                  <div class="ldot-xs"></div><div class="ldot-xs"></div>
+                </div>
+                <span class="bank-meta-text">30 s · 200 pts</span>
+              </div>
+            </div>
+            <!-- [CA-14] Bouton + → ajout en fin de composition -->
+            <button class="btn-add">+</button>
+          </div>
+
+          <!-- Ligne 2 — GRISÉE [CA-13] : déjà dans la composition -->
+          <!-- selectedIdSet.has(id) = true → opacity + pointer-events:none -->
+          <div class="bank-row grised">
+            <div class="bank-row-info">
+              <div class="bank-row-title">Quel fleuve traverse Le Caire ?</div>
+              <div class="bank-row-meta">
+                <span class="badge-xs speed">SPEED</span>
+                <div class="level-dots-xs">
+                  <div class="ldot-xs on"></div><div class="ldot-xs on"></div>
+                  <div class="ldot-xs"></div><div class="ldot-xs"></div><div class="ldot-xs"></div>
+                </div>
+                <span class="bank-meta-text">15 s · 300 pts</span>
+              </div>
+            </div>
+            <!-- [CA-13] Coche verte (déjà dans la composition) -->
+            <div class="check-icon">
+              <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+            </div>
+          </div>
+
+          <!-- Ligne 3 — disponible -->
+          <div class="bank-row">
+            <div class="bank-row-info">
+              <div class="bank-row-title">Quel pays possède le plus grand territoire ?</div>
+              <div class="bank-row-meta">
+                <span class="badge-xs mcq">MCQ</span>
+                <div class="level-dots-xs">
+                  <div class="ldot-xs on"></div><div class="ldot-xs on"></div><div class="ldot-xs on"></div>
+                  <div class="ldot-xs on"></div><div class="ldot-xs"></div>
+                </div>
+                <span class="bank-meta-text">20 s · 400 pts</span>
+              </div>
+            </div>
+            <button class="btn-add">+</button>
+          </div>
+
+          <!-- Ligne 4 — GRISÉE -->
+          <div class="bank-row grised">
+            <div class="bank-row-info">
+              <div class="bank-row-title">Nommer la plus haute montagne d'Afrique</div>
+              <div class="bank-row-meta">
+                <span class="badge-xs speed">SPEED</span>
+                <div class="level-dots-xs">
+                  <div class="ldot-xs on"></div><div class="ldot-xs on"></div><div class="ldot-xs on"></div>
+                  <div class="ldot-xs"></div><div class="ldot-xs"></div>
+                </div>
+                <span class="bank-meta-text">15 s · 250 pts</span>
+              </div>
+            </div>
+            <div class="check-icon"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
+          </div>
+
+          <!-- Ligne 5 — disponible -->
+          <div class="bank-row">
+            <div class="bank-row-info">
+              <div class="bank-row-title">Combien y a-t-il d'États aux États-Unis ?</div>
+              <div class="bank-row-meta">
+                <span class="badge-xs mcq">MCQ</span>
+                <div class="level-dots-xs">
+                  <div class="ldot-xs on"></div><div class="ldot-xs"></div>
+                  <div class="ldot-xs"></div><div class="ldot-xs"></div><div class="ldot-xs"></div>
+                </div>
+                <span class="bank-meta-text">30 s · 100 pts</span>
+              </div>
+            </div>
+            <button class="btn-add">+</button>
+          </div>
+
+          <!-- Ligne 6 — GRISÉE -->
+          <div class="bank-row grised">
+            <div class="bank-row-info">
+              <div class="bank-row-title">Dans quel continent se trouve le Sahara ?</div>
+              <div class="bank-row-meta">
+                <span class="badge-xs mcq">MCQ</span>
+                <div class="level-dots-xs">
+                  <div class="ldot-xs on"></div><div class="ldot-xs"></div>
+                  <div class="ldot-xs"></div><div class="ldot-xs"></div><div class="ldot-xs"></div>
+                </div>
+                <span class="bank-meta-text">30 s · 100 pts</span>
+              </div>
+            </div>
+            <div class="check-icon"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
+          </div>
+
+          <!-- Ligne 7 — disponible -->
+          <div class="bank-row">
+            <div class="bank-row-info">
+              <div class="bank-row-title">Quel océan borde la côte ouest de la France ?</div>
+              <div class="bank-row-meta">
+                <span class="badge-xs mcq">MCQ</span>
+                <div class="level-dots-xs">
+                  <div class="ldot-xs on"></div><div class="ldot-xs on"></div>
+                  <div class="ldot-xs"></div><div class="ldot-xs"></div><div class="ldot-xs"></div>
+                </div>
+                <span class="bank-meta-text">25 s · 150 pts</span>
+              </div>
+            </div>
+            <button class="btn-add">+</button>
+          </div>
+
+        </div>
+
+        <!-- Pagination banque [CA-16] — grisage persistant lors du changement de page -->
+        <div class="bank-pager">
+          <button class="pager-btn" disabled>
+            <svg style="width:10px;height:10px;fill:currentColor" viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+          </button>
+          <button class="pager-btn active">1</button>
+          <button class="pager-btn">2</button>
+          <button class="pager-btn">3</button>
+          <span style="font-size:11px;color:var(--muted)">…</span>
+          <button class="pager-btn">8</button>
+          <button class="pager-btn">
+            <svg style="width:10px;height:10px;fill:currentColor" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- ── Colonne droite : Composition ── -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Composition</span>
+          <div style="display:flex;align-items:baseline;gap:6px">
+            <!-- [CA-20] N=8 < 10 → rouge -->
+            <span class="comp-counter warn">8</span>
+            <span class="comp-min">/ 10 min</span>
+          </div>
+        </div>
+
+        <!-- Avertissement minimum non atteint [CA-20, CA-21] -->
+        <div style="background:#1a0a00;border-bottom:1px solid #4a2500;padding:8px 14px;font-size:11px;color:#fb923c;display:flex;gap:6px;align-items:center;flex-shrink:0">
+          <svg style="width:12px;height:12px;fill:#fb923c;flex-shrink:0" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+          Ajoutez encore <strong style="color:#fdba74">2 questions</strong> pour atteindre le minimum requis.
+        </div>
+
+        <div class="panel-body">
+
+          <!-- Questions composées [CA-17, CA-18, CA-19] -->
+          <!-- Drag-and-drop CDK : cursor:grab, handle visible -->
+
+          <!-- Question 1 -->
+          <div class="comp-row">
+            <span class="comp-num">1</span>
+            <div class="drag-handle"><span></span><span></span><span></span></div>
+            <div class="comp-row-info">
+              <div class="comp-row-title">Quel fleuve traverse Le Caire ?</div>
+              <div class="comp-row-meta">
+                <span class="badge-xs speed">SPEED</span>
+                <span class="bank-meta-text">15 s · 300 pts</span>
+              </div>
+            </div>
+            <!-- [CA-19] Bouton × → retire de la composition -->
+            <button class="btn-remove">×</button>
+          </div>
+
+          <!-- Question 2 -->
+          <div class="comp-row">
+            <span class="comp-num">2</span>
+            <div class="drag-handle"><span></span><span></span><span></span></div>
+            <div class="comp-row-info">
+              <div class="comp-row-title">Nommer la plus haute montagne d'Afrique</div>
+              <div class="comp-row-meta">
+                <span class="badge-xs speed">SPEED</span>
+                <span class="bank-meta-text">15 s · 250 pts</span>
+              </div>
+            </div>
+            <button class="btn-remove">×</button>
+          </div>
+
+          <!-- Question 3 — en cours de drag (simulé) -->
+          <div class="comp-row" style="background:var(--accent-dim);border-color:var(--accent);opacity:.8">
+            <span class="comp-num" style="color:var(--accent)">3</span>
+            <div class="drag-handle" style="opacity:.9"><span></span><span></span><span></span></div>
+            <div class="comp-row-info">
+              <div class="comp-row-title">Dans quel continent se trouve le Sahara ?</div>
+              <div class="comp-row-meta">
+                <span class="badge-xs mcq">MCQ</span>
+                <span class="bank-meta-text">30 s · 100 pts</span>
+              </div>
+            </div>
+            <button class="btn-remove">×</button>
+          </div>
+
+          <!-- Question 4 -->
+          <div class="comp-row">
+            <span class="comp-num">4</span>
+            <div class="drag-handle"><span></span><span></span><span></span></div>
+            <div class="comp-row-info">
+              <div class="comp-row-title">Quelle est la capitale du Brésil ?</div>
+              <div class="comp-row-meta">
+                <span class="badge-xs mcq">MCQ</span>
+                <span class="bank-meta-text">30 s · 200 pts</span>
+              </div>
+            </div>
+            <button class="btn-remove">×</button>
+          </div>
+
+          <!-- Question 5 -->
+          <div class="comp-row">
+            <span class="comp-num">5</span>
+            <div class="drag-handle"><span></span><span></span><span></span></div>
+            <div class="comp-row-info">
+              <div class="comp-row-title">Quel est le plus petit pays du monde ?</div>
+              <div class="comp-row-meta">
+                <span class="badge-xs mcq">MCQ</span>
+                <span class="bank-meta-text">20 s · 300 pts</span>
+              </div>
+            </div>
+            <button class="btn-remove">×</button>
+          </div>
+
+          <!-- Question 6 -->
+          <div class="comp-row">
+            <span class="comp-num">6</span>
+            <div class="drag-handle"><span></span><span></span><span></span></div>
+            <div class="comp-row-info">
+              <div class="comp-row-title">Quel détroit sépare l'Espagne du Maroc ?</div>
+              <div class="comp-row-meta">
+                <span class="badge-xs speed">SPEED</span>
+                <span class="bank-meta-text">10 s · 350 pts</span>
+              </div>
+            </div>
+            <button class="btn-remove">×</button>
+          </div>
+
+          <!-- Question 7 -->
+          <div class="comp-row">
+            <span class="comp-num">7</span>
+            <div class="drag-handle"><span></span><span></span><span></span></div>
+            <div class="comp-row-info">
+              <div class="comp-row-title">Combien de pays composent l'Union Européenne ?</div>
+              <div class="comp-row-meta">
+                <span class="badge-xs mcq">MCQ</span>
+                <span class="bank-meta-text">30 s · 200 pts</span>
+              </div>
+            </div>
+            <button class="btn-remove">×</button>
+          </div>
+
+          <!-- Question 8 -->
+          <div class="comp-row">
+            <span class="comp-num">8</span>
+            <div class="drag-handle"><span></span><span></span><span></span></div>
+            <div class="comp-row-info">
+              <div class="comp-row-title">Quelle est la mer qui borde Israël à l'ouest ?</div>
+              <div class="comp-row-meta">
+                <span class="badge-xs mcq">MCQ</span>
+                <span class="bank-meta-text">25 s · 200 pts</span>
+              </div>
+            </div>
+            <button class="btn-remove">×</button>
+          </div>
+
+          <!-- Zone cible drop vide — invite à ajouter plus de questions -->
+          <div class="comp-empty">
+            + 2 questions requises
+            <div style="font-size:11px;margin-top:4px">Cliquez "+" dans la banque ou glissez ici</div>
+          </div>
+
+        </div>
+
+        <!-- Footer composition : récap rapide -->
+        <div style="padding:10px 14px;border-top:1px solid var(--border);flex-shrink:0;display:flex;gap:12px;font-size:11px;color:var(--muted)">
+          <span>MCQ : <strong style="color:var(--text)">5</strong></span>
+          <span>SPEED : <strong style="color:var(--text)">3</strong></span>
+          <span style="margin-left:auto">
+            Pts moy. : <strong style="color:var(--text)">237</strong>
+          </span>
+        </div>
+      </div>
+
+    </div><!-- /.composer -->
+
+  </main>
+</div>
+
+</body>
+</html>

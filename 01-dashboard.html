@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Buzzer — Dashboard</title>
+
+<!--
+════════════════════════════════════════════════════════════════════
+  MAQUETTE ÉCRAN 1/12 — TABLEAU DE BORD
+════════════════════════════════════════════════════════════════════
+  Composant Angular  : DashboardComponent
+  Sélecteur          : <app-dashboard>
+  Fichier            : src/app/dashboard/dashboard.component.ts
+  Route              : /dashboard
+  Guard              : authGuard
+  Sprint             : 1
+  US couverte        : US-ANG-002
+
+  ── Critères d'acceptance couverts ──────────────────────────────
+  CA-1   GET /api/v1/games?page=1&limit=4  (4 dernières parties)
+  CA-2   forkJoin GET /api/v1/quizzes + GET /api/v1/questions?limit=1
+  CA-3   4 métriques : buzzers, quiz, questions, parties
+  CA-6   Bannière partie active (status OPEN simulé ici)
+  CA-8   Bouton "Reprendre le pilotage" → /pilot/play
+  CA-10  Buzzers connectés depuis GameStateService.connectedBuzzers()
+  CA-11  Sous-titre : usernames tronqués à 3
+  CA-13  Liste 4 dernières parties avec StatusBadgeComponent
+  CA-17  Bouton "Nouvelle partie" en en-tête
+  CA-20  Sidebar avec liens de navigation
+  CA-21  Liens Contenu désactivés si partie active (opacity + tooltip)
+  CA-23  Topbar : indicateur WebSocket vert "Connecté"
+  CA-24  Indicateur orange "Reconnexion…" (non simulé dans cette maquette)
+  CA-25  Version serveur depuis GET /api/v1/health
+
+  ── Signals et computed utilisés ────────────────────────────────
+  GameStateService.isPiloting()       → computed<boolean>
+  GameStateService.status()           → computed<GameStatus | null>
+  GameStateService.state()            → signal<GameState>
+  GameStateService.connectedBuzzers() → computed<string[]>
+  WebSocketService.isConnected()      → signal<boolean>
+  DashboardComponent.recentGames      → signal<Game[]>
+  DashboardComponent.quizCount        → signal<number | null>
+  DashboardComponent.questionCount    → signal<number | null>
+  DashboardComponent.isLoading        → signal<boolean>
+
+  ── Endpoints REST consommés ─────────────────────────────────────
+  GET /api/v1/games?page=1&limit=4       → recentGames signal
+  GET /api/v1/quizzes?page=1&limit=1     → quizCount signal (via total)
+  GET /api/v1/questions?page=1&limit=1   → questionCount signal (via total)
+  GET /api/v1/health                     → version serveur (sans Bearer)
+════════════════════════════════════════════════════════════════════
+-->
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
+
+  :root {
+    --bg:        #0f1117;
+    --surface:   #1a1d27;
+    --surface2:  #21263a;
+    --border:    #2e3348;
+    --text:      #e8eaf0;
+    --muted:     #6b7280;
+    --accent:    #4f8ef7;
+    --accent-dim:#1e3a6e;
+    --green:     #22c55e;
+    --amber:     #f59e0b;
+    --red:       #ef4444;
+    --sidebar-w: 220px;
+    --topbar-h:  52px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Topbar ── */
+  .topbar {
+    height: var(--topbar-h);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 16px;
+    flex-shrink: 0;
+    z-index: 10;
+  }
+  .topbar-logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 16px;
+    letter-spacing: -0.5px;
+    color: var(--accent);
+  }
+  .topbar-logo span { color: var(--text); }
+  .topbar-spacer { flex: 1; }
+  .topbar-server {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  /* [CA-23] Indicateur WebSocket vert */
+  .ws-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 6px var(--green);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  /* [CA-24] État reconnexion — décommenter pour simuler */
+  /* .ws-dot { background: var(--amber); box-shadow: 0 0 6px var(--amber); } */
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  .ws-label { color: var(--green); font-weight: 500; }
+  /* [CA-25] Version serveur */
+  .topbar-version {
+    font-size: 11px;
+    color: var(--muted);
+    padding: 2px 8px;
+    background: var(--bg);
+    border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+
+  /* ── Layout ── */
+  .layout {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: var(--sidebar-w);
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 16px 0;
+    flex-shrink: 0;
+    overflow-y: auto;
+  }
+  .nav-section-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 8px 16px 4px;
+  }
+  .nav-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 16px;
+    cursor: pointer;
+    border-radius: 0;
+    color: var(--muted);
+    font-size: 13.5px;
+    text-decoration: none;
+    transition: all 0.15s;
+    position: relative;
+  }
+  .nav-link:hover { background: var(--surface2); color: var(--text); }
+  /* Lien actif */
+  .nav-link.active {
+    color: var(--accent);
+    background: var(--accent-dim);
+    font-weight: 500;
+  }
+  .nav-link.active::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--accent);
+    border-radius: 0 2px 2px 0;
+  }
+  /* [CA-21] Liens Contenu désactivés si partie active */
+  .nav-link.disabled {
+    opacity: 0.35;
+    pointer-events: none;
+    cursor: not-allowed;
+  }
+  .nav-icon {
+    width: 16px; height: 16px;
+    opacity: 0.7;
+    flex-shrink: 0;
+  }
+  .nav-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 8px 16px;
+  }
+
+  /* ── Main content ── */
+  .main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 28px;
+  }
+
+  /* ── Page header ── */
+  .page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .page-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 22px;
+    letter-spacing: -0.5px;
+  }
+  /* [CA-17] Bouton Nouvelle partie */
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'DM Sans', sans-serif;
+    transition: opacity 0.15s;
+  }
+  .btn-primary:hover { opacity: 0.88; }
+
+  /* ── Bannière partie active [CA-6] ── */
+  .banner-active {
+    background: linear-gradient(135deg, var(--accent-dim) 0%, #162d5c 100%);
+    border: 1px solid var(--accent);
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .banner-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+    flex-shrink: 0;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  .banner-content { flex: 1; }
+  .banner-title {
+    font-weight: 600;
+    font-size: 14px;
+    color: #c5d8ff;
+  }
+  .banner-sub {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  /* [CA-8] Bouton reprendre */
+  .btn-outline-sm {
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    background: transparent;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    font-family: 'DM Sans', sans-serif;
+    transition: all 0.15s;
+  }
+  .btn-outline-sm:hover { background: var(--accent-dim); }
+
+  /* ── Métriques [CA-3] ── */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+  .metric-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .metric-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .metric-value {
+    font-family: 'Syne', sans-serif;
+    font-size: 30px;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  /* [CA-10] Buzzers en temps réel — valeur verte */
+  .metric-value.live { color: var(--green); }
+  .metric-sub {
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* Badge live [CA-10] */
+  .live-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--green);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+  .live-badge::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  /* ── Grille principale ── */
+  .content-grid {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 16px;
+  }
+
+  /* ── Widget ── */
+  .widget {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .widget-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .widget-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--muted);
+  }
+  .widget-action {
+    font-size: 12px;
+    color: var(--accent);
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .widget-action:hover { text-decoration: underline; }
+
+  /* ── Tableau dernières parties [CA-13] ── */
+  .games-table { width: 100%; }
+  .games-row {
+    display: grid;
+    grid-template-columns: 1fr 110px 90px 70px;
+    align-items: center;
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--border);
+    gap: 8px;
+  }
+  .games-row:last-child { border-bottom: none; }
+  .games-row:hover { background: var(--surface2); }
+  .game-name {
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .game-date { font-size: 12px; color: var(--muted); }
+  .game-action {
+    text-align: right;
+    font-size: 12px;
+    color: var(--accent);
+    cursor: pointer;
+  }
+
+  /* ── Status badges [CA-13 StatusBadgeComponent] ── */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .badge::before {
+    content: '';
+    width: 5px; height: 5px;
+    border-radius: 50%;
+  }
+  .badge-completed { background: #052a12; color: #4ade80; }
+  .badge-completed::before { background: #4ade80; }
+  .badge-open { background: #0f2040; color: #60a5fa; }
+  .badge-open::before { background: #60a5fa; }
+  .badge-pending { background: #2a1a00; color: #fbbf24; }
+  .badge-pending::before { background: #fbbf24; }
+  .badge-error { background: #2a0808; color: #f87171; }
+  .badge-error::before { background: #f87171; }
+
+  /* ── Widget buzzers [CA-10, CA-11, CA-12] ── */
+  .buzzers-list { padding: 8px 0; }
+  .buzzer-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 16px;
+  }
+  .buzzer-avatar {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: var(--accent-dim);
+    border: 1.5px solid var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+  .buzzer-avatar.offline {
+    background: var(--surface2);
+    border-color: var(--border);
+    color: var(--muted);
+  }
+  .buzzer-name { font-size: 13px; font-weight: 500; }
+  .buzzer-name.offline { color: var(--muted); }
+  .buzzer-status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--green);
+    margin-left: auto;
+    box-shadow: 0 0 5px var(--green);
+  }
+  .buzzer-status-dot.offline { background: var(--border); box-shadow: none; }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* ── SVG icons inline ── */
+  .icon { width: 15px; height: 15px; fill: currentColor; flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<!-- Topbar -->
+<header class="topbar">
+  <div class="topbar-logo">Quiz<span>Buzzer</span></div>
+  <div class="topbar-spacer"></div>
+  <!-- [CA-23] Indicateur connexion WebSocket -->
+  <div class="topbar-server">
+    <div class="ws-dot"></div>
+    <span class="ws-label">Connecté</span>
+    <span style="color:var(--border)">|</span>
+    <span>192.168.1.10:3000</span>
+  </div>
+  <!-- [CA-25] Version serveur depuis GET /api/v1/health -->
+  <div class="topbar-version">v1.2.0</div>
+</header>
+
+<div class="layout">
+
+  <!-- Sidebar [CA-20] -->
+  <nav class="sidebar">
+    <div class="nav-section-label">Navigation</div>
+
+    <!-- Lien actif : Dashboard -->
+    <a class="nav-link active" href="#">
+      <svg class="icon nav-icon" viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+      Tableau de bord
+    </a>
+
+    <div class="nav-divider"></div>
+    <div class="nav-section-label">Contenu</div>
+
+    <!-- [CA-21] Liens désactivés (partie active simulée) -->
+    <a class="nav-link disabled" href="#" title="Indisponible pendant une partie">
+      <svg class="icon nav-icon" viewBox="0 0 24 24"><path d="M17.63 5.84C17.27 5.33 16.67 5 16 5L5 5.01C3.9 5.01 3 5.9 3 7v10c0 1.1.9 1.99 2 1.99L16 19c.67 0 1.27-.33 1.63-.84L22 12l-4.37-6.16z"/></svg>
+      Thèmes
+    </a>
+    <a class="nav-link disabled" href="#" title="Indisponible pendant une partie">
+      <svg class="icon nav-icon" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg>
+      Questions
+    </a>
+    <a class="nav-link disabled" href="#" title="Indisponible pendant une partie">
+      <svg class="icon nav-icon" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg>
+      Quiz
+    </a>
+    <a class="nav-link disabled" href="#" title="Indisponible pendant une partie">
+      <svg class="icon nav-icon" viewBox="0 0 24 24"><path d="M12 3v9.28c-.47-.17-.97-.28-1.5-.28C8.01 12 6 14.01 6 16.5S8.01 21 10.5 21c2.31 0 4.2-1.75 4.45-4H15V6h4V3h-7z"/></svg>
+      Jingles
+    </a>
+
+    <div class="nav-divider"></div>
+    <div class="nav-section-label">Parties</div>
+
+    <a class="nav-link" href="#">
+      <svg class="icon nav-icon" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14l-5-5 1.41-1.41L12 14.17l7.59-7.59L21 8l-9 9z"/></svg>
+      Toutes les parties
+    </a>
+
+    <div style="flex:1"></div>
+
+    <!-- Pilotage en cours -->
+    <div style="margin: 8px 12px; padding: 10px 12px; background: var(--accent-dim); border: 1px solid var(--accent); border-radius: 8px;">
+      <div style="font-size:11px; font-weight:600; color:#90b8ff; margin-bottom:4px;">PARTIE EN COURS</div>
+      <div style="font-size:12px; color:var(--text); margin-bottom:8px;">Culture Générale S1</div>
+      <a href="#" style="display:block; text-align:center; background:var(--accent); color:#fff; text-decoration:none; padding:5px; border-radius:5px; font-size:12px; font-weight:500;">Reprendre →</a>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- Header [CA-17] -->
+    <div class="page-header">
+      <h1 class="page-title">Tableau de bord</h1>
+      <button class="btn-primary">
+        <!-- [CA-17] Bouton "Nouvelle partie" — si partie active → toast d'avertissement (CA-18) -->
+        <svg style="width:14px;height:14px;fill:currentColor" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+        Nouvelle partie
+      </button>
+    </div>
+
+    <!-- Bannière partie active [CA-6, CA-7, CA-8] -->
+    <!-- Simulée avec status OPEN et question_index 3 / 20 -->
+    <div class="banner-active">
+      <div class="banner-dot"></div>
+      <div class="banner-content">
+        <!-- [CA-6] Nom du quiz + statut + progression -->
+        <div class="banner-title">Culture Générale Saison 1 <span style="font-weight:400;color:var(--muted)">— Question 3 / 20</span></div>
+        <!-- [CA-6] status OPEN -->
+        <div class="banner-sub">Statut : <span style="color:#60a5fa;font-weight:500">En cours</span> · Démarré il y a 12 min</div>
+      </div>
+      <!-- [CA-8] Bouton reprendre → /pilot/play (status OPEN) -->
+      <button class="btn-outline-sm">Reprendre le pilotage →</button>
+    </div>
+
+    <!-- Métriques [CA-3] -->
+    <div class="metrics-grid">
+
+      <!-- [CA-10] Buzzers — source : GameStateService.connectedBuzzers() — temps réel -->
+      <div class="metric-card">
+        <div class="metric-label">Buzzers connectés<span class="live-badge">Live</span></div>
+        <div class="metric-value live">3</div>
+        <!-- [CA-11] Usernames tronqués à 3 -->
+        <div class="metric-sub">buzzer_01, buzzer_02, buzzer_03</div>
+      </div>
+
+      <!-- Quiz — source : GET /api/v1/quizzes (total) -->
+      <div class="metric-card">
+        <div class="metric-label">Quiz disponibles</div>
+        <div class="metric-value">7</div>
+        <div class="metric-sub">4 MCQ · 3 mixtes</div>
+      </div>
+
+      <!-- Questions — source : GET /api/v1/questions (total) -->
+      <div class="metric-card">
+        <div class="metric-label">Questions en banque</div>
+        <div class="metric-value">142</div>
+        <div class="metric-sub">89 MCQ · 53 SPEED</div>
+      </div>
+
+      <!-- Parties — source : GET /api/v1/games (total) -->
+      <div class="metric-card">
+        <div class="metric-label">Parties jouées</div>
+        <div class="metric-value">31</div>
+        <div class="metric-sub">Dernière : Auj. 14:23</div>
+      </div>
+
+    </div>
+
+    <!-- Grille principale -->
+    <div class="content-grid">
+
+      <!-- Dernières parties [CA-13] — GET /api/v1/games?page=1&limit=4 -->
+      <div class="widget">
+        <div class="widget-header">
+          <span class="widget-title">Dernières parties</span>
+          <!-- [CA-14/15/16] Navigation contextuelle -->
+          <a class="widget-action" href="#">Voir tout →</a>
+        </div>
+        <div class="games-table">
+
+          <!-- [CA-15] OPEN → /pilot/play -->
+          <div class="games-row">
+            <div>
+              <div class="game-name">Culture Générale Saison 1</div>
+              <div class="game-date">Auj. 14:23 · 3 joueurs</div>
+            </div>
+            <div><span class="badge badge-open">En cours</span></div>
+            <div class="game-date">Q3/20</div>
+            <div class="game-action">Piloter →</div>
+          </div>
+
+          <!-- [CA-14] COMPLETED → /games/:id/results -->
+          <div class="games-row">
+            <div>
+              <div class="game-name">Histoire de France</div>
+              <div class="game-date">Hier 19:45 · 4 joueurs</div>
+            </div>
+            <div><span class="badge badge-completed">Terminée</span></div>
+            <div class="game-date">20/20</div>
+            <div class="game-action">Résultats →</div>
+          </div>
+
+          <!-- [CA-14] COMPLETED -->
+          <div class="games-row">
+            <div>
+              <div class="game-name">Sciences & Nature</div>
+              <div class="game-date">25 mars · 2 joueurs</div>
+            </div>
+            <div><span class="badge badge-completed">Terminée</span></div>
+            <div class="game-date">15/15</div>
+            <div class="game-action">Résultats →</div>
+          </div>
+
+          <!-- [CA-16] PENDING → /pilot/lobby -->
+          <div class="games-row">
+            <div>
+              <div class="game-name">Géographie Mondiale</div>
+              <div class="game-date">24 mars · 5 joueurs</div>
+            </div>
+            <div><span class="badge badge-pending">En attente</span></div>
+            <div class="game-date">0/25</div>
+            <div class="game-action">Lobby →</div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Buzzers connectés [CA-10, CA-11, CA-12] — GameStateService.connectedBuzzers() -->
+      <div class="widget">
+        <div class="widget-header">
+          <span class="widget-title">Buzzers</span>
+          <span style="font-size:11px;color:var(--green);font-weight:600">3 / 10 connectés</span>
+        </div>
+        <div class="buzzers-list">
+          <div class="buzzer-row">
+            <div class="buzzer-avatar">B1</div>
+            <div>
+              <div class="buzzer-name">quiz_buzzer_01</div>
+              <div style="font-size:11px;color:var(--muted)">Connecté depuis 14:21</div>
+            </div>
+            <div class="buzzer-status-dot"></div>
+          </div>
+          <div class="buzzer-row">
+            <div class="buzzer-avatar">B2</div>
+            <div>
+              <div class="buzzer-name">quiz_buzzer_02</div>
+              <div style="font-size:11px;color:var(--muted)">Connecté depuis 14:22</div>
+            </div>
+            <div class="buzzer-status-dot"></div>
+          </div>
+          <div class="buzzer-row">
+            <div class="buzzer-avatar">B3</div>
+            <div>
+              <div class="buzzer-name">quiz_buzzer_03</div>
+              <div style="font-size:11px;color:var(--muted)">Connecté depuis 14:23</div>
+            </div>
+            <div class="buzzer-status-dot"></div>
+          </div>
+          <!-- Slots libres -->
+          <div class="buzzer-row" style="opacity:0.4">
+            <div class="buzzer-avatar offline">B4</div>
+            <div class="buzzer-name offline">quiz_buzzer_04</div>
+            <div class="buzzer-status-dot offline"></div>
+          </div>
+          <div class="buzzer-row" style="opacity:0.25">
+            <div class="buzzer-avatar offline">B5</div>
+            <div class="buzzer-name offline">quiz_buzzer_05</div>
+            <div class="buzzer-status-dot offline"></div>
+          </div>
+          <div style="padding: 8px 16px; font-size:11px; color:var(--muted); text-align:center">
+            + 5 slots disponibles
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

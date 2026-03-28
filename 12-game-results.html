@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Buzzer — Résultats finaux</title>
+
+<!--
+════════════════════════════════════════════════════════════════════
+  MAQUETTE ÉCRAN 12/12 — RÉSULTATS FINAUX DE PARTIE
+════════════════════════════════════════════════════════════════════
+  Composant Angular  : GameResultsComponent
+  Sélecteur          : <app-game-results>
+  Fichier            : src/app/games/game-results.component.ts
+  Routes             : /pilot/results          (fin de partie directe)
+                       /games/:id/results       (consultation historique)
+  Guards             : authGuard
+  Sprint             : 6 (fin de partie directe)
+  US couverte        : US-ANG-008 (CA-41 à CA-47)
+
+  ── Critères d'acceptance couverts ──────────────────────────────
+  CA-41  Accessible depuis /pilot/results ET /games/:id/results
+         Même composant — source de données différente :
+           • /pilot/results → buildResults() depuis question_result_summary
+             accumulés dans GameStateService (pas d'appel REST)
+           • /games/:id/results → GET /api/v1/games/:id/results (US-013)
+  CA-42  Fin de partie directe : données issues de GameStateService
+  CA-43  Historique : GET /api/v1/games/:id/results
+  CA-44  Podium : 3 premiers avec rang, nom, score final, temps cumulé
+         Médailles or / argent / bronze
+  CA-45  Tableau de détail : une ligne par question, une colonne par participant
+         Cellule verte : correct (MCQ) ou SPEED_WIN
+         Cellule rouge  : incorrect (MCQ)
+         Cellule grise  : absent / pas de réponse
+         Tiret          : SPEED sans gagnant (answers:[])
+  CA-46  Questions SPEED sans gagnant → tirets pour tous (answers:[])
+  CA-47  Bouton "Nouvelle partie" → /games/new (si pas de partie active)
+
+  ── Données simulées — Culture Générale S1 (20 questions) ────────
+  Partie COMPLETED · 4 participants · Quiz 20 questions (15 MCQ + 5 SPEED)
+  Classement final :
+    1. Alice   4 890 pts — 8m 12s  (or)
+    2. Diana   4 520 pts — 9m 38s  (argent)
+    3. Charlie 3 740 pts — 11m 05s (bronze)
+    4. Bob     2 980 pts — 7m 44s  (4e)
+  Tableau détail : 20 lignes affichées (scroll) — extrait visible 10 lignes
+
+  ── Source de données selon la route ─────────────────────────────
+  /pilot/results       → buildResults() depuis GameStateService
+                          Pas d'appel REST — données en mémoire accumulées
+                          pendant la partie
+  /games/:id/results   → GET /api/v1/games/:id/results (US-013)
+                          Données issues de T_GAME_ANSWER_GAA
+                          Fallback REST si reconnexion en cours de partie
+
+  ── Signals utilisés ─────────────────────────────────────────────
+  GameResultsComponent.results    → signal<GameResults | null>
+  GameResultsComponent.isLoading  → signal<boolean>
+  GameResultsComponent.source     → signal<'live' | 'rest'>
+  GameStateService.status()       → vérifié pour CA-47 (bouton Nouvelle partie)
+════════════════════════════════════════════════════════════════════
+-->
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
+
+  :root {
+    --bg:         #0b0d14;
+    --surface:    #13161f;
+    --surface2:   #1c2030;
+    --border:     #252a3a;
+    --text:       #e8eaf0;
+    --muted:      #5a6278;
+    --accent:     #4f8ef7;
+    --accent-dim: #162240;
+    --green:      #22c55e;
+    --green-dim:  #052a12;
+    --green-border:#0a4a20;
+    --amber:      #f59e0b;
+    --red:        #ef4444;
+    --red-dim:    #2a0808;
+    --purple:     #a855f7;
+    --gold:       #fbbf24;
+    --silver:     #94a3b8;
+    --bronze:     #c2845a;
+    --topbar-h:   48px;
+    --sidebar-w:  220px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  @keyframes pulse    { 0%,100%{opacity:1} 50%{opacity:.4} }
+  @keyframes confetti { 0%{transform:translateY(-10px) rotate(0)} 100%{transform:translateY(0) rotate(5deg)} }
+
+  /* ── Topbar ── */
+  .topbar {
+    height: var(--topbar-h);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center;
+    padding: 0 20px; gap: 12px; flex-shrink: 0;
+  }
+  .topbar-logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 15px; letter-spacing: -0.5px; color: var(--accent); }
+  .topbar-logo span { color: var(--text); }
+  .topbar-divider { width: 1px; height: 20px; background: var(--border); }
+  .topbar-spacer { flex: 1; }
+  .status-chip {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px;
+    padding: 4px 10px; border-radius: 20px;
+    background: var(--green-dim); color: var(--green); border: 1px solid var(--green-border);
+  }
+  .chip-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+  .ws-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 5px var(--green); }
+  .ws-label { font-size: 11px; color: var(--green); font-weight: 500; }
+
+  /* ── Layout sidebar + main ── */
+  .layout { display: flex; flex: 1; overflow: hidden; }
+
+  .sidebar {
+    width: var(--sidebar-w);
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    padding: 16px 0; flex-shrink: 0;
+  }
+  .nav-section-label { font-size: 10px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); padding: 8px 16px 4px; }
+  .nav-link { display: flex; align-items: center; gap: 10px; padding: 8px 16px; cursor: pointer; color: var(--muted); font-size: 13.5px; text-decoration: none; transition: all .15s; position: relative; }
+  .nav-link:hover { background: var(--surface2); color: var(--text); }
+  .nav-link.active { color: var(--accent); background: var(--accent-dim); font-weight: 500; }
+  .nav-link.active::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent); border-radius: 0 2px 2px 0; }
+  .nav-divider { height: 1px; background: var(--border); margin: 8px 16px; }
+  .nav-icon { width: 15px; height: 15px; fill: currentColor; flex-shrink: 0; opacity: .7; }
+
+  /* ── Main ── */
+  .main { flex: 1; overflow-y: auto; padding: 24px 28px; display: flex; flex-direction: column; gap: 24px; }
+
+  /* ── En-tête ── */
+  .page-header {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+  }
+  .page-header-left { display: flex; flex-direction: column; gap: 4px; }
+  .page-title {
+    font-family: 'Syne', sans-serif; font-size: 24px; font-weight: 800; letter-spacing: -.5px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .page-sub { font-size: 13px; color: var(--muted); }
+  /* Badge source de données [CA-41] */
+  .source-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+    padding: 3px 8px; border-radius: 5px;
+  }
+  .source-live { background: var(--green-dim); color: var(--green); border: 1px solid var(--green-border); }
+  .source-rest { background: var(--accent-dim); color: var(--accent); border: 1px solid #2a4a8a; }
+
+  /* Boutons en-tête */
+  .page-actions { display: flex; gap: 10px; }
+  .btn-primary {
+    background: var(--accent); color: #fff; border: none;
+    padding: 9px 18px; border-radius: 9px; font-size: 13px; font-weight: 600;
+    cursor: pointer; font-family: 'DM Sans', sans-serif; transition: opacity .15s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .btn-primary:hover { opacity: .88; }
+  .btn-ghost {
+    background: transparent; border: 1px solid var(--border); color: var(--muted);
+    padding: 9px 14px; border-radius: 9px; font-size: 13px; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; transition: all .15s;
+  }
+  .btn-ghost:hover { background: var(--surface2); color: var(--text); }
+
+  /* ── Podium [CA-44] ── */
+  .podium-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px 20px 0;
+    overflow: hidden;
+  }
+  .podium-section-title {
+    font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .9px; color: var(--muted);
+    margin-bottom: 20px; text-align: center;
+  }
+  .podium-stage {
+    display: flex; align-items: flex-end; justify-content: center; gap: 0;
+  }
+  .podium-col {
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    flex: 1; max-width: 200px;
+  }
+  .confetti-row {
+    font-size: 18px; letter-spacing: 4px;
+    animation: confetti 1.2s ease-in-out infinite alternate;
+  }
+  .podium-avatar {
+    width: 56px; height: 56px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 800;
+    border: 2.5px solid; flex-shrink: 0;
+  }
+  .podium-avatar.gold   { background: rgba(251,191,36,.12); border-color: var(--gold);   color: var(--gold);   box-shadow: 0 0 20px rgba(251,191,36,.3); }
+  .podium-avatar.silver { background: rgba(148,163,184,.1); border-color: var(--silver); color: var(--silver); }
+  .podium-avatar.bronze { background: rgba(194,132,90,.1);  border-color: var(--bronze); color: var(--bronze); }
+  .podium-name { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; }
+  .podium-score { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; }
+  .podium-score.gold   { color: var(--gold); }
+  .podium-score.silver { color: var(--silver); }
+  .podium-score.bronze { color: var(--bronze); }
+  .podium-time { font-size: 11px; color: var(--muted); }
+  .podium-step {
+    width: 100%; display: flex; align-items: center; justify-content: center;
+    font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; border-radius: 8px 8px 0 0;
+  }
+  .podium-step.gold   { height: 90px;  background: linear-gradient(180deg,rgba(251,191,36,.18) 0%,rgba(251,191,36,.06) 100%); border: 1px solid rgba(251,191,36,.3);  border-bottom:none; color: var(--gold); }
+  .podium-step.silver { height: 68px;  background: linear-gradient(180deg,rgba(148,163,184,.12) 0%,rgba(148,163,184,.04) 100%); border: 1px solid rgba(148,163,184,.2); border-bottom:none; color: var(--silver); }
+  .podium-step.bronze { height: 50px;  background: linear-gradient(180deg,rgba(194,132,90,.12) 0%,rgba(194,132,90,.04) 100%); border: 1px solid rgba(194,132,90,.2);  border-bottom:none; color: var(--bronze); }
+
+  /* Ligne 4e hors podium */
+  .fourth-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px; border-top: 1px solid var(--border);
+  }
+  .fourth-rank { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 800; color: var(--muted); width: 24px; text-align: center; }
+  .fourth-name { flex: 1; font-size: 14px; font-weight: 500; color: var(--muted); }
+  .fourth-score { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; color: var(--muted); }
+  .fourth-time { font-size: 11px; color: var(--muted); margin-left: 8px; }
+
+  /* ── Tableau de détail [CA-45, CA-46] ── */
+  .detail-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .detail-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 13px 16px; border-bottom: 1px solid var(--border);
+  }
+  .detail-title { font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); }
+
+  /* En-tête colonnes du tableau */
+  .table-head {
+    display: grid;
+    /* Q | Type | Alice | Bob | Charlie | Diana */
+    grid-template-columns: 52px 56px 1fr 1fr 1fr 1fr;
+    padding: 8px 14px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    gap: 4px;
+  }
+  .th {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .7px; color: var(--muted);
+  }
+  .th.player { text-align: center; }
+
+  /* Ligne question */
+  .table-row {
+    display: grid;
+    grid-template-columns: 52px 56px 1fr 1fr 1fr 1fr;
+    padding: 7px 14px;
+    border-bottom: 1px solid var(--border);
+    align-items: center;
+    gap: 4px;
+    transition: background .1s;
+  }
+  .table-row:last-child { border-bottom: none; }
+  .table-row:hover { background: var(--surface2); }
+
+  .td-q { font-size: 11px; font-weight: 700; color: var(--muted); }
+  .td-type { display: flex; justify-content: center; }
+  .type-chip {
+    font-size: 9px; font-weight: 700; padding: 2px 5px; border-radius: 4px;
+  }
+  .type-mcq   { background: #1a2a4a; color: #7eb3ff; }
+  .type-speed { background: var(--purple-dim, #2a1040); color: var(--purple); }
+
+  /* Cellule résultat [CA-45] */
+  .td-cell { display: flex; justify-content: center; }
+  .cell {
+    width: 100%; max-width: 80px;
+    padding: 4px 6px; border-radius: 6px;
+    font-size: 11px; font-weight: 600; text-align: center;
+    display: flex; align-items: center; justify-content: center; gap: 3px;
+  }
+  /* Correct MCQ ou SPEED_WIN → vert [CA-45] */
+  .cell-correct { background: var(--green-dim); color: var(--green); border: 1px solid var(--green-border); }
+  /* Incorrect MCQ → rouge [CA-45] */
+  .cell-wrong   { background: var(--red-dim); color: #f87171; border: 1px solid #5a1010; }
+  /* Absent / pas de réponse → gris [CA-45] */
+  .cell-absent  { background: transparent; color: var(--muted); border: 1px dashed var(--border); font-style: italic; }
+  /* SPEED sans gagnant → tirets [CA-46] */
+  .cell-dash    { background: transparent; color: var(--muted); border: none; opacity: .4; }
+
+  /* Ligne totaux */
+  .table-totals {
+    display: grid;
+    grid-template-columns: 52px 56px 1fr 1fr 1fr 1fr;
+    padding: 10px 14px;
+    background: var(--surface2);
+    border-top: 2px solid var(--border);
+    gap: 4px;
+    align-items: center;
+  }
+  .total-label { font-size: 11px; font-weight: 700; color: var(--muted); grid-column: 1/3; }
+  .total-score {
+    font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 800;
+    text-align: center;
+  }
+  .total-score.gold   { color: var(--gold); }
+  .total-score.silver { color: var(--silver); }
+  .total-score.bronze { color: var(--bronze); }
+  .total-score.other  { color: var(--muted); }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- Topbar -->
+<header class="topbar">
+  <div class="topbar-logo">Quiz<span>Buzzer</span></div>
+  <div class="topbar-divider"></div>
+  <span style="font-size:12px;color:var(--muted)">Culture Générale Saison 1 · 20 questions · 4 joueurs</span>
+  <div class="topbar-spacer"></div>
+  <div class="status-chip">
+    <div class="chip-dot"></div>
+    PARTIE TERMINÉE
+  </div>
+  <div class="topbar-divider"></div>
+  <div class="ws-dot"></div>
+  <span class="ws-label">Connecté</span>
+</header>
+
+<div class="layout">
+
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="nav-section-label">Navigation</div>
+    <a class="nav-link" href="#">
+      <svg class="nav-icon" viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+      Tableau de bord
+    </a>
+    <div class="nav-divider"></div>
+    <div class="nav-section-label">Contenu</div>
+    <a class="nav-link" href="#"><svg class="nav-icon" viewBox="0 0 24 24"><path d="M17.63 5.84C17.27 5.33 16.67 5 16 5L5 5.01C3.9 5.01 3 5.9 3 7v10c0 1.1.9 1.99 2 1.99L16 19c.67 0 1.27-.33 1.63-.84L22 12l-4.37-6.16z"/></svg>Thèmes</a>
+    <a class="nav-link" href="#"><svg class="nav-icon" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg>Questions</a>
+    <a class="nav-link" href="#"><svg class="nav-icon" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg>Quiz</a>
+    <div class="nav-divider"></div>
+    <div class="nav-section-label">Parties</div>
+    <a class="nav-link active" href="#">
+      <svg class="nav-icon" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14l-5-5 1.41-1.41L12 14.17l7.59-7.59L21 8l-9 9z"/></svg>
+      Toutes les parties
+    </a>
+  </nav>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- En-tête [CA-41, CA-47] -->
+    <div class="page-header">
+      <div class="page-header-left">
+        <div class="page-title">
+          🏆 Résultats finaux
+          <!-- [CA-41] Badge source : "Temps réel" si /pilot/results, "REST" si /games/:id/results -->
+          <span class="source-badge source-live">Temps réel</span>
+        </div>
+        <div class="page-sub">
+          Culture Générale Saison 1 · 20 questions · Terminée le 28 mars 2026 à 15:47
+        </div>
+      </div>
+      <div class="page-actions">
+        <!-- [CA-47] Bouton Nouvelle partie → /games/new si pas de partie active -->
+        <button class="btn-primary">
+          <svg style="width:14px;height:14px;fill:#fff" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+          Nouvelle partie
+        </button>
+        <button class="btn-ghost">← Toutes les parties</button>
+      </div>
+    </div>
+
+    <!-- Podium [CA-44] — or/argent/bronze + 4e en dessous -->
+    <div class="podium-section">
+      <div class="podium-section-title">Classement final</div>
+      <div class="podium-stage">
+
+        <!-- 2e — Diana (argent, marche gauche) -->
+        <div class="podium-col">
+          <div class="podium-avatar silver">D</div>
+          <div class="podium-name">Diana</div>
+          <div class="podium-score silver">4 520</div>
+          <div class="podium-time">9 m 38 s cumulé</div>
+          <div class="podium-step silver">2</div>
+        </div>
+
+        <!-- 1er — Alice (or, marche centrale + haute) -->
+        <div class="podium-col">
+          <div class="confetti-row">🎉 🥇 🎉</div>
+          <div class="podium-avatar gold">A</div>
+          <div class="podium-name">Alice</div>
+          <div class="podium-score gold">4 890</div>
+          <div class="podium-time">8 m 12 s cumulé</div>
+          <div class="podium-step gold">1</div>
+        </div>
+
+        <!-- 3e — Charlie (bronze, marche droite) -->
+        <div class="podium-col">
+          <div class="podium-avatar bronze">C</div>
+          <div class="podium-name">Charlie</div>
+          <div class="podium-score bronze">3 740</div>
+          <div class="podium-time">11 m 05 s cumulé</div>
+          <div class="podium-step bronze">3</div>
+        </div>
+
+      </div>
+
+      <!-- 4e — Bob (hors podium, ligne en bas) -->
+      <div class="fourth-row">
+        <div class="fourth-rank">4</div>
+        <div class="fourth-name">Bob</div>
+        <div class="fourth-score">2 980 pts</div>
+        <div class="fourth-time">7 m 44 s</div>
+      </div>
+    </div>
+
+    <!-- Tableau de détail [CA-45, CA-46] -->
+    <!-- Une ligne par question, une colonne par participant -->
+    <div class="detail-section">
+      <div class="detail-header">
+        <span class="detail-title">Détail par question</span>
+        <span style="font-size:11px;color:var(--muted)">15 MCQ · 5 SPEED · 20 questions</span>
+      </div>
+
+      <!-- En-têtes colonnes -->
+      <div class="table-head">
+        <div class="th">Q</div>
+        <div class="th">Type</div>
+        <div class="th player">Alice</div>
+        <div class="th player">Bob</div>
+        <div class="th player">Charlie</div>
+        <div class="th player">Diana</div>
+      </div>
+
+      <!-- Q1 — MCQ : Alice ✓A, Bob ✗B, Charlie ✓A, Diana ✗C [CA-45] -->
+      <div class="table-row">
+        <div class="td-q">Q1</div>
+        <div class="td-type"><span class="type-chip type-mcq">MCQ</span></div>
+        <div class="td-cell"><div class="cell cell-correct">A ✓</div></div>
+        <div class="td-cell"><div class="cell cell-wrong">B ✗</div></div>
+        <div class="td-cell"><div class="cell cell-correct">A ✓</div></div>
+        <div class="td-cell"><div class="cell cell-wrong">C ✗</div></div>
+      </div>
+
+      <!-- Q2 — SPEED : Alice gagnante [CA-45 SPEED_WIN] -->
+      <div class="table-row">
+        <div class="td-q">Q2</div>
+        <div class="td-type"><span class="type-chip type-speed">SPD</span></div>
+        <div class="td-cell"><div class="cell cell-correct">⚡ Win</div></div>
+        <div class="td-cell"><div class="cell cell-absent">—</div></div>
+        <div class="td-cell"><div class="cell cell-absent">—</div></div>
+        <div class="td-cell"><div class="cell cell-absent">—</div></div>
+      </div>
+
+      <!-- Q3 — MCQ : tous corrects -->
+      <div class="table-row">
+        <div class="td-q">Q3</div>
+        <div class="td-type"><span class="type-chip type-mcq">MCQ</span></div>
+        <div class="td-cell"><div class="cell cell-correct">B ✓</div></div>
+        <div class="td-cell"><div class="cell cell-correct">B ✓</div></div>
+        <div class="td-cell"><div class="cell cell-wrong">D ✗</div></div>
+        <div class="td-cell"><div class="cell cell-correct">B ✓</div></div>
+      </div>
+
+      <!-- Q4 — MCQ : Charlie absent (chrono expiré sans réponse) [CA-45 gris] -->
+      <div class="table-row">
+        <div class="td-q">Q4</div>
+        <div class="td-type"><span class="type-chip type-mcq">MCQ</span></div>
+        <div class="td-cell"><div class="cell cell-correct">C ✓</div></div>
+        <div class="td-cell"><div class="cell cell-wrong">A ✗</div></div>
+        <div class="td-cell"><div class="cell cell-absent">— hors délai</div></div>
+        <div class="td-cell"><div class="cell cell-correct">C ✓</div></div>
+      </div>
+
+      <!-- Q5 — MCQ : résultats équilibrés -->
+      <div class="table-row">
+        <div class="td-q">Q5</div>
+        <div class="td-type"><span class="type-chip type-mcq">MCQ</span></div>
+        <div class="td-cell"><div class="cell cell-correct">B ✓</div></div>
+        <div class="td-cell"><div class="cell cell-wrong">A ✗</div></div>
+        <div class="td-cell"><div class="cell cell-wrong">D ✗</div></div>
+        <div class="td-cell"><div class="cell cell-correct">B ✓</div></div>
+      </div>
+
+      <!-- Q6 — SPEED : Diana gagnante -->
+      <div class="table-row">
+        <div class="td-q">Q6</div>
+        <div class="td-type"><span class="type-chip type-speed">SPD</span></div>
+        <div class="td-cell"><div class="cell cell-absent">—</div></div>
+        <div class="td-cell"><div class="cell cell-absent">—</div></div>
+        <div class="td-cell"><div class="cell cell-absent">—</div></div>
+        <div class="td-cell"><div class="cell cell-correct">⚡ Win</div></div>
+      </div>
+
+      <!-- Q7 — SPEED sans gagnant [CA-46] : tous tirets -->
+      <div class="table-row">
+        <div class="td-q">Q7</div>
+        <div class="td-type"><span class="type-chip type-speed">SPD</span></div>
+        <div class="td-cell"><div class="cell cell-dash">—</div></div>
+        <div class="td-cell"><div class="cell cell-dash">—</div></div>
+        <div class="td-cell"><div class="cell cell-dash">—</div></div>
+        <div class="td-cell"><div class="cell cell-dash">—</div></div>
+      </div>
+
+      <!-- Q8 — MCQ -->
+      <div class="table-row">
+        <div class="td-q">Q8</div>
+        <div class="td-type"><span class="type-chip type-mcq">MCQ</span></div>
+        <div class="td-cell"><div class="cell cell-correct">A ✓</div></div>
+        <div class="td-cell"><div class="cell cell-correct">A ✓</div></div>
+        <div class="td-cell"><div class="cell cell-correct">A ✓</div></div>
+        <div class="td-cell"><div class="cell cell-wrong">C ✗</div></div>
+      </div>
+
+      <!-- Q9 — MCQ -->
+      <div class="table-row">
+        <div class="td-q">Q9</div>
+        <div class="td-type"><span class="type-chip type-mcq">MCQ</span></div>
+        <div class="td-cell"><div class="cell cell-wrong">D ✗</div></div>
+        <div class="td-cell"><div class="cell cell-correct">B ✓</div></div>
+        <div class="td-cell"><div class="cell cell-correct">B ✓</div></div>
+        <div class="td-cell"><div class="cell cell-correct">B ✓</div></div>
+      </div>
+
+      <!-- Q10 — SPEED : Charlie gagnant -->
+      <div class="table-row">
+        <div class="td-q">Q10</div>
+        <div class="td-type"><span class="type-chip type-speed">SPD</span></div>
+        <div class="td-cell"><div class="cell cell-absent">—</div></div>
+        <div class="td-cell"><div class="cell cell-absent">—</div></div>
+        <div class="td-cell"><div class="cell cell-correct">⚡ Win</div></div>
+        <div class="td-cell"><div class="cell cell-absent">—</div></div>
+      </div>
+
+      <!-- Q11–20 : résumé compact (scroll) -->
+      <div class="table-row" style="opacity:.6">
+        <div class="td-q" style="color:var(--muted)">Q11</div>
+        <div class="td-type"><span class="type-chip type-mcq">MCQ</span></div>
+        <div class="td-cell"><div class="cell cell-correct">C ✓</div></div>
+        <div class="td-cell"><div class="cell cell-wrong">A ✗</div></div>
+        <div class="td-cell"><div class="cell cell-correct">C ✓</div></div>
+        <div class="td-cell"><div class="cell cell-correct">C ✓</div></div>
+      </div>
+      <div class="table-row" style="opacity:.55">
+        <div class="td-q" style="color:var(--muted)">Q12</div>
+        <div class="td-type"><span class="type-chip type-mcq">MCQ</span></div>
+        <div class="td-cell"><div class="cell cell-correct">B ✓</div></div>
+        <div class="td-cell"><div class="cell cell-correct">B ✓</div></div>
+        <div class="td-cell"><div class="cell cell-wrong">D ✗</div></div>
+        <div class="td-cell"><div class="cell cell-wrong">A ✗</div></div>
+      </div>
+      <div style="padding:10px 14px;font-size:11px;color:var(--muted);text-align:center;border-top:1px solid var(--border)">
+        ↓ Q13 à Q20 (défilement) — 8 questions supplémentaires
+      </div>
+
+      <!-- Ligne totaux -->
+      <div class="table-totals">
+        <div class="total-label">Score final</div>
+        <div class="total-score gold">4 890</div>
+        <div class="total-score other">2 980</div>
+        <div class="total-score bronze">3 740</div>
+        <div class="total-score silver">4 520</div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

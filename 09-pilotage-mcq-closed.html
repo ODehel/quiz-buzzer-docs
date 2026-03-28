@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Buzzer — Pilotage MCQ QUESTION_CLOSED</title>
+
+<!--
+════════════════════════════════════════════════════════════════════
+  MAQUETTE ÉCRAN 9/12 — PILOTAGE MCQ — état QUESTION_CLOSED
+════════════════════════════════════════════════════════════════════
+  Composant Angular  : PlayComponent (orchestrateur)
+                       McqControlComponent  (colonne centre)
+                       PlayerListComponent  (colonne gauche)
+                       SoundPanelComponent  (colonne droite)
+  Fichiers           : src/app/pilot/play/play.component.ts
+                       src/app/pilot/play/mcq-control/mcq-control.component.ts
+                       src/app/pilot/play/player-list/player-list.component.ts
+                       src/app/pilot/play/sound-panel/sound-panel.component.ts
+  Route              : /pilot/play
+  Guards             : authGuard, activeGameGuard
+  Sprint             : 6
+  US couverte        : US-ANG-008 (CA-18 à CA-22)
+
+  ── Critères d'acceptance couverts ──────────────────────────────
+  CA-18  question_result_summary reçu →
+         bonne réponse (B = Canberra) mise en évidence en vert,
+         mauvais choix grisés
+  CA-19  PlayerListComponent affiche résultats complets :
+         nom | réponse | ✓/✗ | temps | points gagnés
+         Alice  B ✓ 3.1s +200pts
+         Bob    A ✗ 5.2s  +0pts
+         Charlie D ✗ 8.7s  +0pts
+         Diana  B ✓ 7.4s +186pts (bonus temps)
+  CA-20  Scores cumulés mis à jour depuis ranking[] du message
+         Alice 920 / Diana 866 / Charlie 540 / Bob 420
+  CA-21  Bouton "Question suivante" ACTIF
+         → ws.send({ type: 'trigger_next_question' })
+         → désactivé immédiatement après envoi
+  CA-22  Si dernière question → game_state_sync COMPLETED
+         → navigate('/pilot/results') via effect()
+         [non simulé ici : Q5/20, questions restantes]
+
+  ── Différences vs écran 8 (QUESTION_OPEN) ──────────────────────
+  • Status chip : QUESTION FERMÉE (gris/amber → vert)
+  • Chrono figé à 0s (barre vide)
+  • 4 choix : B = vert + label "Bonne réponse", A/C/D grisés
+  • PlayerListComponent : colonnes résultats (réponse, correct, temps, pts)
+  • Bouton "Corriger" remplacé par "Question suivante" ACTIF
+  • SoundPanelComponent : scores mis à jour, son "Résultat" actif
+
+  ── Signals mis à jour par question_result_summary ───────────────
+  gs.status()                  → 'QUESTION_CLOSED'
+  gs.state().correctAnswer     → 'B'
+  gs.state().lastSummaryMcq    → { correct_answer:'B', results:[…], ranking:[…] }
+  gs.state().playerAnswers     → résultats finaux avec points_earned
+  gs.state().allAnswered       → true (obsolète en CLOSED)
+  gs.state().timerEnded        → true (obsolète en CLOSED)
+  gs.canCorrect()              → false (déjà corrigé)
+
+  ── Messages WebSocket reçus ─────────────────────────────────────
+  question_result_summary → correct_answer:'B'
+    results: [
+      {name:'Alice',  answer:'B', time_ms:3100,  correct:true,  points_earned:200, cumulative_score:920},
+      {name:'Bob',    answer:'A', time_ms:5200,  correct:false, points_earned:0,   cumulative_score:420},
+      {name:'Charlie',answer:'D', time_ms:8700,  correct:false, points_earned:0,   cumulative_score:540},
+      {name:'Diana',  answer:'B', time_ms:7400,  correct:true,  points_earned:186, cumulative_score:866}
+    ]
+    ranking: [
+      {rank:1, name:'Alice',   cumulative_score:920, total_time_ms:18300},
+      {rank:2, name:'Diana',   cumulative_score:866, total_time_ms:22400},
+      {rank:3, name:'Charlie', cumulative_score:540, total_time_ms:45000},
+      {rank:4, name:'Bob',     cumulative_score:420, total_time_ms:12400}
+    ]
+
+  ── Message WebSocket à envoyer ──────────────────────────────────
+  trigger_next_question → via @Output() McqControlComponent
+                          → PlayComponent → ws.send()
+════════════════════════════════════════════════════════════════════
+-->
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
+
+  :root {
+    --bg:         #0b0d14;
+    --surface:    #13161f;
+    --surface2:   #1c2030;
+    --border:     #252a3a;
+    --text:       #e8eaf0;
+    --muted:      #5a6278;
+    --accent:     #4f8ef7;
+    --accent-dim: #162240;
+    --green:      #22c55e;
+    --green-dim:  #052a12;
+    --green-border:#0a4a20;
+    --amber:      #f59e0b;
+    --red:        #ef4444;
+    --topbar-h:   48px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Topbar ── */
+  .topbar {
+    height: var(--topbar-h);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center;
+    padding: 0 16px; gap: 12px; flex-shrink: 0;
+  }
+  .topbar-logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 15px; letter-spacing: -0.5px; color: var(--accent); }
+  .topbar-logo span { color: var(--text); }
+  .topbar-divider { width: 1px; height: 20px; background: var(--border); }
+  .topbar-quiz { font-size: 12px; color: var(--muted); }
+  .topbar-quiz strong { color: var(--text); }
+  .topbar-spacer { flex: 1; }
+  /* Status QUESTION_CLOSED → vert */
+  .status-chip {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px;
+    padding: 4px 10px; border-radius: 20px;
+    background: var(--green-dim); color: var(--green); border: 1px solid var(--green-border);
+  }
+  .chip-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+  .ws-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 5px var(--green); }
+  .ws-label { font-size: 11px; color: var(--green); font-weight: 500; }
+
+  /* ── Layout 3 colonnes ── */
+  .play-layout {
+    display: grid;
+    grid-template-columns: 260px 1fr 280px;
+    flex: 1; overflow: hidden;
+  }
+
+  .col { display: flex; flex-direction: column; overflow: hidden; height: 100%; }
+  .col-left  { border-right: 1px solid var(--border); background: var(--surface); }
+  .col-mid   { background: var(--bg); padding: 20px 22px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+  .col-right { border-left: 1px solid var(--border); background: var(--surface); }
+
+  .col-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 11px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .col-title { font-family: 'Syne', sans-serif; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .9px; color: var(--muted); }
+
+  /* ══════════════════════════════════
+     COLONNE GAUCHE — PlayerListComponent résultats [CA-19]
+     ══════════════════════════════════ */
+  .result-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px; border-bottom: 1px solid var(--border);
+  }
+  .result-row:last-child { border-bottom: none; }
+  .r-num { font-size: 11px; font-weight: 700; color: var(--muted); width: 14px; flex-shrink: 0; }
+  .r-name { font-size: 13px; font-weight: 500; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* Réponse donnée */
+  .r-answer {
+    font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 5px;
+    flex-shrink: 0;
+  }
+  .r-answer.correct { background: var(--green-dim); color: var(--green); border: 1px solid var(--green-border); }
+  .r-answer.wrong   { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); text-decoration: line-through; }
+  .r-answer.none    { background: transparent; color: var(--muted); border: 1px dashed var(--border); font-weight: 400; font-style: italic; }
+
+  /* Icône correct/incorrect */
+  .r-correct { font-size: 12px; flex-shrink: 0; }
+
+  /* Temps + points */
+  .r-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; flex-shrink: 0; }
+  .r-time { font-size: 10px; color: var(--muted); }
+  .r-pts  { font-size: 11px; font-weight: 700; }
+  .r-pts.earned { color: var(--green); }
+  .r-pts.zero   { color: var(--muted); }
+
+  /* Résumé de la question */
+  .result-summary {
+    padding: 10px 14px; border-top: 1px solid var(--border);
+    background: var(--bg); flex-shrink: 0;
+    display: flex; justify-content: space-between; font-size: 11px; color: var(--muted);
+  }
+
+  /* ══════════════════════════════════
+     COLONNE CENTRE — McqControlComponent CLOSED [CA-18, CA-21]
+     ══════════════════════════════════ */
+  .question-meta {
+    display: flex; align-items: center; gap: 10px; font-size: 11px; color: var(--muted);
+  }
+  .q-index {
+    font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 700;
+    color: var(--green); background: var(--green-dim); border: 1px solid var(--green-border);
+    padding: 2px 8px; border-radius: 5px;
+  }
+  .q-type-badge { padding: 2px 7px; border-radius: 5px; font-size: 10px; font-weight: 700; background: #1a2a4a; color: #7eb3ff; border: 1px solid #2a4070; }
+
+  .question-title {
+    font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700;
+    line-height: 1.35; letter-spacing: -.3px;
+  }
+
+  /* Chrono figé à 0 [CA-18] */
+  .timer-closed {
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .timer-val-closed {
+    font-family: 'Syne', sans-serif; font-size: 36px; font-weight: 800;
+    color: var(--muted); letter-spacing: -1px; line-height: 1;
+  }
+  .timer-bar-track { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+  .timer-bar-empty { height: 100%; background: var(--border); border-radius: 3px; width: 0%; }
+
+  /* ── Choix après correction [CA-18] ── */
+  .choices-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  /* Bonne réponse → vert */
+  .choice-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 14px;
+    display: flex; align-items: flex-start; gap: 10px;
+  }
+  .choice-card.correct-answer {
+    background: var(--green-dim); border-color: var(--green);
+  }
+  .choice-card.wrong-answer {
+    opacity: .4;
+  }
+  .choice-letter {
+    font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 800;
+    width: 24px; height: 24px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; color: var(--muted);
+    background: var(--surface2); border: 1px solid var(--border);
+  }
+  .choice-card.correct-answer .choice-letter {
+    background: var(--green); border-color: var(--green); color: #fff;
+  }
+  .choice-content { flex: 1; }
+  .choice-text { font-size: 13px; font-weight: 500; line-height: 1.4; }
+  .choice-card.correct-answer .choice-text { color: var(--green); font-weight: 700; }
+  .correct-label { font-size: 10px; font-weight: 700; color: var(--green); margin-top: 3px; text-transform: uppercase; letter-spacing: .5px; }
+
+  /* Pips réponses sur les choix */
+  .choice-pips { display: flex; gap: 3px; margin-top: 5px; }
+  .pip-correct { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+  .pip-wrong   { width: 8px; height: 8px; border-radius: 50%; background: var(--red); }
+
+  /* ── Bouton "Question suivante" [CA-21] ACTIF ── */
+  .btn-next {
+    background: var(--accent); border: none; border-radius: 10px;
+    color: #fff; padding: 13px 20px; font-size: 14px; font-weight: 700;
+    font-family: 'DM Sans', sans-serif; cursor: pointer; width: 100%;
+    transition: opacity .15s; display: flex; align-items: center;
+    justify-content: center; gap: 8px;
+  }
+  .btn-next:hover { opacity: .88; }
+  .btn-next:disabled { opacity: .4; cursor: not-allowed; }
+  .next-hint { font-size: 11px; color: var(--muted); text-align: center; }
+
+  /* ══════════════════════════════════
+     COLONNE DROITE — SoundPanelComponent + scores [CA-20]
+     ══════════════════════════════════ */
+  .col-right-body { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+  .sound-section { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+  .sound-section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin-bottom: 8px; }
+  .sound-btns { display: flex; flex-direction: column; gap: 6px; }
+  .sound-btn {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 7px; padding: 8px 10px; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; color: var(--text);
+    font-size: 12px; font-weight: 500; transition: all .15s; width: 100%;
+  }
+  .sound-btn:hover { border-color: var(--accent); }
+  .sound-btn-active { border-color: var(--green); background: var(--green-dim); color: var(--green); }
+  .sound-icon { font-size: 14px; flex-shrink: 0; }
+
+  .ranking-btn {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 7px; padding: 10px 12px; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; color: var(--text);
+    font-size: 12px; font-weight: 600; width: 100%; transition: all .15s;
+  }
+  .ranking-btn:hover { border-color: var(--amber); color: var(--amber); }
+
+  /* Scores mis à jour [CA-20] */
+  .scores-list { display: flex; flex-direction: column; }
+  .score-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 14px; border-bottom: 1px solid var(--border);
+  }
+  .score-row:last-child { border-bottom: none; }
+  .score-rank {
+    font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 800;
+    width: 18px; text-align: center; color: var(--muted); flex-shrink: 0;
+  }
+  .score-rank.gold   { color: #fbbf24; }
+  .score-rank.silver { color: #94a3b8; }
+  .score-rank.bronze { color: #c2845a; }
+  .score-name { font-size: 12px; flex: 1; }
+  .score-val { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; color: var(--accent); }
+  /* Delta points gagnés */
+  .score-delta { font-size: 10px; color: var(--green); margin-left: 4px; font-weight: 600; }
+  .score-delta.zero { color: var(--muted); }
+
+  ::-webkit-scrollbar { width: 3px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- Topbar -->
+<header class="topbar">
+  <div class="topbar-logo">Quiz<span>Buzzer</span></div>
+  <div class="topbar-divider"></div>
+  <div class="topbar-quiz">
+    <strong>Culture Générale S1</strong>
+    &nbsp;·&nbsp; Question <strong>5</strong> / 20
+  </div>
+  <div class="topbar-spacer"></div>
+  <!-- Status QUESTION_CLOSED → vert -->
+  <div class="status-chip">
+    <div class="chip-dot"></div>
+    QUESTION FERMÉE
+  </div>
+  <div class="topbar-divider"></div>
+  <div class="ws-dot"></div>
+  <span class="ws-label">Connecté</span>
+</header>
+
+<div class="play-layout">
+
+  <!-- ══ COLONNE GAUCHE — PlayerListComponent résultats [CA-19] ══ -->
+  <div class="col col-left">
+    <div class="col-header">
+      <span class="col-title">Résultats Q5</span>
+      <!-- 2 corrects sur 4 -->
+      <span style="font-size:11px;color:var(--muted)">
+        <strong style="color:var(--green)">2</strong> corrects
+        &nbsp;/&nbsp;
+        <strong style="color:var(--red)">2</strong> faux
+      </span>
+    </div>
+
+    <div style="flex:1;overflow-y:auto">
+
+      <!-- Alice — B ✓ 3.1s +200pts [CA-19] -->
+      <div class="result-row">
+        <span class="r-num">1</span>
+        <span class="r-name">Alice</span>
+        <span class="r-answer correct">B</span>
+        <span class="r-correct">✓</span>
+        <div class="r-meta">
+          <span class="r-time">3.1 s</span>
+          <span class="r-pts earned">+200</span>
+        </div>
+      </div>
+
+      <!-- Bob — A ✗ 5.2s +0pts [CA-19] -->
+      <div class="result-row">
+        <span class="r-num">2</span>
+        <span class="r-name">Bob</span>
+        <span class="r-answer wrong">A</span>
+        <span class="r-correct" style="color:var(--red)">✗</span>
+        <div class="r-meta">
+          <span class="r-time">5.2 s</span>
+          <span class="r-pts zero">+0</span>
+        </div>
+      </div>
+
+      <!-- Charlie — D ✗ 8.7s +0pts [CA-19] -->
+      <div class="result-row">
+        <span class="r-num">3</span>
+        <span class="r-name">Charlie</span>
+        <span class="r-answer wrong">D</span>
+        <span class="r-correct" style="color:var(--red)">✗</span>
+        <div class="r-meta">
+          <span class="r-time">8.7 s</span>
+          <span class="r-pts zero">+0</span>
+        </div>
+      </div>
+
+      <!-- Diana — B ✓ 7.4s +186pts (bonus vitesse) [CA-19] -->
+      <div class="result-row">
+        <span class="r-num">4</span>
+        <span class="r-name">Diana</span>
+        <span class="r-answer correct">B</span>
+        <span class="r-correct">✓</span>
+        <div class="r-meta">
+          <span class="r-time">7.4 s</span>
+          <span class="r-pts earned">+186</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Résumé question -->
+    <div class="result-summary">
+      <span>Bonne réponse : <strong style="color:var(--green)">B — Canberra</strong></span>
+      <span>30 s · 200 pts</span>
+    </div>
+  </div>
+
+  <!-- ══ COLONNE CENTRE — McqControlComponent CLOSED [CA-18, CA-21] ══ -->
+  <div class="col col-mid">
+
+    <!-- Métadonnées -->
+    <div class="question-meta">
+      <span class="q-index">Q5 CORRIGÉE</span>
+      <span class="q-type-badge">MCQ</span>
+      <span>30 secondes · 200 pts</span>
+    </div>
+
+    <!-- Titre -->
+    <div class="question-title">
+      Quelle est la capitale de l'Australie ?
+    </div>
+
+    <!-- Chrono figé à 0 [CA-18] -->
+    <div class="timer-closed">
+      <div style="display:flex;align-items:baseline;gap:8px">
+        <div class="timer-val-closed">0</div>
+        <span style="font-size:11px;color:var(--muted)">secondes — temps écoulé</span>
+      </div>
+      <div class="timer-bar-track">
+        <div class="timer-bar-empty"></div>
+      </div>
+    </div>
+
+    <!-- 4 Choix après correction [CA-18] -->
+    <!-- Bonne réponse B = Canberra → vert, A/C/D grisés -->
+    <div class="choices-grid">
+
+      <!-- A — Sydney → mauvais, 1 réponse Bob (pip rouge) -->
+      <div class="choice-card wrong-answer">
+        <div class="choice-letter">A</div>
+        <div class="choice-content">
+          <div class="choice-text">Sydney</div>
+          <div class="choice-pips">
+            <div class="pip-wrong" title="Bob"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- B — Canberra → BONNE RÉPONSE [CA-18] -->
+      <div class="choice-card correct-answer">
+        <div class="choice-letter">B</div>
+        <div class="choice-content">
+          <div class="choice-text">Canberra</div>
+          <div class="correct-label">✓ Bonne réponse</div>
+          <!-- Alice et Diana ont répondu B → pips verts -->
+          <div class="choice-pips">
+            <div class="pip-correct" title="Alice"></div>
+            <div class="pip-correct" title="Diana"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- C — Melbourne → mauvais, 0 réponse -->
+      <div class="choice-card wrong-answer">
+        <div class="choice-letter">C</div>
+        <div class="choice-content">
+          <div class="choice-text">Melbourne</div>
+          <div class="choice-pips"></div>
+        </div>
+      </div>
+
+      <!-- D — Perth → mauvais, 1 réponse Charlie (pip rouge) -->
+      <div class="choice-card wrong-answer">
+        <div class="choice-letter">D</div>
+        <div class="choice-content">
+          <div class="choice-text">Perth</div>
+          <div class="choice-pips">
+            <div class="pip-wrong" title="Charlie"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Bouton "Question suivante" ACTIF [CA-21] -->
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <button class="btn-next" onclick="this.disabled=true;this.innerHTML='Envoi…'">
+        Question suivante
+        <svg style="width:14px;height:14px;fill:#fff" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+      </button>
+      <!-- [CA-21] ws.send({ type: 'trigger_next_question' }) via @Output() → PlayComponent -->
+      <!-- [CA-22] Si Q5 était la dernière → game_state_sync COMPLETED → navigate('/pilot/results') -->
+      <div class="next-hint">
+        ws.send(<code style="font-size:10px;background:var(--surface);padding:1px 5px;border-radius:3px">trigger_next_question</code>)
+        · <strong style="color:var(--text)">Q6</strong> / 20 restantes
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══ COLONNE DROITE — SoundPanelComponent + scores mis à jour [CA-20] ══ -->
+  <div class="col col-right">
+    <div class="col-header">
+      <span class="col-title">Sons &amp; Classement</span>
+    </div>
+    <div class="col-right-body">
+
+      <!-- Sons système — "Résultat" actif après correction -->
+      <div class="sound-section">
+        <div class="sound-section-title">Sons système</div>
+        <div class="sound-btns">
+          <button class="sound-btn sound-btn-active">
+            <span class="sound-icon">🎉</span>
+            <span>Résultat</span>
+            <span style="margin-left:auto;font-size:10px">● actif</span>
+          </button>
+          <button class="sound-btn">
+            <span class="sound-icon">🎵</span>
+            Suspense
+          </button>
+          <button class="sound-btn">
+            <span class="sound-icon">🔇</span>
+            Silence
+          </button>
+        </div>
+      </div>
+
+      <!-- Classement intermédiaire -->
+      <div class="sound-section">
+        <div class="sound-section-title">Classement</div>
+        <button class="ranking-btn">
+          <svg style="width:13px;height:13px;fill:currentColor" viewBox="0 0 24 24"><path d="M7 21h3V7H7v14zm-4 0h3v-7H3v7zm8 0h3V3h-3v18zm4 0h3v-11h-3v11z"/></svg>
+          Afficher le classement
+        </button>
+      </div>
+
+      <!-- Scores cumulés mis à jour [CA-20] -->
+      <!-- Source : ranking[] du message question_result_summary -->
+      <div class="col-header">
+        <span class="col-title">Scores après Q5</span>
+        <span style="font-size:10px;color:var(--green)">↑ mis à jour</span>
+      </div>
+      <div class="scores-list">
+        <!-- Alice : 720 → 920 (+200) -->
+        <div class="score-row">
+          <span class="score-rank gold">1</span>
+          <span class="score-name">Alice</span>
+          <span class="score-val">920</span>
+          <span class="score-delta">+200</span>
+        </div>
+        <!-- Diana : 680 → 866 (+186) -->
+        <div class="score-row">
+          <span class="score-rank silver">2</span>
+          <span class="score-name">Diana</span>
+          <span class="score-val">866</span>
+          <span class="score-delta">+186</span>
+        </div>
+        <!-- Charlie : 540 → 540 (+0) -->
+        <div class="score-row">
+          <span class="score-rank bronze">3</span>
+          <span class="score-name">Charlie</span>
+          <span class="score-val">540</span>
+          <span class="score-delta zero">+0</span>
+        </div>
+        <!-- Bob : 420 → 420 (+0) -->
+        <div class="score-row">
+          <span class="score-rank">4</span>
+          <span class="score-name">Bob</span>
+          <span class="score-val">420</span>
+          <span class="score-delta zero">+0</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
