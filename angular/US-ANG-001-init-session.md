@@ -218,5 +218,5 @@ Si l'application est ouverte dans deux onglets, le serveur ferme la première co
 ---
 
 **Dernière mise à jour** : 2026-03-28
-**Statut** : Rédigée — en attente d'implémentation (Sprint 0)
+**Statut** : Implémentée — 40 tests, couverture ≥ 97 %
 **Sprint** : 0
