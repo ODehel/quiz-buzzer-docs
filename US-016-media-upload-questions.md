@@ -2,14 +2,7 @@
 
 ## 📋 Contexte projet
 
-Le projet **Quiz Buzzer** se décompose en quatre applications :
-
-| Application | Technologie | Rôle |
-|---|---|---|
-| **Buzzers** | PlatformIO / ESP32-S3 | Périphériques physiques de jeu |
-| **App mobile** | Android / NFC | Configuration WiFi des buzzers |
-| **App maître de jeu** | Angular | Interface de gestion des parties |
-| **Serveur (hub)** | Node.js / JavaScript | Communication WebSocket entre l'app Angular et les buzzers, gestion du workflow des parties |
+Voir [VISION.md](VISION.md) pour la description complète du projet et de ses quatre applications.
 
 ---
 
@@ -23,7 +16,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 ## ✅ Critères d'acceptance
 
-> 🧪 **Exigence de couverture** — Chaque critère d'acceptance listé ci-dessous doit être couvert par **au moins un test automatisé** (unitaire et/ou d'intégration). Un CA non couvert par un test est considéré comme **non livré**. La couverture globale du code de l'US doit être **≥ 90%**, mesurée via `jest --coverage`.
+> 🧪 **Exigence de couverture** — Voir [Conventions techniques — Couverture des tests](CONVENTIONS-TECHNIQUES.md#-exigence-de-couverture-des-tests). Chaque CA doit être couvert par au moins un test automatisé. Couverture globale ≥ 90 %.
 
 ### Upload d'un média — `POST /api/v1/questions/:id/media`
 
@@ -209,16 +202,7 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X DELETE "$BASE_URL/api/v1/questions/$QU
 
 ## 🔧 Spécifications techniques
 
-| Élément | Choix |
-|---|---|
-| Runtime | Node.js 24 LTS (dernière version stable disponible) |
-| Langage | JavaScript (ES Modules) |
-| Base de données | SQLite |
-| Tests | Jest (dernière version stable disponible) |
-| Bibliothèque multipart | `multer` (dernière version stable disponible) |
-| Principes d'architecture | YAGNI, KISS, DRY, SOLID |
-
-> ⚠️ **Exigence fondamentale** — Toute implémentation de cette US doit scrupuleusement respecter les principes **KISS** (solutions simples), **DRY** (pas de duplication), **YAGNI** (pas de fonctionnalité prématurée) et **SOLID** (architecture modulaire et responsabilités séparées). Ces principes prévalent sur toute optimisation prématurée ou généralisation non justifiée par un besoin immédiat documenté.
+Voir les [Conventions techniques](CONVENTIONS-TECHNIQUES.md) pour la stack complète, les principes d'architecture (KISS, DRY, YAGNI, SOLID) et les conventions de données.
 
 ### Pas de modification de schéma SQL
 
@@ -293,12 +277,9 @@ La vérification du MIME est effectuée par `multer` via le `fileFilter`, **pas*
 
 ## 🔐 Authentification et autorisation
 
-Toutes les routes de cette US sont protégées par un **JSON Web Token (JWT)** transmis via le header HTTP `Authorization`. Les middlewares `authenticate` et `authorize('admin')` définis en US-004 sont réutilisés tels quels, conformément au principe **DRY**.
+Voir l'[Annexe — Authentification et autorisation](AUTHENTIFICATION.md) pour le mécanisme JWT, la structure du payload et l'architecture middleware.
 
-```javascript
-router.post('/api/v1/questions/:id/media',        authenticate, authorize('admin'), upload.single('file'), uploadMedia);
-router.delete('/api/v1/questions/:id/media/:type', authenticate, authorize('admin'), deleteMedia);
-```
+Les middlewares `authenticate` et `authorize('admin')` définis en [US-003](US-003-authentication-token.md) sont réutilisés sur toutes les routes de cette US.
 
 ---
 
@@ -361,6 +342,3 @@ La validation du type MIME ne doit pas reposer uniquement sur l'extension du fic
 
 Le répertoire `uploads/questions/` ne doit pas être accessible en écriture par d'autres processus que le serveur. Le serveur expose ce répertoire en lecture statique (`express.static`) pour permettre aux clients (Angular, buzzers) de récupérer les fichiers via leur chemin relatif.
 
-### Middlewares réutilisables (DRY / SOLID)
-
-Les middlewares `authenticate` et `authorize` sont réutilisés sans modification. La configuration `multer` (fileFilter, limits) est isolée dans un module dédié (`src/middlewares/upload.js`) pour être réutilisable par US-017.

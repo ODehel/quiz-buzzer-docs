@@ -2,14 +2,7 @@
 
 ## 📋 Contexte projet
 
-Le projet **Quiz Buzzer** se décompose en quatre applications :
-
-| Application | Technologie | Rôle |
-|---|---|---|
-| **Buzzers** | PlatformIO / ESP32-S3 | Périphériques physiques de jeu |
-| **App mobile** | Android / NFC | Configuration WiFi des buzzers |
-| **App maître de jeu** | Angular | Interface de gestion des parties |
-| **Serveur (hub)** | Node.js / JavaScript | Communication WebSocket entre l'app Angular et les buzzers, gestion du workflow des parties |
+Voir [VISION.md](VISION.md) pour la description complète du projet et de ses quatre applications.
 
 ---
 
@@ -23,7 +16,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 ## ✅ Critères d'acceptance
 
-> 🧪 **Exigence de couverture** — Chaque critère d'acceptance listé ci-dessous doit être couvert par **au moins un test automatisé** (unitaire et/ou d'intégration). Un CA non couvert par un test est considéré comme **non livré**. La couverture globale du code de l'US doit être **≥ 90%**, mesurée via `jest --coverage`.
+> 🧪 **Exigence de couverture** — Voir [Conventions techniques — Couverture des tests](CONVENTIONS-TECHNIQUES.md#-exigence-de-couverture-des-tests). Chaque CA doit être couvert par au moins un test automatisé. Couverture globale ≥ 90 %.
 
 ### Upload d'un jingle — `POST /api/v1/sounds`
 
@@ -224,19 +217,7 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X DELETE "$BASE_URL/api/v1/sounds/018e4f
 
 ## 🔧 Spécifications techniques
 
-| Élément | Choix |
-|---|---|
-| Runtime | Node.js 24 LTS (dernière version stable disponible) |
-| Langage | JavaScript (ES Modules) |
-| Base de données | SQLite |
-| Tests | Jest (dernière version stable disponible) |
-| Identifiants | UUIDv7 généré côté Node.js |
-| Horodatage | ISO 8601 UTC (millisecondes), généré côté Node.js |
-| Bibliothèque multipart | `multer` (dernière version stable disponible) — réutilisée depuis US-016 |
-| Bibliothèque WebSocket | `ws` (dernière version stable disponible) — réutilisée depuis US-009 |
-| Principes d'architecture | YAGNI, KISS, DRY, SOLID |
-
-> ⚠️ **Exigence fondamentale** — Toute implémentation de cette US doit scrupuleusement respecter les principes **KISS** (solutions simples), **DRY** (pas de duplication), **YAGNI** (pas de fonctionnalité prématurée) et **SOLID** (architecture modulaire et responsabilités séparées). Ces principes prévalent sur toute optimisation prématurée ou généralisation non justifiée par un besoin immédiat documenté.
+Voir les [Conventions techniques](CONVENTIONS-TECHNIQUES.md) pour la stack complète, les principes d'architecture (KISS, DRY, YAGNI, SOLID) et les conventions de données.
 
 ### Schéma de la table
 
@@ -382,9 +363,9 @@ SERVER_BASE_URL=http://192.168.1.10:3000
 
 ## 🔐 Authentification et autorisation
 
-Toutes les routes REST de cette US sont protégées par un **JSON Web Token (JWT)** transmis via le header HTTP `Authorization`. Les middlewares `authenticate` et `authorize('admin')` définis en US-004 sont réutilisés tels quels, conformément au principe **DRY**.
+Voir l'[Annexe — Authentification et autorisation](AUTHENTIFICATION.md) pour le mécanisme JWT, la structure du payload et l'architecture middleware.
 
-La diffusion WebSocket `play_sound` est réservée aux clients authentifiés avec le rôle `admin`. La vérification s'effectue via le registre des connexions en mémoire défini en US-009.
+Les middlewares `authenticate` et `authorize('admin')` définis en [US-003](US-003-authentication-token.md) sont réutilisés sur toutes les routes de cette US.
 
 ---
 
@@ -455,6 +436,3 @@ L'ESP32-S3 effectue une requête HTTP GET autonome pour récupérer le fichier a
 
 La configuration `multer` introduite en US-016 (fileFilter MIME, limite de taille, module `src/middlewares/upload.js`) est réutilisée directement pour l'upload des jingles, en paramétrant uniquement le répertoire de destination (`uploads/sounds/`). Aucune logique de validation de fichier n'est dupliquée.
 
-### Middlewares réutilisables (DRY / SOLID)
-
-Les middlewares `authenticate` et `authorize` sont réutilisés sans modification. Le registre de connexions WebSocket (US-009) est consulté en lecture seule pour résoudre les connexions actives lors de la diffusion — aucune logique de registre n'est dupliquée dans cette US.

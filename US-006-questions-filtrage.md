@@ -4,14 +4,7 @@
 
 ## 📋 Contexte projet
 
-Le projet **Quiz Buzzer** se décompose en quatre applications :
-
-| Application | Technologie | Rôle |
-|---|---|---|
-| **Buzzers** | PlatformIO / ESP32-S3 | Périphériques physiques de jeu |
-| **App mobile** | Android / NFC | Configuration WiFi des buzzers |
-| **App maître de jeu** | Angular | Interface de gestion des parties |
-| **Serveur (hub)** | Node.js / JavaScript | Communication WebSocket entre l'app Angular et les buzzers, gestion du workflow des parties |
+Voir [VISION.md](VISION.md) pour la description complète du projet et de ses quatre applications.
 
 ---
 
@@ -25,7 +18,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 ## ✅ Critères d'acceptance
 
-> 🧪 **Exigence de couverture** — Chaque critère d'acceptance listé ci-dessous doit être couvert par **au moins un test automatisé** (unitaire et/ou d'intégration). Un CA non couvert par un test est considéré comme **non livré**. La couverture globale du code de l'US doit être **≥ 90%**, mesurée via `jest --coverage`.
+> 🧪 **Exigence de couverture** — Voir [Conventions techniques — Couverture des tests](CONVENTIONS-TECHNIQUES.md#-exigence-de-couverture-des-tests). Chaque CA doit être couvert par au moins un test automatisé. Couverture globale ≥ 90 %.
 
 ### Filtrage — `GET /api/v1/questions`
 
@@ -192,17 +185,7 @@ Consulter l'annexe pour les autres cas (rate limiting, méthode non supportée, 
 
 ## 🔧 Spécifications techniques
 
-| Élément | Choix |
-|---|---|
-| Runtime | Node.js 24 LTS (dernière version stable disponible) |
-| Langage | JavaScript (ES Modules) |
-| Base de données | SQLite |
-| Tests | Jest (dernière version stable disponible) |
-| Identifiants | UUIDv7 généré côté Node.js |
-| Horodatage | ISO 8601 UTC (millisecondes), généré côté Node.js |
-| Principes d'architecture | YAGNI, KISS, DRY, SOLID |
-
-> ⚠️ **Exigence fondamentale** — Toute implémentation de cette US doit scrupuleusement respecter les principes **KISS** (solutions simples), **DRY** (pas de duplication), **YAGNI** (pas de fonctionnalité prématurée) et **SOLID** (architecture modulaire et responsabilités séparées). Ces principes prévalent sur toute optimisation prématurée ou généralisation non justifiée par un besoin immédiat documenté.
+Voir les [Conventions techniques](CONVENTIONS-TECHNIQUES.md) pour la stack complète, les principes d'architecture (KISS, DRY, YAGNI, SOLID) et les conventions de données.
 
 ### Paramètres de filtrage
 
@@ -233,9 +216,7 @@ Paramètres entrants (query string)
 
 ### Versioning API
 
-```
-Base URL : /api/v1
-```
+Voir [Conventions techniques — Versioning API](CONVENTIONS-TECHNIQUES.md#-versioning-api).
 
 ### Structure des fichiers
 
@@ -270,46 +251,9 @@ src/
 
 ## 🔐 Authentification et autorisation
 
-### Mécanisme
+Voir l'[Annexe — Authentification et autorisation](AUTHENTIFICATION.md) pour le mécanisme JWT, la structure du payload et l'architecture middleware.
 
-Toutes les routes de cette US sont protégées par un **JSON Web Token (JWT)** transmis via le header HTTP `Authorization`.
-
-| Élément | Valeur |
-|---|---|
-| Type de token | JWT |
-| Algorithme de signature | HS256 (symétrique) |
-| Transmission | Header `Authorization: Bearer <token>` |
-| Secret de signature | Variable d'environnement `JWT_SECRET` (min 32 caractères) |
-| Durée de validité | 1 heure (3600s), configurable via variable d'environnement `JWT_EXPIRATION` |
-| Renouvellement | Reconnexion via `POST /api/v1/token` (US-003) |
-
-### Structure du payload JWT
-
-```json
-{
-  "sub": "018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a",
-  "role": "admin",
-  "iat": 1741358400,
-  "exp": 1741362000
-}
-```
-
-| Claim | Type | Description |
-|---|---|---|
-| `sub` (subject) | `string` | UUIDv7 de l'utilisateur (claim standard RFC 7519) |
-| `role` | `string` | Rôle de l'utilisateur (`"admin"` pour cette US) |
-| `iat` (issued at) | `number` | Timestamp Unix de l'émission (automatique) |
-| `exp` (expiration) | `number` | Timestamp Unix d'expiration (automatique) |
-
-### Architecture middleware — Réutilisation de l'US-004
-
-Les middlewares `authenticate` et `authorize` définis dans l'US-004 sont réutilisés tels quels sur l'endpoint de cette US, conformément au principe **DRY** :
-
-```javascript
-router.get('/api/v1/questions', authenticate, authorize('admin'), listQuestions);
-```
-
-> **Réutilisabilité (DRY) :** Les middlewares `authenticate` et `authorize` sont conçus pour être réutilisés par toutes les US. Le middleware `authorize` accepte n'importe quel rôle en paramètre, permettant de supporter d'autres profils à l'avenir sans modification du middleware lui-même (**Open/Closed Principle — SOLID**).
+Les middlewares `authenticate` et `authorize('admin')` définis en [US-003](US-003-authentication-token.md) sont réutilisés sur toutes les routes de cette US.
 
 ---
 

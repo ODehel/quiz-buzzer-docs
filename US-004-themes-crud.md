@@ -4,14 +4,7 @@
 
 ## 📋 Contexte projet
 
-Le projet **Quiz Buzzer** se décompose en quatre applications :
-
-| Application | Technologie | Rôle |
-|---|---|---|
-| **Buzzers** | PlatformIO / ESP32-S3 | Périphériques physiques de jeu |
-| **App mobile** | Android / NFC | Configuration WiFi des buzzers |
-| **App maître de jeu** | Angular | Interface de gestion des parties |
-| **Serveur (hub)** | Node.js / JavaScript | Communication WebSocket entre l'app Angular et les buzzers, gestion du workflow des parties |
+Voir [VISION.md](VISION.md) pour la description complète du projet et de ses quatre applications.
 
 ---
 
@@ -25,7 +18,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 ## ✅ Critères d'acceptance
 
-> 🧪 **Exigence de couverture** — Chaque critère d'acceptance listé ci-dessous doit être couvert par **au moins un test automatisé** (unitaire et/ou d'intégration). Un CA non couvert par un test est considéré comme **non livré**. La couverture globale du code de l'US doit être **≥ 90%**, mesurée via `jest --coverage`.
+> 🧪 **Exigence de couverture** — Voir [Conventions techniques — Couverture des tests](CONVENTIONS-TECHNIQUES.md#-exigence-de-couverture-des-tests). Chaque CA doit être couvert par au moins un test automatisé. Couverture globale ≥ 90 %.
 
 ### Création — `POST /api/v1/themes`
 
@@ -334,17 +327,7 @@ Consulter l'annexe pour les autres cas (rate limiting, méthode non supportée, 
 
 ## 🔧 Spécifications techniques
 
-| Élément | Choix |
-|---|---|
-| Runtime | Node.js 24 LTS (dernière version stable disponible) |
-| Langage | JavaScript (ES Modules) |
-| Base de données | SQLite |
-| Tests | Jest (dernière version stable disponible) |
-| Identifiants | UUIDv7 généré côté Node.js |
-| Horodatage | ISO 8601 UTC (millisecondes), généré côté Node.js |
-| Principes d'architecture | YAGNI, KISS, DRY, SOLID |
-
-> ⚠️ **Exigence fondamentale** — Toute implémentation de cette US doit scrupuleusement respecter les principes **KISS** (solutions simples), **DRY** (pas de duplication), **YAGNI** (pas de fonctionnalité prématurée) et **SOLID** (architecture modulaire et responsabilités séparées). Ces principes prévalent sur toute optimisation prématurée ou généralisation non justifiée par un besoin immédiat documenté.
+Voir les [Conventions techniques](CONVENTIONS-TECHNIQUES.md) pour la stack complète, les principes d'architecture (KISS, DRY, YAGNI, SOLID) et les conventions de données.
 
 ### Schéma de la table
 
@@ -371,9 +354,7 @@ Entrée brute
 
 ### Versioning API
 
-```
-Base URL : /api/v1
-```
+Voir [Conventions techniques — Versioning API](CONVENTIONS-TECHNIQUES.md#-versioning-api).
 
 ### Format JSON — Convention snake_case
 
@@ -436,63 +417,9 @@ Base URL : /api/v1
 
 ## 🔐 Authentification et autorisation
 
-### Mécanisme
+Voir l'[Annexe — Authentification et autorisation](AUTHENTIFICATION.md) pour le mécanisme JWT, la structure du payload et l'architecture middleware.
 
-Toutes les routes de cette US sont protégées par un **JSON Web Token (JWT)** transmis via le header HTTP `Authorization`.
-
-| Élément | Valeur |
-|---|---|
-| Type de token | JWT |
-| Algorithme de signature | HS256 (symétrique) |
-| Transmission | Header `Authorization: Bearer <token>` |
-| Secret de signature | Variable d'environnement `JWT_SECRET` (min 32 caractères) |
-| Durée de validité | 1 heure (3600s), configurable via variable d'environnement `JWT_EXPIRATION` |
-| Renouvellement | Reconnexion via `POST /api/v1/token` (US-003) |
-
-### Structure du payload JWT
-
-```json
-{
-  "sub": "018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a",
-  "role": "admin",
-  "iat": 1741358400,
-  "exp": 1741362000
-}
-```
-
-| Claim | Type | Description |
-|---|---|---|
-| `sub` (subject) | `string` | UUIDv7 de l'utilisateur (claim standard RFC 7519) |
-| `role` | `string` | Rôle de l'utilisateur (`"admin"` pour cette US) |
-| `iat` (issued at) | `number` | Timestamp Unix de l'émission (automatique) |
-| `exp` (expiration) | `number` | Timestamp Unix d'expiration (automatique) |
-
-### Architecture middleware — Chaîne de vérification
-
-Deux middlewares distincts sont chaînés sur chaque route, conformément au **principe de responsabilité unique (SRP / SOLID)** :
-
-**Middleware 1 — `authenticate`** (vérification du token)
-
-```
-Requête entrante
-  → Header "Authorization" présent ?
-    → Non → 401 UNAUTHORIZED
-  → Format "Bearer <token>" valide ?
-    → Non → 401 UNAUTHORIZED
-  → Décodage et vérification du JWT (signature + expiration)
-    → Échec → 401 UNAUTHORIZED
-  → ✅ Injecte les claims décodés dans l'objet requête (req.user)
-```
-
-**Middleware 2 — `authorize(role)`** (vérification du rôle)
-
-```
-req.user disponible ?
-  → Non → 401 UNAUTHORIZED (sécurité défensive)
-  → req.user.role === rôle attendu ?
-    → Non → 403 FORBIDDEN
-    → ✅ Passe au handler suivant
-```
+Les middlewares `authenticate` et `authorize('admin')` définis en [US-003](US-003-authentication-token.md) sont réutilisés sur toutes les routes de cette US.
 
 **Application sur les routes :**
 
@@ -503,8 +430,6 @@ router.get('/api/v1/themes/:id',    authenticate, authorize('admin'), getTheme);
 router.put('/api/v1/themes/:id',    authenticate, authorize('admin'), updateTheme);
 router.delete('/api/v1/themes/:id', authenticate, authorize('admin'), deleteTheme);
 ```
-
-> **Réutilisabilité (DRY) :** Les middlewares `authenticate` et `authorize` sont conçus pour être réutilisés par toutes les futures US (questions, parties, etc.). Le middleware `authorize` accepte n'importe quel rôle en paramètre, permettant de supporter d'autres profils à l'avenir sans modification du middleware lui-même (**Open/Closed Principle — SOLID**).
 
 ---
 
@@ -561,7 +486,3 @@ L'UUIDv7 et le `created_at` étant tous deux générés côté Node.js, il est r
 ### Sécurité des erreurs 500
 
 Voir [Annexe — Critères de sécurité transversaux — CA-InternalError](SECURITE-TRANSVERSALE.md#erreurs-serveur-500-internal_server_error). Les erreurs internes ne doivent jamais exposer de détails techniques dans la réponse API.
-
-### Middlewares réutilisables (DRY / SOLID)
-
-Les middlewares `authenticate` et `authorize` sont conçus comme des composants indépendants et réutilisables. Ils ne contiennent aucune logique spécifique aux thèmes et pourront être appliqués tels quels sur les futures routes (questions, parties, etc.). Le middleware `authorize` est paramétrable par rôle, ce qui respecte le principe Open/Closed (SOLID) : il est ouvert à l'extension (nouveaux rôles) sans modification de son code.
