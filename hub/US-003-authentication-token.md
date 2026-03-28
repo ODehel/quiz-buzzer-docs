@@ -4,7 +4,7 @@
 
 ## 📋 Contexte projet
 
-Voir [VISION.md](VISION.md) pour la description complète du projet et de ses quatre applications.
+Voir [VISION.md](../shared/VISION.md) pour la description complète du projet et de ses quatre applications.
 
 ---
 
@@ -18,7 +18,7 @@ Voir [VISION.md](VISION.md) pour la description complète du projet et de ses qu
 
 ## ✅ Critères d'acceptance
 
-> 🧪 **Exigence de couverture** — Voir [Conventions techniques — Couverture des tests](CONVENTIONS-TECHNIQUES.md#-exigence-de-couverture-des-tests). Chaque CA doit être couvert par au moins un test automatisé. Couverture globale ≥ 90 %.
+> 🧪 **Exigence de couverture** — Voir [Conventions techniques — Couverture des tests](../shared/CONVENTIONS-TECHNIQUES.md#-exigence-de-couverture-des-tests). Chaque CA doit être couvert par au moins un test automatisé. Couverture globale ≥ 90 %.
 
 ### Émission du token — `POST /api/v1/token`
 
@@ -86,7 +86,7 @@ Voir [VISION.md](VISION.md) pour la description complète du projet et de ses qu
 
 ## 🔧 Spécifications techniques
 
-Voir les [Conventions techniques](CONVENTIONS-TECHNIQUES.md) pour la stack complète, les principes d'architecture (KISS, DRY, YAGNI, SOLID) et les conventions de données.
+Voir les [Conventions techniques](../shared/CONVENTIONS-TECHNIQUES.md) pour la stack complète, les principes d'architecture (KISS, DRY, YAGNI, SOLID) et les conventions de données.
 
 ### Spécifications propres à cette US
 
@@ -131,7 +131,7 @@ Voir [US-002 — Seed des comptes utilisateurs](US-002-seed-users.md) pour la li
 
 ### Versioning API
 
-Voir [Conventions techniques — Versioning API](CONVENTIONS-TECHNIQUES.md#-versioning-api).
+Voir [Conventions techniques — Versioning API](../shared/CONVENTIONS-TECHNIQUES.md#-versioning-api).
 
 ---
 
@@ -168,13 +168,13 @@ Voir [Conventions techniques — Versioning API](CONVENTIONS-TECHNIQUES.md#-vers
 
 ### Structure du payload JWT
 
-Voir [Annexe — Authentification et autorisation — Payload JWT](AUTHENTIFICATION.md#-structure-du-payload-jwt) pour la structure complète des claims.
+Voir [Annexe — Authentification et autorisation — Payload JWT](../shared/AUTHENTIFICATION.md#-structure-du-payload-jwt) pour la structure complète des claims.
 
 ---
 
 ## 🔐 Mécanisme d'authentification
 
-> **Source de vérité** — Cette US définit le mécanisme d'authentification. L'[Annexe — Authentification et autorisation](AUTHENTIFICATION.md) centralise la documentation de référence pour toutes les US qui réutilisent ce mécanisme.
+> **Source de vérité** — Cette US définit le mécanisme d'authentification. L'[Annexe — Authentification et autorisation](../shared/AUTHENTIFICATION.md) centralise la documentation de référence pour toutes les US qui réutilisent ce mécanisme.
 
 ### Flux d'émission du token
 
@@ -283,4 +283,4 @@ Le rate limiting de 100 req/min est **par adresse IP**. Cela permet à plusieurs
 
 ### Middlewares réutilisables (DRY / SOLID)
 
-Les middlewares `authenticate` et `authorize` définis dans cette US sont documentés dans l'[Annexe — Authentification et autorisation](AUTHENTIFICATION.md). Ils sont réutilisés par toutes les US avec des routes protégées (US-004 et suivantes).
+Les middlewares `authenticate` et `authorize` définis dans cette US sont documentés dans l'[Annexe — Authentification et autorisation](../shared/AUTHENTIFICATION.md). Ils sont réutilisés par toutes les US avec des routes protégées (US-004 et suivantes).

@@ -4,7 +4,7 @@
 
 ## 📋 Contexte projet
 
-Voir [VISION.md](VISION.md) pour la description complète du projet et de ses quatre applications.
+Voir [VISION.md](../shared/VISION.md) pour la description complète du projet et de ses quatre applications.
 
 ---
 
@@ -18,7 +18,7 @@ Voir [VISION.md](VISION.md) pour la description complète du projet et de ses qu
 
 ## ✅ Critères d'acceptance
 
-> 🧪 **Exigence de couverture** — Voir [Conventions techniques — Couverture des tests](CONVENTIONS-TECHNIQUES.md#-exigence-de-couverture-des-tests). Chaque CA doit être couvert par au moins un test automatisé. Couverture globale ≥ 90 %.
+> 🧪 **Exigence de couverture** — Voir [Conventions techniques — Couverture des tests](../shared/CONVENTIONS-TECHNIQUES.md#-exigence-de-couverture-des-tests). Chaque CA doit être couvert par au moins un test automatisé. Couverture globale ≥ 90 %.
 
 > **Note :** Le filtrage avancé de la liste (`theme_id`, `type`, `level`, `level_min`/`max`, `time_limit_min`/`max`, `points_min`/`max`) est spécifié dans **[US-006 — Filtrage avancé de la liste des questions](US-006-questions-filtrage.md)**. La modification partielle PATCH (JSON Merge Patch RFC 7396) est spécifiée dans **[US-007 — Modification partielle des questions](US-007-questions-patch.md)**.
 
@@ -103,7 +103,7 @@ Voir [VISION.md](VISION.md) pour la description complète du projet et de ses qu
 
 ### Sécurité et transversalité
 
-Voir [Annexe — Critères de sécurité transversaux](SECURITE-TRANSVERSALE.md)
+Voir [Annexe — Critères de sécurité transversaux](../shared/SECURITE-TRANSVERSALE.md)
 
 Les critères suivants s'appliquent à toutes les routes de cette US :
 
@@ -821,7 +821,7 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X DELETE "$BASE_URL/api/v1/themes/$THEME
 
 ### Sécurité et transversalité
 
-Voir [Annexe — Critères de sécurité transversaux](SECURITE-TRANSVERSALE.md) pour tous les cas de test de sécurité (CA-Bearer, CA-Forbidden, CA-RateLimit, CA-MethodNotAllowed, CA-InternalError).
+Voir [Annexe — Critères de sécurité transversaux](../shared/SECURITE-TRANSVERSALE.md) pour tous les cas de test de sécurité (CA-Bearer, CA-Forbidden, CA-RateLimit, CA-MethodNotAllowed, CA-InternalError).
 
 **Exemples rapides contextualisés à cette US** :
 
@@ -856,7 +856,7 @@ npm run test -- --coverage
 
 ## 🔧 Spécifications techniques
 
-Voir les [Conventions techniques](CONVENTIONS-TECHNIQUES.md) pour la stack complète, les principes d'architecture (KISS, DRY, YAGNI, SOLID) et les conventions de données.
+Voir les [Conventions techniques](../shared/CONVENTIONS-TECHNIQUES.md) pour la stack complète, les principes d'architecture (KISS, DRY, YAGNI, SOLID) et les conventions de données.
 
 ### Schéma de la table
 
@@ -910,7 +910,7 @@ choices (MCQ uniquement) :
 
 ### Versioning API
 
-Voir [Conventions techniques — Versioning API](CONVENTIONS-TECHNIQUES.md#-versioning-api).
+Voir [Conventions techniques — Versioning API](../shared/CONVENTIONS-TECHNIQUES.md#-versioning-api).
 
 ### Format JSON — Convention snake_case
 
@@ -1029,7 +1029,7 @@ Voir [Conventions techniques — Versioning API](CONVENTIONS-TECHNIQUES.md#-vers
 
 ## 🔐 Authentification et autorisation
 
-Voir l'[Annexe — Authentification et autorisation](AUTHENTIFICATION.md) pour le mécanisme JWT, la structure du payload et l'architecture middleware.
+Voir l'[Annexe — Authentification et autorisation](../shared/AUTHENTIFICATION.md) pour le mécanisme JWT, la structure du payload et l'architecture middleware.
 
 Les middlewares `authenticate` et `authorize('admin')` définis en [US-003](US-003-authentication-token.md) sont réutilisés sur toutes les routes de cette US.
 
@@ -1112,7 +1112,7 @@ L'UUIDv7 et le `created_at` étant tous deux générés côté Node.js, il est r
 
 ### Sécurité des erreurs 500
 
-Voir [Annexe — Critères de sécurité transversaux — CA-InternalError](SECURITE-TRANSVERSALE.md#erreurs-serveur-500-internal_server_error). Les erreurs internes ne doivent jamais exposer de détails techniques dans la réponse API.
+Voir [Annexe — Critères de sécurité transversaux — CA-InternalError](../shared/SECURITE-TRANSVERSALE.md#erreurs-serveur-500-internal_server_error). Les erreurs internes ne doivent jamais exposer de détails techniques dans la réponse API.
 
 ### US de complétion
 

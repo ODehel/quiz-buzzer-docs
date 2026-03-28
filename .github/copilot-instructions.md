@@ -60,7 +60,7 @@ Chaque US référence le document centralisé **VISION.md** (principe DRY) :
 ```markdown
 ## 📋 Contexte projet
 
-Voir [VISION.md](VISION.md) pour la description complète du projet et de ses quatre applications.
+Voir [VISION.md](../shared/VISION.md) pour la description complète du projet et de ses quatre applications.
 ```
 
 ---
@@ -112,7 +112,7 @@ Format en bloc de citation :
 - Immédiatement après le titre `## ✅ Critères d'acceptance`, avant toute sous-section `###`, insérer l'encadré suivant :
 
 ```markdown
-> 🧪 **Exigence de couverture** — Voir [Conventions techniques — Couverture des tests](CONVENTIONS-TECHNIQUES.md#-exigence-de-couverture-des-tests). Chaque CA doit être couvert par au moins un test automatisé. Couverture globale ≥ 90 %.
+> 🧪 **Exigence de couverture** — Voir [Conventions techniques — Couverture des tests](../shared/CONVENTIONS-TECHNIQUES.md#-exigence-de-couverture-des-tests). Chaque CA doit être couvert par au moins un test automatisé. Couverture globale ≥ 90 %.
 ```
 
 ---
@@ -273,7 +273,7 @@ Chaque US référence le document centralisé **CONVENTIONS-TECHNIQUES.md** (pri
 ```markdown
 ## 🔧 Spécifications techniques
 
-Voir les [Conventions techniques](CONVENTIONS-TECHNIQUES.md) pour la stack complète, les principes d'architecture (KISS, DRY, YAGNI, SOLID) et les conventions de données.
+Voir les [Conventions techniques](../shared/CONVENTIONS-TECHNIQUES.md) pour la stack complète, les principes d'architecture (KISS, DRY, YAGNI, SOLID) et les conventions de données.
 
 ### Spécifications propres à cette US
 
@@ -305,14 +305,14 @@ Le versioning API est centralisé dans **CONVENTIONS-TECHNIQUES.md**. Les US qui
 ```markdown
 ### Versioning API
 
-Voir [Conventions techniques — Versioning API](CONVENTIONS-TECHNIQUES.md#-versioning-api).
+Voir [Conventions techniques — Versioning API](../shared/CONVENTIONS-TECHNIQUES.md#-versioning-api).
 ```
 
 ---
 
 ## ⚙️ Principes d'architecture fondamentaux : KISS, DRY, YAGNI et SOLID
 
-La description détaillée des principes (exemples, tableaux, application dans le projet) est centralisée dans **[CONVENTIONS-TECHNIQUES.md — Exigence fondamentale](CONVENTIONS-TECHNIQUES.md#️-exigence-fondamentale--kiss-dry-yagni-solid)**.
+La description détaillée des principes (exemples, tableaux, application dans le projet) est centralisée dans **[CONVENTIONS-TECHNIQUES.md — Exigence fondamentale](../shared/CONVENTIONS-TECHNIQUES.md#️-exigence-fondamentale--kiss-dry-yagni-solid)**.
 
 Chaque US y fait référence via la section `## 🔧 Spécifications techniques`.
 
@@ -382,21 +382,21 @@ Chaque US y fait référence via la section `## 🔧 Spécifications techniques`
 Le rappel des principes KISS/DRY/YAGNI/SOLID est centralisé dans **CONVENTIONS-TECHNIQUES.md**. Chaque US y fait référence via la ligne :
 
 ```markdown
-Voir les [Conventions techniques](CONVENTIONS-TECHNIQUES.md) pour la stack complète, les principes d'architecture (KISS, DRY, YAGNI, SOLID) et les conventions de données.
+Voir les [Conventions techniques](../shared/CONVENTIONS-TECHNIQUES.md) pour la stack complète, les principes d'architecture (KISS, DRY, YAGNI, SOLID) et les conventions de données.
 ```
 
 ---
 
 ## 🧪 Exigence de couverture des tests
 
-Les exigences de couverture (seuil ≥ 90 %, organisation des fichiers, configuration Jest) sont centralisées dans **[CONVENTIONS-TECHNIQUES.md — Exigence de couverture des tests](CONVENTIONS-TECHNIQUES.md#-exigence-de-couverture-des-tests)**.
+Les exigences de couverture (seuil ≥ 90 %, organisation des fichiers, configuration Jest) sont centralisées dans **[CONVENTIONS-TECHNIQUES.md — Exigence de couverture des tests](../shared/CONVENTIONS-TECHNIQUES.md#-exigence-de-couverture-des-tests)**.
 
 ### Rappel dans chaque US
 
 Immédiatement après le titre `## ✅ Critères d'acceptance` et avant toute sous-section `###`, insérer :
 
 ```markdown
-> 🧪 **Exigence de couverture** — Voir [Conventions techniques — Couverture des tests](CONVENTIONS-TECHNIQUES.md#-exigence-de-couverture-des-tests). Chaque CA doit être couvert par au moins un test automatisé. Couverture globale ≥ 90 %.
+> 🧪 **Exigence de couverture** — Voir [Conventions techniques — Couverture des tests](../shared/CONVENTIONS-TECHNIQUES.md#-exigence-de-couverture-des-tests). Chaque CA doit être couvert par au moins un test automatisé. Couverture globale ≥ 90 %.
 ```
 
 ---
@@ -439,9 +439,9 @@ Présente pour toutes les US avec des routes REST prot��gées. Le mécanisme
 ```markdown
 ## 🔐 Authentification et autorisation
 
-Voir l'[Annexe — Authentification et autorisation](AUTHENTIFICATION.md) pour le mécanisme JWT, la structure du payload et l'architecture middleware.
+Voir l'[Annexe — Authentification et autorisation](../shared/AUTHENTIFICATION.md) pour le mécanisme JWT, la structure du payload et l'architecture middleware.
 
-Les middlewares `authenticate` et `authorize('admin')` définis en [US-003](US-003-authentication-token.md) sont réutilisés sur toutes les routes de cette US.
+Les middlewares `authenticate` et `authorize('admin')` définis en [US-003](../hub/US-003-authentication-token.md) sont réutilisés sur toutes les routes de cette US.
 ```
 
 ---
@@ -595,7 +595,7 @@ Paragraphe explicatif...
 
 ## 🔢 Conventions de données
 
-Les conventions de données sont centralisées dans **[CONVENTIONS-TECHNIQUES.md — Conventions de données](CONVENTIONS-TECHNIQUES.md#-conventions-de-données)**.
+Les conventions de données sont centralisées dans **[CONVENTIONS-TECHNIQUES.md — Conventions de données](../shared/CONVENTIONS-TECHNIQUES.md#-conventions-de-données)**.
 
 ---
 
@@ -603,11 +603,11 @@ Les conventions de données sont centralisées dans **[CONVENTIONS-TECHNIQUES.md
 
 | Document | Contenu centralisé |
 |---|---|
-| [VISION.md](../VISION.md) | Contexte projet, 4 applications, principes de développement |
-| [CONVENTIONS-TECHNIQUES.md](../CONVENTIONS-TECHNIQUES.md) | Stack technique, principes KISS/DRY/YAGNI/SOLID, couverture des tests, conventions de données, versioning API, pagination |
-| [AUTHENTIFICATION.md](../AUTHENTIFICATION.md) | Mécanisme JWT, payload, architecture middleware `authenticate` / `authorize` |
-| [SECURITE-TRANSVERSALE.md](../SECURITE-TRANSVERSALE.md) | Critères de sécurité transversaux (401, 403, 405, 415, 429, 500), cas de tests |
-| [error-codes.md](../error-codes.md) | Catalogue centralisé des codes d'erreur (standards + spécifiques par domaine) |
+| [VISION.md](../shared/VISION.md) | Contexte projet, 4 applications, principes de développement |
+| [CONVENTIONS-TECHNIQUES.md](../shared/CONVENTIONS-TECHNIQUES.md) | Stack technique, principes KISS/DRY/YAGNI/SOLID, couverture des tests, conventions de données, versioning API, pagination |
+| [AUTHENTIFICATION.md](../shared/AUTHENTIFICATION.md) | Mécanisme JWT, payload, architecture middleware `authenticate` / `authorize` |
+| [SECURITE-TRANSVERSALE.md](../shared/SECURITE-TRANSVERSALE.md) | Critères de sécurité transversaux (401, 403, 405, 415, 429, 500), cas de tests |
+| [error-codes.md](../hub/error-codes.md) | Catalogue centralisé des codes d'erreur (standards + spécifiques par domaine) |
 
 > **Principe DRY** — Chaque information n'existe qu'à un seul endroit. Les US référencent ces documents au lieu de dupliquer leur contenu.
 

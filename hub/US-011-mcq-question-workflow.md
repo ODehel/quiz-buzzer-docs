@@ -4,7 +4,7 @@
 
 ## 📋 Contexte projet
 
-Voir [VISION.md](VISION.md) pour la description complète du projet et de ses quatre applications.
+Voir [VISION.md](../shared/VISION.md) pour la description complète du projet et de ses quatre applications.
 
 ---
 
@@ -18,7 +18,7 @@ Voir [VISION.md](VISION.md) pour la description complète du projet et de ses qu
 
 ## ✅ Critères d'acceptance
 
-> 🧪 **Exigence de couverture** — Voir [Conventions techniques — Couverture des tests](CONVENTIONS-TECHNIQUES.md#-exigence-de-couverture-des-tests). Chaque CA doit être couvert par au moins un test automatisé. Couverture globale ≥ 90 %.
+> 🧪 **Exigence de couverture** — Voir [Conventions techniques — Couverture des tests](../shared/CONVENTIONS-TECHNIQUES.md#-exigence-de-couverture-des-tests). Chaque CA doit être couvert par au moins un test automatisé. Couverture globale ≥ 90 %.
 
 ### Machine à états de la partie
 
@@ -120,7 +120,7 @@ Voir [VISION.md](VISION.md) pour la description complète du projet et de ses qu
 
 ## 🔧 Spécifications techniques
 
-Voir les [Conventions techniques](CONVENTIONS-TECHNIQUES.md) pour la stack complète, les principes d'architecture (KISS, DRY, YAGNI, SOLID) et les conventions de données.
+Voir les [Conventions techniques](../shared/CONVENTIONS-TECHNIQUES.md) pour la stack complète, les principes d'architecture (KISS, DRY, YAGNI, SOLID) et les conventions de données.
 
 ### Extension du schéma de la table `T_GAME_GAM`
 
@@ -357,7 +357,7 @@ Les réponses des buzzers et l'expiration du chrono sont traitées de manière a
 
 ### Versioning API
 
-Voir [Conventions techniques](CONVENTIONS-TECHNIQUES.md) pour le versioning API. Base URL WebSocket : `ws://<ip>:<port>/ws`
+Voir [Conventions techniques](../shared/CONVENTIONS-TECHNIQUES.md) pour le versioning API. Base URL WebSocket : `ws://<ip>:<port>/ws`
 
 ### Structure des fichiers
 
