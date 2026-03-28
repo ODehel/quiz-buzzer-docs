@@ -231,5 +231,5 @@ La validation locale utilise `.toLowerCase()` pour être cohérente avec la vali
 ---
 
 **Dernière mise à jour** : 2026-03-28
-**Statut** : Rédigée — en attente d'implémentation (Sprint 4)
+**Statut** : Implémentée (Sprint 4)
 **Sprint** : 4
