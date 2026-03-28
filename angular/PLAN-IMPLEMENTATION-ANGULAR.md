@@ -157,10 +157,11 @@ environment.ts
 
 | # | Tâche | US couverte |
 |---|---|---|
-| 5.1 | `PilotShellComponent` (layout avec nav verrouillée) | — |
-| 5.2 | `LobbyComponent` (buzzers en temps réel, readiness bar) | US-ANG-008 |
-| 5.3 | Navigation automatique `PENDING → /pilot/lobby` à la création | US-ANG-007 (fin) |
-| 5.4 | Navigation automatique `OPEN → /pilot/play` au démarrage | US-ANG-008 (fin) |
+| 5.1 | `PilotShellComponent` (layout avec `router-outlet`) | — | ✅ |
+| 5.2 | `LobbyComponent` (buzzers en temps réel, readiness bar) | US-ANG-007 | ✅ |
+| 5.3 | Navigation automatique `PENDING → /pilot/lobby` à la création | US-ANG-007 (fin) | ✅ |
+| 5.4 | Navigation automatique `OPEN → /pilot/play` au démarrage | US-ANG-007 (fin) | ✅ |
+| 5.5 | `GameStateService.reset()` pour annulation de partie | US-ANG-007 | ✅ |
 
 **Critère de sortie** : le maître de jeu peut créer une partie, voir les buzzers se connecter en temps réel dans le lobby, démarrer la partie et être redirigé automatiquement vers le pilotage.
 
