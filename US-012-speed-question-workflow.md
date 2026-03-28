@@ -39,80 +39,81 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 |---|---|---|
 | CA-4 | Le maître du jeu envoie `trigger_title` alors que la question courante est de type `SPEED` | Le serveur détecte le type `SPEED`, saute `QUESTION_TITLE`, passe directement en `QUESTION_OPEN`, diffuse `question_open` à tous les buzzers et à Angular, et démarre le chronomètre |
 | CA-5 | Le message `question_open` contient l'index de la question, le type (`SPEED`), le titre, le `time_limit` et l'horodatage de démarrage (`started_at`) | Données conformes à la question en base |
-| CA-6 | `trigger_title` reçu alors que l'état n'est pas `OPEN` | Serveur envoie `error` à Angular avec code `INVALID_STATE` |
-| CA-7 | `trigger_title` reçu alors qu'il n'y a plus de question disponible | Serveur envoie `error` à Angular avec code `NO_MORE_QUESTIONS` |
+| CA-6 | `trigger_title` reçu alors que la partie est en état `PENDING` (jamais démarrée) | Serveur envoie `error` à Angular avec code `INVALID_STATE` |
+| CA-7 | `trigger_title` reçu alors que l'état n'est pas `OPEN` (autre que `PENDING` : `QUESTION_OPEN`, `QUESTION_BUZZED`, `QUESTION_CLOSED`, `COMPLETED`, `IN_ERROR`, etc.) | Serveur envoie `error` à Angular avec code `INVALID_STATE` |
+| CA-8 | `trigger_title` reçu alors qu'il n'y a plus de question disponible | Serveur envoie `error` à Angular avec code `NO_MORE_QUESTIONS` |
 
 ### Chronomètre
 
 | # | Critère | Résultat attendu |
 |---|---|---|
-| CA-8 | Le serveur envoie un tick de resynchronisation `timer_tick` toutes les 5 secondes en état `QUESTION_OPEN` | Format : `{ "type": "timer_tick", "remaining_seconds": N }` |
-| CA-9 | À expiration du chrono en état `QUESTION_OPEN` (aucun buzze en cours), le serveur envoie automatiquement `timer_end` à tous les buzzers et à Angular | Aucun point n'est attribué — tous les participants sont enregistrés en mémoire avec `answer: null`, `time_ms: time_limit * 1000`, `points_earned: 0` |
-| CA-10 | À expiration du chrono en état `QUESTION_BUZZED` (un joueur a buzzé, le maître n'a pas encore décidé), le serveur envoie `timer_end` à Angular uniquement | Les buzzers ne reçoivent pas `timer_end` — la question reste en `QUESTION_BUZZED`, le maître doit toujours valider ou invalider |
-| CA-11 | Les `timer_tick` s'arrêtent dès la réception d'un buzze (transition vers `QUESTION_BUZZED`) | Le chrono est suspendu pendant l'état `QUESTION_BUZZED` |
-| CA-12 | Les `timer_tick` reprennent après invalidation (retour en `QUESTION_OPEN`) avec le temps restant au moment du buzze | Le temps consommé pendant `QUESTION_BUZZED` n'est pas décompté |
+| CA-9 | Le serveur envoie un tick de resynchronisation `timer_tick` toutes les 5 secondes en état `QUESTION_OPEN` | Format : `{ "type": "timer_tick", "remaining_seconds": N }` |
+| CA-10 | À expiration du chrono en état `QUESTION_OPEN` (aucun buzze en cours), le serveur envoie automatiquement `timer_end` à tous les buzzers et à Angular | Aucun point n'est attribué — tous les participants sont enregistrés en mémoire avec `answer: null`, `time_ms: time_limit * 1000`, `points_earned: 0` |
+| CA-11 | À expiration du chrono en état `QUESTION_BUZZED` (un joueur a buzzé, le maître n'a pas encore décidé), le serveur envoie `timer_end` à Angular uniquement | Les buzzers ne reçoivent pas `timer_end` — la question reste en `QUESTION_BUZZED`, le maître doit toujours valider ou invalider |
+| CA-12 | Les `timer_tick` s'arrêtent dès la réception d'un buzze (transition vers `QUESTION_BUZZED`) | Le chrono est suspendu pendant l'état `QUESTION_BUZZED` |
+| CA-13 | Les `timer_tick` reprennent après invalidation (retour en `QUESTION_OPEN`) avec le temps restant au moment du buzze | Le temps consommé pendant `QUESTION_BUZZED` n'est pas décompté |
 
 ### Buzze d'un joueur — `buzz`
 
 | # | Critère | Résultat attendu |
 |---|---|---|
-| CA-13 | Un buzzer envoie `buzz` en état `QUESTION_OPEN` | Le serveur enregistre le buzze en mémoire (participant, timestamp serveur, temps écoulé depuis `started_at`), passe en `QUESTION_BUZZED`, suspend le chrono |
-| CA-14 | Le serveur envoie `buzz_accepted` au buzzer qui a buzzé | Format : `{ "type": "buzz_accepted" }` |
-| CA-15 | Le serveur envoie `buzz_locked` à tous les autres buzzers et à Angular | Format : `{ "type": "buzz_locked", "buzzer_username": "quiz_buzzer_03" }` |
-| CA-16 | Buzze reçu alors que l'état n'est pas `QUESTION_OPEN` | Serveur ignore silencieusement, log `WARN` |
-| CA-17 | Buzze reçu d'un buzzer dont le participant n'appartient pas à la partie | Serveur ignore silencieusement, log `WARN` |
-| CA-18 | Buzze reçu d'un buzzer déjà invalidé sur cette question | Serveur ignore silencieusement, log `WARN` |
+| CA-14 | Un buzzer envoie `buzz` en état `QUESTION_OPEN` | Le serveur enregistre le buzze en mémoire (participant, timestamp serveur, temps écoulé depuis `started_at`), passe en `QUESTION_BUZZED`, suspend le chrono |
+| CA-15 | Le serveur envoie `buzz_accepted` au buzzer qui a buzzé | Format : `{ "type": "buzz_accepted" }` |
+| CA-16 | Le serveur envoie `buzz_locked` à tous les autres buzzers et à Angular | Format : `{ "type": "buzz_locked", "buzzer_username": "quiz_buzzer_03" }` |
+| CA-17 | Buzze reçu alors que l'état n'est pas `QUESTION_OPEN` | Serveur ignore silencieusement, log `WARN` |
+| CA-18 | Buzze reçu d'un buzzer dont le participant n'appartient pas à la partie | Serveur ignore silencieusement, log `WARN` |
+| CA-19 | Buzze reçu d'un buzzer déjà invalidé sur cette question | Serveur ignore silencieusement, log `WARN` |
 
 ### Validation de la réponse orale — `validate_answer`
 
 | # | Critère | Résultat attendu |
 |---|---|---|
-| CA-19 | Le maître du jeu envoie `validate_answer` depuis Angular en état `QUESTION_BUZZED` | Le serveur calcule les scores, les persiste en base, diffuse les résultats, passe en `QUESTION_CLOSED` |
-| CA-20 | `validate_answer` reçu alors que l'état n'est pas `QUESTION_BUZZED` | Serveur envoie `error` à Angular avec code `INVALID_STATE` |
+| CA-20 | Le maître du jeu envoie `validate_answer` depuis Angular en état `QUESTION_BUZZED` | Le serveur calcule les scores, les persiste en base, diffuse les résultats, passe en `QUESTION_CLOSED` |
+| CA-21 | `validate_answer` reçu alors que l'état n'est pas `QUESTION_BUZZED` | Serveur envoie `error` à Angular avec code `INVALID_STATE` |
 
 ### Invalidation de la réponse orale — `invalidate_answer`
 
 | # | Critère | Résultat attendu |
 |---|---|---|
-| CA-21 | Le maître du jeu envoie `invalidate_answer` depuis Angular en état `QUESTION_BUZZED` et il reste des joueurs disponibles (non invalidés, non encore buzzés sur cette question, ou pouvant buzzer à nouveau) | Le joueur buzzeur est marqué en mémoire comme invalidé (`answer: null`, `time_ms: time_limit * 1000`, `points_earned: 0`), le serveur renvoie en `QUESTION_OPEN`, reprend le chrono, renvoie les `timer_tick` |
-| CA-22 | Le serveur envoie `buzz_invalidated` au buzzer invalidé | Format : `{ "type": "buzz_invalidated" }` — le buzzer affiche un écran d'élimination pour cette question |
-| CA-23 | Le serveur envoie `buzz_unlocked` à tous les buzzers non invalidés et à Angular | Format : `{ "type": "buzz_unlocked", "remaining_seconds": N }` — les buzzers non invalidés peuvent à nouveau buzzer |
-| CA-24 | Le maître du jeu envoie `invalidate_answer` et il ne reste plus aucun joueur disponible (tous invalidés ou chrono expiré avant la décision) | Équivaut à une expiration : le serveur calcule les scores (0 point pour tous), persiste, diffuse les résultats, passe en `QUESTION_CLOSED` |
-| CA-25 | `invalidate_answer` reçu alors que l'état n'est pas `QUESTION_BUZZED` | Serveur envoie `error` à Angular avec code `INVALID_STATE` |
+| CA-22 | Le maître du jeu envoie `invalidate_answer` depuis Angular en état `QUESTION_BUZZED` et il reste des joueurs disponibles (non invalidés, non encore buzzés sur cette question, ou pouvant buzzer à nouveau) | Le joueur buzzeur est marqué en mémoire comme invalidé (`answer: null`, `time_ms: time_limit * 1000`, `points_earned: 0`), le serveur renvoie en `QUESTION_OPEN`, reprend le chrono, renvoie les `timer_tick` |
+| CA-23 | Le serveur envoie `buzz_invalidated` au buzzer invalidé | Format : `{ "type": "buzz_invalidated" }` — le buzzer affiche un écran d'élimination pour cette question |
+| CA-24 | Le serveur envoie `buzz_unlocked` à tous les buzzers non invalidés et à Angular | Format : `{ "type": "buzz_unlocked", "remaining_seconds": N }` — les buzzers non invalidés peuvent à nouveau buzzer |
+| CA-25 | Le maître du jeu envoie `invalidate_answer` et il ne reste plus aucun joueur disponible (tous invalidés ou chrono expiré avant la décision) | Équivaut à une expiration : le serveur calcule les scores (0 point pour tous), persiste, diffuse les résultats, passe en `QUESTION_CLOSED` |
+| CA-26 | `invalidate_answer` reçu alors que l'état n'est pas `QUESTION_BUZZED` | Serveur envoie `error` à Angular avec code `INVALID_STATE` |
 
 ### Persistance des scores
 
 | # | Critère | Résultat attendu |
 |---|---|---|
-| CA-26 | À la validation de la réponse, seul le gagnant est persisté dans `T_GAME_ANSWER_GAA` | Une ligne insérée : réponse `"SPEED_WIN"`, temps de réponse en ms depuis `started_at`, points gagnés, score cumulé mis à jour |
-| CA-27 | En cas d'expiration ou de dernier joueur invalidé, aucune ligne n'est insérée dans `T_GAME_ANSWER_GAA` | Aucun point attribué, scores cumulés inchangés |
-| CA-28 | En cas d'erreur SQLite lors de la sauvegarde, le serveur effectue jusqu'à 3 tentatives avec délai exponentiel | Comportement identique à l'US-011 (CA-34) |
-| CA-29 | Après 3 tentatives échouées, la partie passe en `IN_ERROR`, le serveur envoie `error` à Angular avec code `INTERNAL_ERROR` | Log `ERROR` avec détail technique |
+| CA-27 | À la validation de la réponse, seul le gagnant est persisté dans `T_GAME_ANSWER_GAA` | Une ligne insérée : réponse `"SPEED_WIN"`, temps de réponse en ms depuis `started_at`, points gagnés, score cumulé mis à jour |
+| CA-28 | En cas d'expiration ou de dernier joueur invalidé, aucune ligne n'est insérée dans `T_GAME_ANSWER_GAA` | Aucun point attribué, scores cumulés inchangés |
+| CA-29 | En cas d'erreur SQLite lors de la sauvegarde, le serveur effectue jusqu'à 3 tentatives avec délai exponentiel | Comportement identique à l'US-011 (CA-35) |
+| CA-30 | Après 3 tentatives échouées, la partie passe en `IN_ERROR`, le serveur envoie `error` à Angular avec code `INTERNAL_ERROR` | Log `ERROR` avec détail technique |
 
 ### Résultats diffusés à la fin de la question
 
 | # | Critère | Résultat attendu |
 |---|---|---|
-| CA-30 | Le serveur envoie `question_result` individuellement à chaque buzzer | Gagnant : `correct_answer`, `correct: true`, points gagnés, score cumulé — Invalidés : `correct_answer`, `correct: false`, `points_earned: 0`, score cumulé inchangé — Non buzzés : `correct_answer`, `correct: false`, `points_earned: 0`, score cumulé inchangé |
-| CA-31 | Le serveur envoie `question_result_summary` à Angular | Contient : le gagnant (ou `null`), le détail de tous les joueurs ayant buzzé (nom, temps de réponse, statut validé/invalidé, points gagnés, score cumulé), le classement mis à jour |
+| CA-31 | Le serveur envoie `question_result` individuellement à chaque buzzer | Gagnant : `correct_answer`, `correct: true`, points gagnés, score cumulé — Invalidés : `correct_answer`, `correct: false`, `points_earned: 0`, score cumulé inchangé — Non buzzés : `correct_answer`, `correct: false`, `points_earned: 0`, score cumulé inchangé |
+| CA-32 | Le serveur envoie `question_result_summary` à Angular | Contient : le gagnant (ou `null`), le détail de tous les joueurs ayant buzzé (nom, temps de réponse, statut validé/invalidé, points gagnés, score cumulé), le classement mis à jour |
 
 ### Passage à la question suivante — `trigger_next_question`
 
 | # | Critère | Résultat attendu |
 |---|---|---|
-| CA-32 | Le maître du jeu envoie `trigger_next_question` depuis Angular en état `QUESTION_CLOSED` | Comportement identique à l'US-011 (CA-29, CA-30) |
-| CA-33 | `trigger_next_question` reçu alors que l'état n'est pas `QUESTION_CLOSED` | Serveur envoie `error` à Angular avec code `INVALID_STATE` |
+| CA-33 | Le maître du jeu envoie `trigger_next_question` depuis Angular en état `QUESTION_CLOSED` | Comportement identique à l'US-011 (CA-30, CA-31) |
+| CA-34 | `trigger_next_question` reçu alors que l'état n'est pas `QUESTION_CLOSED` | Serveur envoie `error` à Angular avec code `INVALID_STATE` |
 
 ### Sécurité et transversalité
 
 | # | Critère | Résultat attendu |
 |---|---|---|
-| CA-34 | Seul le client authentifié avec le rôle `admin` peut envoyer des messages de pilotage (`validate_answer`, `invalidate_answer`, `trigger_next_question`) | Buzzer envoyant un message de pilotage → ignoré silencieusement, log `WARN` |
-| CA-35 | Seul un client authentifié avec le rôle `buzzer` peut envoyer `buzz` | Angular envoyant `buzz` → ignoré silencieusement, log `WARN` |
-| CA-36 | Tout message reçu d'un client non authentifié est ignoré | Ignoré silencieusement, log `WARN` |
-| CA-37 | Tout message avec un `type` inconnu est ignoré | Ignoré silencieusement, log `WARN` |
-| CA-38 | Tout message avec un JSON invalide est ignoré | Ignoré silencieusement, log `WARN` |
-| CA-39 | Tests unitaires et d'intégration | Couverture de tests ≥ 90% |
+| CA-35 | Seul le client authentifié avec le rôle `admin` peut envoyer des messages de pilotage (`validate_answer`, `invalidate_answer`, `trigger_next_question`) | Buzzer envoyant un message de pilotage → ignoré silencieusement, log `WARN` |
+| CA-36 | Seul un client authentifié avec le rôle `buzzer` peut envoyer `buzz` | Angular envoyant `buzz` → ignoré silencieusement, log `WARN` |
+| CA-37 | Tout message reçu d'un client non authentifié est ignoré | Ignoré silencieusement, log `WARN` |
+| CA-38 | Tout message avec un `type` inconnu est ignoré | Ignoré silencieusement, log `WARN` |
+| CA-39 | Tout message avec un JSON invalide est ignoré | Ignoré silencieusement, log `WARN` |
+| CA-40 | Tests unitaires et d'intégration | Couverture de tests ≥ 90% |
 
 ---
 
