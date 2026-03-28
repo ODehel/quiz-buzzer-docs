@@ -175,12 +175,12 @@ environment.ts
 
 | # | Tâche | US couverte |
 |---|---|---|
-| 6.1 | `PlayerListComponent` (réponses en temps réel) | US-ANG-009 (partiel) |
-| 6.2 | `SoundPanelComponent` (sons système + jingles) | UC-PILOT-09, UC-PILOT-10 |
-| 6.3 | `RankingComponent` (overlay classement intermédiaire) | US-ANG-010 |
-| 6.4 | `McqControlComponent` (titre → choix → correction) | US-ANG-009 (partiel) |
-| 6.5 | `PlayComponent` — orchestration MCQ complète | US-ANG-009 (complet) |
-| 6.6 | `GameResultsComponent` — fin de partie (`/pilot/results`) | US-ANG-011 (fin) |
+| 6.1 | `PlayerListComponent` (réponses en temps réel) | US-ANG-008 (partiel) | ✅ |
+| 6.2 | `SoundPanelComponent` (sons système + jingles + classement) | US-ANG-008 (CA-35/36) | ✅ |
+| 6.3 | `RankingComponent` (overlay classement intermédiaire) | US-ANG-008 (CA-35 à 40) | ✅ |
+| 6.4 | `McqControlComponent` (titre → choix → correction) | US-ANG-008 (CA-8 à 22) | ✅ |
+| 6.5 | `PlayComponent` — orchestration MCQ complète | US-ANG-008 (CA-1 à 7) | ✅ |
+| 6.6 | `GameResultsComponent` — fin de partie (`/pilot/results`) | US-ANG-008 (CA-41 à 47) | ✅ |
 
 **Critère de sortie** : une question MCQ peut être pilotée de bout en bout — déclenchement du titre, affichage des choix, réception des réponses en temps réel, correction, passage à la question suivante, fin de partie avec résultats.
 
@@ -192,9 +192,9 @@ environment.ts
 
 | # | Tâche | US couverte |
 |---|---|---|
-| 7.1 | Compléter `GameStateService` dispatch SPEED (`buzz_locked`, `buzz_unlocked`) | — |
-| 7.2 | `SpeedControlComponent` (attente buzz → décision) | US-ANG-009 (SPEED) |
-| 7.3 | Routing conditionnel MCQ/SPEED dans `PlayComponent` | US-ANG-009 (fin) |
+| 7.1 | Compléter `GameStateService` dispatch SPEED (`buzz_locked`, `buzz_unlocked`) | US-ANG-008 (CA-26 à 31) | ✅ |
+| 7.2 | `SpeedControlComponent` (attente buzz → décision) | US-ANG-008 (CA-23 à 34) | ✅ |
+| 7.3 | Routing conditionnel MCQ/SPEED dans `PlayComponent` | US-ANG-008 (CA-2) | ✅ |
 
 **Point d'attention** : `PlayComponent` doit déjà exister depuis le sprint 6. La tâche 7.3 est une modification, pas une création — elle consiste à ajouter le branchement `@if (questionType === 'SPEED')` et à monter `SpeedControlComponent` à la place de `McqControlComponent`.
 
