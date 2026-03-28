@@ -247,5 +247,5 @@ La bannière réagit à `GameStateService.isPiloting()` qui est un `computed` d�
 ---
 
 **Dernière mise à jour** : 2026-03-28
-**Statut** : Rédigée — en attente d'implémentation (Sprint 1)
+**Statut** : Implémentée — tous les critères d'acceptance couverts par des tests (Sprint 1)
 **Sprint** : 1
