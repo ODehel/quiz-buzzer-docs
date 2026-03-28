@@ -208,12 +208,12 @@ environment.ts
 
 | # | Tâche | US couverte |
 |---|---|---|
-| 8.1 | Gestion `token_expiring_soon` → refresh silencieux dans `AuthService` | US-ANG-001 (CA-12 à CA-16) |
-| 8.2 | Gestion `game_state_sync` à la reconnexion WebSocket | UC-PILOT-12 |
-| 8.3 | Restauration de l'état chrono (`started_at` + `time_limit`) après reconnexion | UC-PILOT-12 |
-| 8.4 | `NoActiveGameGuard` — redirection avec toast informatif | — |
-| 8.5 | Gestion `IN_ERROR` — affichage message d'erreur dans pilotage | — |
-| 8.6 | Tests d'intégration end-to-end (flux complet MCQ et SPEED mockés) | — |
+| 8.1 | Gestion `token_expiring_soon` → refresh silencieux dans `AuthService` | US-ANG-010 (CA-9 à CA-13) | ✅ |
+| 8.2 | Gestion `game_state_sync` à la reconnexion WebSocket | US-ANG-010 (CA-14 à CA-20) | ✅ |
+| 8.3 | Restauration de l'état chrono (`started_at` + `time_limit`) après reconnexion | US-ANG-010 (CA-21 à CA-23) | ✅ |
+| 8.4 | `NoActiveGameGuard` — redirection avec toast informatif | US-ANG-010 (CA-28/CA-29) | ✅ |
+| 8.5 | Gestion `IN_ERROR` — affichage message d'erreur dans pilotage | US-ANG-010 (CA-24 à CA-26) | ✅ |
+| 8.6 | Codes de fermeture terminaux et guards défensifs | US-ANG-010 (CA-5/CA-6/CA-27/CA-30) | ✅ |
 
 **Critère de sortie** : la perte et reprise de connexion WebSocket ne brise pas l'état de l'application. Le token se renouvelle silencieusement. Un état `IN_ERROR` est géré gracieusement.
 

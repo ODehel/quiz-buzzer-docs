@@ -317,5 +317,5 @@ L'état `IN_ERROR` est terminal dans la machine à états du serveur. Angular ne
 ---
 
 **Dernière mise à jour** : 2026-03-28
-**Statut** : Rédigée — en attente d'implémentation (Sprint 8)
+**Statut** : Implémentée (Sprint 8)
 **Sprint** : 8
