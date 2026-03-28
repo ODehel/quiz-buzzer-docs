@@ -62,6 +62,19 @@ Toute la codebase de **tous les projets** (serveur Node.js, Angular, firmware ES
 
 > ⚠️ **Exigence fondamentale** — Ces principes prévalent sur toute optimisation prématurée ou généralisation non justifiée par un besoin immédiat documenté. Ils s'appliquent sans exception à l'ensemble des projets.
 
+Voir [CONVENTIONS-TECHNIQUES.md](CONVENTIONS-TECHNIQUES.md) pour les détails d'application de ces principes dans le hub Node.js.
+
+---
+
+## 📚 Documents de référence transversaux
+
+| Document | Contenu |
+|---|---|
+| [CONVENTIONS-TECHNIQUES.md](CONVENTIONS-TECHNIQUES.md) | Stack technique, principes KISS/DRY/YAGNI/SOLID, couverture des tests, conventions de données |
+| [AUTHENTIFICATION.md](AUTHENTIFICATION.md) | Mécanisme JWT, payload, architecture middleware |
+| [SECURITE-TRANSVERSALE.md](SECURITE-TRANSVERSALE.md) | Critères de sécurité transversaux, cas de tests |
+| [error-codes.md](error-codes.md) | Catalogue centralisé des codes d'erreur |
+
 ---
 
 ## 🗺️ US documentées

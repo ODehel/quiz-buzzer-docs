@@ -4,14 +4,7 @@
 
 ## 📋 Contexte projet
 
-Le projet **Quiz Buzzer** se décompose en quatre applications :
-
-| Application | Technologie | Rôle |
-|---|---|---|
-| **Buzzers** | PlatformIO / ESP32-S3 | Périphériques physiques de jeu |
-| **App mobile** | Android / NFC | Configuration WiFi des buzzers |
-| **App maître de jeu** | Angular | Interface de gestion des parties |
-| **Serveur (hub)** | Node.js / JavaScript | Communication WebSocket entre l'app Angular et les buzzers, gestion du workflow des parties |
+Voir [VISION.md](VISION.md) pour la description complète du projet et de ses quatre applications.
 
 ---
 
@@ -25,7 +18,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 ## ✅ Critères d'acceptance
 
-> 🧪 **Exigence de couverture** — Chaque critère d'acceptance listé ci-dessous doit être couvert par **au moins un test automatisé** (unitaire et/ou d'intégration). Un CA non couvert par un test est considéré comme **non livré**. La couverture globale du code de l'US doit être **≥ 90%**, mesurée via `jest --coverage`.
+> 🧪 **Exigence de couverture** — Voir [Conventions techniques — Couverture des tests](CONVENTIONS-TECHNIQUES.md#-exigence-de-couverture-des-tests). Chaque CA doit être couvert par au moins un test automatisé. Couverture globale ≥ 90 %.
 
 ### Avertissement d'expiration — `token_expiring_soon`
 
@@ -131,16 +124,7 @@ sequenceDiagram
 
 ## 🔧 Spécifications techniques
 
-| Élément | Choix |
-|---|---|
-| Runtime | Node.js 24 LTS (dernière version stable disponible) |
-| Langage | JavaScript (ES Modules) |
-| Tests | Jest (dernière version stable disponible) |
-| Bibliothèque WebSocket | `ws` (dernière version stable disponible) |
-| Timers | `setTimeout` — injectables pour les tests |
-| Principes d'architecture | YAGNI, KISS, DRY, SOLID |
-
-> ⚠️ **Exigence fondamentale** — Toute implémentation de cette US doit scrupuleusement respecter les principes **KISS** (solutions simples), **DRY** (pas de duplication), **YAGNI** (pas de fonctionnalité prématurée) et **SOLID** (architecture modulaire et responsabilités séparées). Ces principes prévalent sur toute optimisation prématurée ou généralisation non justifiée par un besoin immédiat documenté.
+Voir les [Conventions techniques](CONVENTIONS-TECHNIQUES.md) pour la stack complète, les principes d'architecture (KISS, DRY, YAGNI, SOLID) et les conventions de données.
 
 ### Pas de modification de schéma SQL
 

@@ -4,14 +4,7 @@
 
 ## 📋 Contexte projet
 
-Le projet **Quiz Buzzer** se décompose en quatre applications :
-
-| Application | Technologie | Rôle |
-|---|---|---|
-| **Buzzers** | PlatformIO / ESP32-S3 | Périphériques physiques de jeu |
-| **App mobile** | Android / NFC | Configuration WiFi des buzzers |
-| **App maître de jeu** | Angular | Interface de gestion des parties |
-| **Serveur (hub)** | Node.js / JavaScript | Communication WebSocket entre l'app Angular et les buzzers, gestion du workflow des parties |
+Voir [VISION.md](VISION.md) pour la description complète du projet et de ses quatre applications.
 
 ---
 
@@ -25,7 +18,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 ## ✅ Critères d'acceptance
 
-> 🧪 **Exigence de couverture** — Chaque critère d'acceptance listé ci-dessous doit être couvert par **au moins un test automatisé** (unitaire et/ou d'intégration). Un CA non couvert par un test est considéré comme **non livré**. La couverture globale du code de l'US doit être **≥ 90%**, mesurée via `jest --coverage`.
+> 🧪 **Exigence de couverture** — Voir [Conventions techniques — Couverture des tests](CONVENTIONS-TECHNIQUES.md#-exigence-de-couverture-des-tests). Chaque CA doit être couvert par au moins un test automatisé. Couverture globale ≥ 90 %.
 
 ### Émission du token — `POST /api/v1/token`
 
@@ -93,19 +86,14 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 
 ## 🔧 Spécifications techniques
 
+Voir les [Conventions techniques](CONVENTIONS-TECHNIQUES.md) pour la stack complète, les principes d'architecture (KISS, DRY, YAGNI, SOLID) et les conventions de données.
+
+### Spécifications propres à cette US
+
 | Élément | Choix |
 |---|---|
-| Runtime | Node.js 24 LTS (dernière version stable disponible) |
-| Langage | JavaScript (ES Modules) |
-| Base de données | SQLite |
-| Tests | Jest (dernière version stable disponible) |
-| Identifiants | UUIDv7 généré côté Node.js |
-| Horodatage | ISO 8601 UTC (millisecondes), généré côté Node.js |
 | Hachage mot de passe | bcrypt avec sel automatique |
 | Token | JWT signé HS256 |
-| Principes d'architecture | YAGNI, KISS, DRY, SOLID |
-
-> ⚠️ **Exigence fondamentale** — Toute implémentation de cette US doit scrupuleusement respecter les principes **KISS** (solutions simples), **DRY** (pas de duplication), **YAGNI** (pas de fonctionnalité prématurée) et **SOLID** (architecture modulaire et responsabilités séparées). Ces principes prévalent sur toute optimisation prématurée ou généralisation non justifiée par un besoin immédiat documenté.
 
 ### Schéma de la table
 
@@ -132,19 +120,7 @@ CREATE TABLE T_USER_USR
 
 ### Comptes utilisateurs
 
-| Username | Rôle | Variable d'environnement du mot de passe |
-|---|---|---|
-| `admin` | `admin` | `SEED_PASSWORD_ADMIN` |
-| `quiz_buzzer_01` | `buzzer` | `SEED_PASSWORD_BUZZER_01` |
-| `quiz_buzzer_02` | `buzzer` | `SEED_PASSWORD_BUZZER_02` |
-| `quiz_buzzer_03` | `buzzer` | `SEED_PASSWORD_BUZZER_03` |
-| `quiz_buzzer_04` | `buzzer` | `SEED_PASSWORD_BUZZER_04` |
-| `quiz_buzzer_05` | `buzzer` | `SEED_PASSWORD_BUZZER_05` |
-| `quiz_buzzer_06` | `buzzer` | `SEED_PASSWORD_BUZZER_06` |
-| `quiz_buzzer_07` | `buzzer` | `SEED_PASSWORD_BUZZER_07` |
-| `quiz_buzzer_08` | `buzzer` | `SEED_PASSWORD_BUZZER_08` |
-| `quiz_buzzer_09` | `buzzer` | `SEED_PASSWORD_BUZZER_09` |
-| `quiz_buzzer_10` | `buzzer` | `SEED_PASSWORD_BUZZER_10` |
+Voir [US-002 — Seed des comptes utilisateurs](US-002-seed-users.md) pour la liste complète des 11 comptes (1 admin + 10 buzzers) et leurs variables d'environnement.
 
 ### Configuration — Variables d'environnement
 
@@ -152,24 +128,10 @@ CREATE TABLE T_USER_USR
 |---|---|---|---|
 | `JWT_SECRET` | Secret de signature JWT (min 32 caractères) | ✅ Oui | — |
 | `JWT_EXPIRATION` | Durée de validité du token en secondes | Non | `3600` |
-| `SEED_PASSWORD_ADMIN` | Mot de passe initial de l'administrateur | ✅ Oui (seed) | — |
-| `SEED_PASSWORD_BUZZER_01` à `SEED_PASSWORD_BUZZER_10` | Mots de passe initiaux des buzzers | ✅ Oui (seed) | — |
-
-### Scripts npm
-
-```json
-{
-  "scripts": {
-    "seed": "node src/seed.js"
-  }
-}
-```
 
 ### Versioning API
 
-```
-Base URL : /api/v1
-```
+Voir [Conventions techniques — Versioning API](CONVENTIONS-TECHNIQUES.md#-versioning-api).
 
 ---
 
@@ -206,25 +168,13 @@ Base URL : /api/v1
 
 ### Structure du payload JWT
 
-```json
-{
-  "sub": "018e4f5a-8c3b-7d2e-9f1a-4b5c6d7e8f9a",
-  "role": "admin",
-  "iat": 1741358400,
-  "exp": 1741362000
-}
-```
-
-| Claim | Type | Description |
-|---|---|---|
-| `sub` (subject) | `string` | UUIDv7 de l'utilisateur (claim standard RFC 7519) |
-| `role` | `string` | Rôle de l'utilisateur (`"admin"` ou `"buzzer"`) |
-| `iat` (issued at) | `number` | Timestamp Unix de l'émission (automatique) |
-| `exp` (expiration) | `number` | Timestamp Unix d'expiration (automatique) |
+Voir [Annexe — Authentification et autorisation — Payload JWT](AUTHENTIFICATION.md#-structure-du-payload-jwt) pour la structure complète des claims.
 
 ---
 
 ## 🔐 Mécanisme d'authentification
+
+> **Source de vérité** — Cette US définit le mécanisme d'authentification. L'[Annexe — Authentification et autorisation](AUTHENTIFICATION.md) centralise la documentation de référence pour toutes les US qui réutilisent ce mécanisme.
 
 ### Flux d'émission du token
 
@@ -238,17 +188,6 @@ Client → POST /api/v1/token { username, password }
   → 6. Logging de la connexion (succès ou échec)
   → 7. Retour du token + métadonnées
 ```
-
-### Utilisation du token
-
-Le token émis par cet endpoint est utilisé dans deux contextes :
-
-| Contexte | Mécanisme | US associée |
-|---|---|---|
-| **API REST** | Header `Authorization: Bearer <token>` à chaque requête | US-004 et suivantes |
-| **WebSocket** | Authentification post-connexion (premier message) | US-009 |
-
-> **Note :** L'authentification WebSocket est spécifiée dans **[US-009 — Connexion WebSocket des buzzers et de l'application Angular](US-009-websocket-connection.md)**. Le token JWT émis ici est réutilisé pour l'authentification WebSocket. L'expiration du token (`expires_in` dans la réponse `auth_success`) **est calculée dynamiquement au moment de la validation du token** comme `Math.floor(token.exp - Date.now() / 1000)`, pour permettre une gestion proactive et précise de l'expiration côté client (ESP32, Angular). Ceci est critique pour les clients qui se connectent après un délai, car `expires_in` doit refléter le temps réel restant, pas l'expiration initiale du token.
 
 ---
 
@@ -301,17 +240,7 @@ Voir le [Catalogue centralisé des codes d'erreur](error-codes.md#1️⃣-codes-
 
 ## 🌱 Seed — Initialisation des comptes
 
-> **Cette section est désormais couverte par la [US-002 — Seed des comptes utilisateurs](US-002-seed-users.md).** La table `T_USER_USR` et son schéma sont définis dans la présente US, mais le script d'initialisation des comptes (`npm run seed`) est spécifié dans l'US-002.
-
-Le fichier `.env` doit inclure les variables de mots de passe suivantes (définies dans l'US-002) :
-
-```env
-JWT_SECRET=un-secret-long-et-aleatoire-de-min-32-caracteres
-JWT_EXPIRATION=3600
-
-SEED_PASSWORD_ADMIN=...
-SEED_PASSWORD_BUZZER_01=... à SEED_PASSWORD_BUZZER_10=...
-```
+Voir [US-002 — Seed des comptes utilisateurs](US-002-seed-users.md) pour le script de seed, les variables d'environnement des mots de passe et le format du fichier `.env`.
 
 ---
 
@@ -354,8 +283,4 @@ Le rate limiting de 100 req/min est **par adresse IP**. Cela permet à plusieurs
 
 ### Middlewares réutilisables (DRY / SOLID)
 
-Les middlewares `authenticate` et `authorize` définis dans cette US sont les mêmes que ceux utilisés par l'US-004 et toutes les futures US. Ils sont conçus comme des composants indépendants conformément au principe de responsabilité unique (SRP). Le middleware `authorize` est paramétrable par rôle (Open/Closed Principle).
-
-### Seed des comptes (US-002)
-
-L'initialisation des 11 comptes utilisateurs (1 admin + 10 buzzers) est gérée par un script dédié spécifié dans **[US-002 — Seed des comptes utilisateurs](US-002-seed-users.md)**. Le schéma de la table `T_USER_USR` défini dans cette US est requis avant d'exécuter le seed.
+Les middlewares `authenticate` et `authorize` définis dans cette US sont documentés dans l'[Annexe — Authentification et autorisation](AUTHENTIFICATION.md). Ils sont réutilisés par toutes les US avec des routes protégées (US-004 et suivantes).

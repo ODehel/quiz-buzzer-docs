@@ -2,14 +2,7 @@
 
 ## Contexte projet
 
-Le projet **Quiz Buzzer** se decompose en quatre applications :
-
-| Application | Technologie | Role |
-|---|---|---|
-| **Buzzers** | PlatformIO / ESP32-S3 | Peripheriques physiques de jeu |
-| **App mobile** | Android / NFC | Configuration WiFi des buzzers |
-| **App maitre de jeu** | Angular | Interface de gestion des parties |
-| **Serveur (hub)** | Node.js / JavaScript | Communication WebSocket entre l'app Angular et les buzzers, gestion du workflow des parties |
+Voir [VISION.md](VISION.md) pour la description complète du projet et de ses quatre applications.
 
 ---
 
@@ -29,7 +22,7 @@ Actuellement, les resultats sont diffuses question par question via WebSocket (`
 
 ## Criteres d'acceptance
 
-> Chaque critere d'acceptance liste ci-dessous doit etre couvert par **au moins un test automatise** (unitaire et/ou d'integration). La couverture globale du code de l'US doit etre **>= 90%**, mesuree via `jest --coverage`.
+> 🧪 **Exigence de couverture** — Voir [Conventions techniques — Couverture des tests](CONVENTIONS-TECHNIQUES.md#-exigence-de-couverture-des-tests). Chaque CA doit être couvert par au moins un test automatisé. Couverture globale ≥ 90 %.
 
 ### Lecture des resultats — `GET /api/v1/games/:id/results`
 
@@ -219,15 +212,7 @@ curl -s -w "\n-> HTTP %{http_code}\n" -X POST "$BASE_URL/api/v1/games/$GAME_ID/r
 
 ## Specifications techniques
 
-| Element | Choix |
-|---|---|
-| Runtime | Node.js 24 LTS (derniere version stable disponible) |
-| Langage | JavaScript (ES Modules) |
-| Base de donnees | SQLite |
-| Tests | Jest (derniere version stable disponible) |
-| Identifiants | UUIDv7 genere cote Node.js |
-| Horodatage | ISO 8601 UTC (millisecondes), genere cote Node.js |
-| Principes d'architecture | YAGNI, KISS, DRY, SOLID |
+Voir les [Conventions techniques](CONVENTIONS-TECHNIQUES.md) pour la stack complète, les principes d'architecture (KISS, DRY, YAGNI, SOLID) et les conventions de données.
 
 ---
 
