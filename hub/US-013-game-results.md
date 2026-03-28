@@ -2,7 +2,7 @@
 
 ## Contexte projet
 
-Voir [VISION.md](VISION.md) pour la description complète du projet et de ses quatre applications.
+Voir [VISION.md](../shared/VISION.md) pour la description complète du projet et de ses quatre applications.
 
 ---
 
@@ -22,7 +22,7 @@ Actuellement, les resultats sont diffuses question par question via WebSocket (`
 
 ## Criteres d'acceptance
 
-> 🧪 **Exigence de couverture** — Voir [Conventions techniques — Couverture des tests](CONVENTIONS-TECHNIQUES.md#-exigence-de-couverture-des-tests). Chaque CA doit être couvert par au moins un test automatisé. Couverture globale ≥ 90 %.
+> 🧪 **Exigence de couverture** — Voir [Conventions techniques — Couverture des tests](../shared/CONVENTIONS-TECHNIQUES.md#-exigence-de-couverture-des-tests). Chaque CA doit être couvert par au moins un test automatisé. Couverture globale ≥ 90 %.
 
 ### Lecture des resultats — `GET /api/v1/games/:id/results`
 
@@ -41,7 +41,7 @@ Actuellement, les resultats sont diffuses question par question via WebSocket (`
 
 ### Securite et transversalite
 
-Voir [Annexe — Criteres de securite transversaux](SECURITE-TRANSVERSALE.md)
+Voir [Annexe — Criteres de securite transversaux](../shared/SECURITE-TRANSVERSALE.md)
 
 Les criteres suivants s'appliquent a cette route :
 
@@ -212,7 +212,7 @@ curl -s -w "\n-> HTTP %{http_code}\n" -X POST "$BASE_URL/api/v1/games/$GAME_ID/r
 
 ## Specifications techniques
 
-Voir les [Conventions techniques](CONVENTIONS-TECHNIQUES.md) pour la stack complète, les principes d'architecture (KISS, DRY, YAGNI, SOLID) et les conventions de données.
+Voir les [Conventions techniques](../shared/CONVENTIONS-TECHNIQUES.md) pour la stack complète, les principes d'architecture (KISS, DRY, YAGNI, SOLID) et les conventions de données.
 
 ---
 

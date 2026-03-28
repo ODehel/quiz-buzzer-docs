@@ -2,7 +2,7 @@
 
 ## 📋 Contexte projet
 
-Voir [VISION.md](VISION.md) pour la description complète du projet et de ses quatre applications.
+Voir [VISION.md](../shared/VISION.md) pour la description complète du projet et de ses quatre applications.
 
 ---
 
@@ -16,7 +16,7 @@ Voir [VISION.md](VISION.md) pour la description complète du projet et de ses qu
 
 ## ✅ Critères d'acceptance
 
-> 🧪 **Exigence de couverture** — Voir [Conventions techniques — Couverture des tests](CONVENTIONS-TECHNIQUES.md#-exigence-de-couverture-des-tests). Chaque CA doit être couvert par au moins un test automatisé. Couverture globale ≥ 90 %.
+> 🧪 **Exigence de couverture** — Voir [Conventions techniques — Couverture des tests](../shared/CONVENTIONS-TECHNIQUES.md#-exigence-de-couverture-des-tests). Chaque CA doit être couvert par au moins un test automatisé. Couverture globale ≥ 90 %.
 
 ### Upload d'un média — `POST /api/v1/questions/:id/media`
 
@@ -59,7 +59,7 @@ Voir [VISION.md](VISION.md) pour la description complète du projet et de ses qu
 
 ### Sécurité et transversalité
 
-Voir [Annexe — Critères de sécurité transversaux](SECURITE-TRANSVERSALE.md)
+Voir [Annexe — Critères de sécurité transversaux](../shared/SECURITE-TRANSVERSALE.md)
 
 | # | Critère | Résultat attendu |
 |---|---|---|
@@ -202,7 +202,7 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X DELETE "$BASE_URL/api/v1/questions/$QU
 
 ## 🔧 Spécifications techniques
 
-Voir les [Conventions techniques](CONVENTIONS-TECHNIQUES.md) pour la stack complète, les principes d'architecture (KISS, DRY, YAGNI, SOLID) et les conventions de données.
+Voir les [Conventions techniques](../shared/CONVENTIONS-TECHNIQUES.md) pour la stack complète, les principes d'architecture (KISS, DRY, YAGNI, SOLID) et les conventions de données.
 
 ### Pas de modification de schéma SQL
 
@@ -277,7 +277,7 @@ La vérification du MIME est effectuée par `multer` via le `fileFilter`, **pas*
 
 ## 🔐 Authentification et autorisation
 
-Voir l'[Annexe — Authentification et autorisation](AUTHENTIFICATION.md) pour le mécanisme JWT, la structure du payload et l'architecture middleware.
+Voir l'[Annexe — Authentification et autorisation](../shared/AUTHENTIFICATION.md) pour le mécanisme JWT, la structure du payload et l'architecture middleware.
 
 Les middlewares `authenticate` et `authorize('admin')` définis en [US-003](US-003-authentication-token.md) sont réutilisés sur toutes les routes de cette US.
 

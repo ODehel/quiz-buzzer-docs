@@ -73,7 +73,7 @@ Voir [CONVENTIONS-TECHNIQUES.md](CONVENTIONS-TECHNIQUES.md) pour les détails d'
 | [CONVENTIONS-TECHNIQUES.md](CONVENTIONS-TECHNIQUES.md) | Stack technique, principes KISS/DRY/YAGNI/SOLID, couverture des tests, conventions de données |
 | [AUTHENTIFICATION.md](AUTHENTIFICATION.md) | Mécanisme JWT, payload, architecture middleware |
 | [SECURITE-TRANSVERSALE.md](SECURITE-TRANSVERSALE.md) | Critères de sécurité transversaux, cas de tests |
-| [error-codes.md](error-codes.md) | Catalogue centralisé des codes d'erreur |
+| [error-codes.md](../hub/error-codes.md) | Catalogue centralisé des codes d'erreur |
 
 ---
 
