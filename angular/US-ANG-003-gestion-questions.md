@@ -302,5 +302,5 @@ La validation croisée `correct_answer ∈ choices` est effectuée côté Angula
 ---
 
 **Dernière mise à jour** : 2026-03-28
-**Statut** : Rédigée — en attente d'implémentation (Sprint 2)
+**Statut** : Implémentée (Sprint 2)
 **Sprint** : 2
