@@ -328,5 +328,5 @@ En fin de partie directe, `buildResults()` reconstruit le résultat depuis les `
 ---
 
 **Dernière mise à jour** : 2026-03-28
-**Statut** : Rédigée — en attente d'implémentation (Sprints 6 et 7)
+**Statut** : Implémentée — Sprints 6 et 7 terminés
 **Sprint** : 6 (MCQ + classement + résultats), 7 (SPEED)
