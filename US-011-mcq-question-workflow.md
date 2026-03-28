@@ -41,74 +41,75 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 |---|---|---|
 | CA-4 | Le maître du jeu envoie `trigger_title` depuis Angular | La partie passe en `QUESTION_TITLE`, le serveur diffuse `question_title` à tous les buzzers et à Angular |
 | CA-5 | Le message `question_title` contient l'index de la question, le type (`MCQ`), le titre et le `time_limit` | Données conformes à la question en base |
-| CA-6 | `trigger_title` reçu alors que l'état n'est pas `OPEN` | Serveur envoie `error` à Angular avec code `INVALID_STATE` |
-| CA-7 | `trigger_title` reçu alors qu'il n'y a plus de question disponible (index hors limites) | Serveur envoie `error` à Angular avec code `NO_MORE_QUESTIONS` |
+| CA-6 | `trigger_title` reçu alors que la partie est en état `PENDING` (jamais démarrée) | Serveur envoie `error` à Angular avec code `INVALID_STATE` |
+| CA-7 | `trigger_title` reçu alors que l'état n'est pas `OPEN` (autre que `PENDING` : `QUESTION_TITLE`, `QUESTION_OPEN`, `QUESTION_CLOSED`, `COMPLETED`, `IN_ERROR`, etc.) | Serveur envoie `error` à Angular avec code `INVALID_STATE` |
+| CA-8 | `trigger_title` reçu alors qu'il n'y a plus de question disponible (index hors limites) | Serveur envoie `error` à Angular avec code `NO_MORE_QUESTIONS` |
 
 ### Déclenchement des propositions — `trigger_choices`
 
 | # | Critère | Résultat attendu |
 |---|---|---|
-| CA-8 | Le maître du jeu envoie `trigger_choices` depuis Angular | La partie passe en `QUESTION_OPEN`, le serveur diffuse `question_choices` à tous les buzzers et à Angular, le chronomètre démarre |
-| CA-9 | Le message `question_choices` contient les 4 propositions A/B/C/D, l'horodatage de démarrage du chrono (`started_at`) et la durée (`time_limit`) | Données conformes à la question en base |
-| CA-10 | Le serveur envoie un tick de resynchronisation `timer_tick` toutes les 5 secondes avec le temps restant | Format : `{ "type": "timer_tick", "remaining_seconds": N }` |
-| CA-11 | À expiration du chrono, le serveur envoie automatiquement `timer_end` à tous les buzzers et à Angular | **Informatif uniquement** : le message indique que le temps est écoulé et enregistre les joueurs n'ayant pas répondu avec `time_limit` comme temps de réponse. La transition vers `QUESTION_CLOSED` n'est pas automatique — le maître doit envoyer `trigger_correction` |
-| CA-12 | `trigger_choices` reçu alors que l'état n'est pas `QUESTION_TITLE` | Serveur envoie `error` à Angular avec code `INVALID_STATE` |
+| CA-9 | Le maître du jeu envoie `trigger_choices` depuis Angular | La partie passe en `QUESTION_OPEN`, le serveur diffuse `question_choices` à tous les buzzers et à Angular, le chronomètre démarre |
+| CA-10 | Le message `question_choices` contient les 4 propositions A/B/C/D, l'horodatage de démarrage du chrono (`started_at`) et la durée (`time_limit`) | Données conformes à la question en base |
+| CA-11 | Le serveur envoie un tick de resynchronisation `timer_tick` toutes les 5 secondes avec le temps restant | Format : `{ "type": "timer_tick", "remaining_seconds": N }` |
+| CA-12 | À expiration du chrono, le serveur envoie automatiquement `timer_end` à tous les buzzers et à Angular | **Informatif uniquement** : le message indique que le temps est écoulé et enregistre les joueurs n'ayant pas répondu avec `time_limit` comme temps de réponse. La transition vers `QUESTION_CLOSED` n'est pas automatique — le maître doit envoyer `trigger_correction` |
+| CA-13 | `trigger_choices` reçu alors que l'état n'est pas `QUESTION_TITLE` | Serveur envoie `error` à Angular avec code `INVALID_STATE` |
 
 ### Réponse d'un buzzer — `answer`
 
 | # | Critère | Résultat attendu |
 |---|---|---|
-| CA-13 | Un buzzer envoie `answer` avec une valeur `A`, `B`, `C` ou `D` en état `QUESTION_OPEN` | Le serveur enregistre la réponse en mémoire, accuse réception au buzzer (`answer_received`), notifie Angular en temps réel (`player_answered`) |
-| CA-14 | Le message `answer_received` envoyé au buzzer confirme la prise en compte de sa réponse | Format : `{ "type": "answer_received" }` |
-| CA-15 | Le message `player_answered` envoyé à Angular contient le nom du participant, sa réponse et son temps de réponse | Permet au maître du jeu de voir les réponses en direct avec le chrono |
-| CA-16 | Quand tous les joueurs connectés ont répondu, le serveur notifie Angular via `all_answered` | Le maître du jeu peut alors déclencher la correction sans attendre la fin du chrono |
-| CA-17 | Réponse reçue alors que l'état n'est pas `QUESTION_OPEN` | Serveur ignore silencieusement, log `WARN` |
-| CA-18 | Deuxième réponse d'un même buzzer pour la même question | Serveur ignore silencieusement, log `WARN` |
-| CA-19 | Valeur de réponse invalide (ni `A`, `B`, `C`, ni `D`) | Serveur ignore silencieusement, log `WARN` |
-| CA-20 | Réponse reçue après expiration du chrono (race condition : message en transit au moment de l'expiration) | Serveur ignore silencieusement, log `WARN` — le `timer_end` serveur fait foi |
-| CA-21 | Un buzzer dont le participant n'appartient pas à la partie envoie une réponse | Serveur ignore silencieusement, log `WARN` |
+| CA-14 | Un buzzer envoie `answer` avec une valeur `A`, `B`, `C` ou `D` en état `QUESTION_OPEN` | Le serveur enregistre la réponse en mémoire, accuse réception au buzzer (`answer_received`), notifie Angular en temps réel (`player_answered`) |
+| CA-15 | Le message `answer_received` envoyé au buzzer confirme la prise en compte de sa réponse | Format : `{ "type": "answer_received" }` |
+| CA-16 | Le message `player_answered` envoyé à Angular contient le nom du participant, sa réponse et son temps de réponse | Permet au maître du jeu de voir les réponses en direct avec le chrono |
+| CA-17 | Quand tous les joueurs connectés ont répondu, le serveur notifie Angular via `all_answered` | Le maître du jeu peut alors déclencher la correction sans attendre la fin du chrono |
+| CA-18 | Réponse reçue alors que l'état n'est pas `QUESTION_OPEN` | Serveur ignore silencieusement, log `WARN` |
+| CA-19 | Deuxième réponse d'un même buzzer pour la même question | Serveur ignore silencieusement, log `WARN` |
+| CA-20 | Valeur de réponse invalide (ni `A`, `B`, `C`, ni `D`) | Serveur ignore silencieusement, log `WARN` |
+| CA-21 | Réponse reçue après expiration du chrono (race condition : message en transit au moment de l'expiration) | Serveur ignore silencieusement, log `WARN` — le `timer_end` serveur fait foi |
+| CA-22 | Un buzzer dont le participant n'appartient pas à la partie envoie une réponse | Serveur ignore silencieusement, log `WARN` |
 
 ### Déclenchement de la correction — `trigger_correction`
 
 | # | Critère | Résultat attendu |
 |---|---|---|
-| CA-22 | Le maître du jeu envoie `trigger_correction` depuis Angular | **Seul déclencheur** de la transition `QUESTION_OPEN → QUESTION_CLOSED`. Condition : tous les joueurs ont répondu **ou** le chrono est expiré (`timer_end` reçu). Sinon : `error` avec code `ANSWERS_PENDING`. Attendre `timer_end` ne suffit pas — le maître doit explicitement envoyer `trigger_correction` |
-| CA-23 | Le serveur calcule les scores, les persiste en base et diffuse les résultats | Voir section Persistance |
-| CA-24 | Le serveur envoie `question_result` individuellement à chaque buzzer | Contient : la bonne réponse, la réponse du joueur, un indicateur `correct` (booléen), les points gagnés sur la question, le score cumulé du joueur |
-| CA-25 | Le serveur envoie `question_result_summary` à Angular | Contient : la bonne réponse, le détail complet de tous les joueurs (nom, réponse, temps de réponse, points gagnés, score cumulé), le classement mis à jour |
-| CA-26 | La partie passe en `QUESTION_CLOSED` | `GAM_STATUS` mis à jour en base |
-| CA-27 | `trigger_correction` reçu alors que l'état n'est pas `QUESTION_OPEN` | Serveur envoie `error` à Angular avec code `INVALID_STATE` |
-| CA-28 | `trigger_correction` reçu alors que le chrono tourne encore et qu'au moins un joueur n'a pas répondu | Serveur envoie `error` à Angular avec code `ANSWERS_PENDING` |
+| CA-23 | Le maître du jeu envoie `trigger_correction` depuis Angular | **Seul déclencheur** de la transition `QUESTION_OPEN → QUESTION_CLOSED`. Condition : tous les joueurs ont répondu **ou** le chrono est expiré (`timer_end` reçu). Sinon : `error` avec code `ANSWERS_PENDING`. Attendre `timer_end` ne suffit pas — le maître doit explicitement envoyer `trigger_correction` |
+| CA-24 | Le serveur calcule les scores, les persiste en base et diffuse les résultats | Voir section Persistance |
+| CA-25 | Le serveur envoie `question_result` individuellement à chaque buzzer | Contient : la bonne réponse, la réponse du joueur, un indicateur `correct` (booléen), les points gagnés sur la question, le score cumulé du joueur |
+| CA-26 | Le serveur envoie `question_result_summary` à Angular | Contient : la bonne réponse, le détail complet de tous les joueurs (nom, réponse, temps de réponse, points gagnés, score cumulé), le classement mis à jour |
+| CA-27 | La partie passe en `QUESTION_CLOSED` | `GAM_STATUS` mis à jour en base |
+| CA-28 | `trigger_correction` reçu alors que l'état n'est pas `QUESTION_OPEN` | Serveur envoie `error` à Angular avec code `INVALID_STATE` |
+| CA-29 | `trigger_correction` reçu alors que le chrono tourne encore et qu'au moins un joueur n'a pas répondu | Serveur envoie `error` à Angular avec code `ANSWERS_PENDING` |
 
 ### Passage à la question suivante — `trigger_next_question`
 
 | # | Critère | Résultat attendu |
 |---|---|---|
-| CA-29 | Le maître du jeu envoie `trigger_next_question` depuis Angular | Si questions restantes : `GAM_CURRENT_QUESTION_INDEX` incrémenté, partie repasse en `OPEN` |
-| CA-30 | Si c'était la dernière question, la partie passe en `COMPLETED` | `GAM_STATUS` mis à jour en base à `COMPLETED` |
-| CA-31 | `trigger_next_question` reçu alors que l'état n'est pas `QUESTION_CLOSED` | Serveur envoie `error` à Angular avec code `INVALID_STATE` |
+| CA-30 | Le maître du jeu envoie `trigger_next_question` depuis Angular | Si questions restantes : `GAM_CURRENT_QUESTION_INDEX` incrémenté, partie repasse en `OPEN` |
+| CA-31 | Si c'était la dernière question, la partie passe en `COMPLETED` | `GAM_STATUS` mis à jour en base à `COMPLETED` |
+| CA-32 | `trigger_next_question` reçu alors que l'état n'est pas `QUESTION_CLOSED` | Serveur envoie `error` à Angular avec code `INVALID_STATE` |
 
 ### Persistance des scores
 
 | # | Critère | Résultat attendu |
 |---|---|---|
-| CA-32 | À la fin de chaque question (déclenchement de la correction), les données sont sauvegardées en base pour chaque participant | Réponse donnée, temps de réponse (ms), points gagnés sur la question, score cumulé mis à jour |
-| CA-33 | Les joueurs n'ayant pas répondu avant expiration sont enregistrés avec `answer: null`, `time_ms: time_limit * 1000`, `points_earned: 0` | Score cumulé inchangé |
-| CA-34 | En cas d'erreur SQLite lors de la sauvegarde, le serveur effectue jusqu'à 3 tentatives | Délai exponentiel entre les tentatives |
-| CA-35 | Après 3 tentatives échouées, la partie passe en `IN_ERROR`, le serveur envoie `error` à Angular avec code `INTERNAL_ERROR` | Log `ERROR` avec détail technique |
-| CA-36 | En cas de crash serveur en cours de question (état `QUESTION_TITLE` ou `QUESTION_OPEN`), la reprise repart de la dernière question complètement terminée | La question interrompue est rejouée depuis `OPEN` |
+| CA-33 | À la fin de chaque question (déclenchement de la correction), les données sont sauvegardées en base pour chaque participant | Réponse donnée, temps de réponse (ms), points gagnés sur la question, score cumulé mis à jour |
+| CA-34 | Les joueurs n'ayant pas répondu avant expiration sont enregistrés avec `answer: null`, `time_ms: time_limit * 1000`, `points_earned: 0` | Score cumulé inchangé |
+| CA-35 | En cas d'erreur SQLite lors de la sauvegarde, le serveur effectue jusqu'à 3 tentatives | Délai exponentiel entre les tentatives |
+| CA-36 | Après 3 tentatives échouées, la partie passe en `IN_ERROR`, le serveur envoie `error` à Angular avec code `INTERNAL_ERROR` | Log `ERROR` avec détail technique |
+| CA-37 | En cas de crash serveur en cours de question (état `QUESTION_TITLE` ou `QUESTION_OPEN`), la reprise repart de la dernière question complètement terminée | La question interrompue est rejouée depuis `OPEN` |
 
 ### Sécurité et transversalité
 
 | # | Critère | Résultat attendu |
 |---|---|---|
-| CA-37 | Seul le client authentifié avec le rôle `admin` peut envoyer des messages de pilotage | Buzzer envoyant un message de pilotage → ignoré silencieusement, log `WARN` |
-| CA-38 | Seul un client authentifié avec le rôle `buzzer` peut envoyer `answer` | Angular envoyant `answer` → ignoré silencieusement, log `WARN` |
-| CA-39 | Tout message reçu d'un client non authentifié est ignoré | Ignoré silencieusement, log `WARN` |
-| CA-40 | Tout message avec un `type` inconnu est ignoré | Ignoré silencieusement, log `WARN` |
-| CA-41 | Tout message avec un JSON invalide est ignoré | Ignoré silencieusement, log `WARN` |
-| CA-42 | Tout message avec des champs manquants ou invalides | Serveur envoie `error` au client émetteur avec code `INVALID_MESSAGE` |
-| CA-43 | Tests unitaires et d'intégration | Couverture de tests ≥ 90% |
+| CA-38 | Seul le client authentifié avec le rôle `admin` peut envoyer des messages de pilotage | Buzzer envoyant un message de pilotage → ignoré silencieusement, log `WARN` |
+| CA-39 | Seul un client authentifié avec le rôle `buzzer` peut envoyer `answer` | Angular envoyant `answer` → ignoré silencieusement, log `WARN` |
+| CA-40 | Tout message reçu d'un client non authentifié est ignoré | Ignoré silencieusement, log `WARN` |
+| CA-41 | Tout message avec un `type` inconnu est ignoré | Ignoré silencieusement, log `WARN` |
+| CA-42 | Tout message avec un JSON invalide est ignoré | Ignoré silencieusement, log `WARN` |
+| CA-43 | Tout message avec des champs manquants ou invalides | Serveur envoie `error` au client émetteur avec code `INVALID_MESSAGE` |
+| CA-44 | Tests unitaires et d'intégration | Couverture de tests ≥ 90% |
 
 ---
 
