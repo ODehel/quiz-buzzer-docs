@@ -256,5 +256,5 @@ L'association entre le N-ième participant et le N-ième buzzer est une conventi
 ---
 
 **Dernière mise à jour** : 2026-03-28
-**Statut** : Rédigée — en attente d'implémentation (Sprint 5)
+**Statut** : Implémentée — 26 tests, couverture 94.59% statements / 98.48% lines
 **Sprint** : 5
