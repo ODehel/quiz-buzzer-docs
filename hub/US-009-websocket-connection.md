@@ -66,6 +66,14 @@ Voir [VISION.md](../shared/VISION.md) pour la description complète du projet et
 | CA-20 | Une authentification WebSocket échouée est loggée | `WEBSOCKET_AUTH_FAILED` — niveau `WARN` |
 | CA-21 | Une déconnexion WebSocket est loggée avec le récapitulatif des clients connectés | `WEBSOCKET_DISCONNECTED` — niveau `INFO` — inclut `buzzers_connected`, `buzzers_max`, `admin_connected` |
 
+### Notifications de connexion/déconnexion de buzzers
+
+| # | Critère | Résultat attendu |
+|---|---|---|
+| CA-27 | Quand un buzzer s'authentifie avec succès, le serveur envoie un message `buzzer_connected` à l'admin | `{ "type": "buzzer_connected", "username": "quiz_buzzer_01" }` |
+| CA-28 | Quand un buzzer se déconnecte, le serveur envoie un message `buzzer_disconnected` à l'admin | `{ "type": "buzzer_disconnected", "username": "quiz_buzzer_01" }` |
+| CA-29 | L'admin peut envoyer `request_game_state` pour recevoir un `game_state_sync` à la demande (inclut `connected_buzzers`) | Permet le polling de l'état des buzzers connectés |
+
 ### Messages post-authentification
 
 | # | Critère | Résultat attendu |
@@ -146,6 +154,32 @@ Voir les [Conventions techniques](../shared/CONVENTIONS-TECHNIQUES.md) pour la s
 **Notes:**
 - `expires_in` : Nombre de secondes **avant l'expiration actuelle** du token JWT (US-003), **calculé dynamiquement** à l'instant de l'envoi du message `auth_success` comme `Math.floor(token.exp - Date.now() / 1000)`. Cette valeur décroît avec le temps : si un client se reconnecte 50 minutes après l'émission du token, `expires_in` reflétera le temps réel restant, pas l'expiration initiale du token.
 
+**Notification de connexion d'un buzzer (Serveur → Admin) :**
+
+```json
+{
+  "type": "buzzer_connected",
+  "username": "quiz_buzzer_01"
+}
+```
+
+**Notification de déconnexion d'un buzzer (Serveur → Admin) :**
+
+```json
+{
+  "type": "buzzer_disconnected",
+  "username": "quiz_buzzer_01"
+}
+```
+
+**Demande de synchronisation (Admin → Serveur) :**
+
+```json
+{
+  "type": "request_game_state"
+}
+```
+
 ### Codes de fermeture WebSocket
 
 | Code | Constante | Raison | Contexte |
@@ -176,16 +210,18 @@ Client (buzzer ou Angular) → Upgrade HTTP → ws://<ip>:<port>/ws
   → 8. Vérification de connexion existante pour ce `sub`
     → Si existante → fermeture silencieuse de l'ancienne (4004)
   → 9. Enregistrement dans le registre des connexions
-  → 10. Envoi de { "type": "auth_success", ... }
-  → 11. Log WEBSOCKET_AUTHENTICATED avec récapitulatif
+  → 10. Si rôle buzzer → envoi de { "type": "buzzer_connected", "username": "..." } à l'admin
+  → 11. Envoi de { "type": "auth_success", ... }
+  → 12. Log WEBSOCKET_AUTHENTICATED avec récapitulatif
 ```
 
 ### Flux de déconnexion
 
 ```
 Client se déconnecte (fermeture TCP, close frame, ou perte réseau)
-  → 1. Suppression du registre des connexions
-  → 2. Log WEBSOCKET_DISCONNECTED avec récapitulatif
+  → 1. Si rôle buzzer → envoi de { "type": "buzzer_disconnected", "username": "..." } à l'admin
+  → 2. Suppression du registre des connexions
+  → 3. Log WEBSOCKET_DISCONNECTED avec récapitulatif
 ```
 
 ### Registre des connexions (en mémoire)
