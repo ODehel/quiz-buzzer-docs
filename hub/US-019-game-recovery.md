@@ -42,7 +42,7 @@ Voir [VISION.md](../shared/VISION.md) pour la description complète du projet et
 | CA-11 | Angular se reconnecte (rôle `admin`) alors qu'une partie est en statut `OPEN` | Le serveur envoie `game_state_sync` à Angular immédiatement après `auth_success` — sans `started_at` ni `time_limit` |
 | CA-12 | Angular se reconnecte alors qu'une partie est en statut `QUESTION_TITLE` ou `QUESTION_CLOSED` | Le serveur envoie `game_state_sync` à Angular sans `started_at` ni `time_limit` |
 | CA-13 | Angular se reconnecte alors qu'une partie est en statut `QUESTION_OPEN` ou `QUESTION_BUZZED` | Le serveur envoie `game_state_sync` à Angular avec `started_at` et `time_limit` pour permettre le recalcul du temps restant côté Angular |
-| CA-14 | Le message `game_state_sync` contient `game_id`, `status`, `question_index`, `quiz_id` et la liste des participants avec leur score cumulé | Données calculées à partir de `T_GAME_GAM`, `T_GAME_PARTICIPANT_GPA` et `T_GAME_ANSWER_GAA` |
+| CA-14 | Le message `game_state_sync` contient `game_id`, `status`, `question_index`, `quiz_id`, la liste des participants avec leur score cumulé et la liste `connected_buzzers` (usernames des buzzers actuellement connectés) | Données calculées à partir de `T_GAME_GAM`, `T_GAME_PARTICIPANT_GPA`, `T_GAME_ANSWER_GAA` et du registre WebSocket en mémoire |
 | CA-15 | Une partie en statut `IN_ERROR`, `PENDING` ou `COMPLETED` n'entraîne pas l'envoi d'un `game_state_sync` | Angular ne reçoit aucun message de synchronisation pour ces statuts |
 
 ### Synchronisation d'un buzzer à la reconnexion
@@ -287,7 +287,8 @@ Statut `OPEN`, `QUESTION_TITLE` ou `QUESTION_CLOSED` :
     { "order": 1, "name": "Alice", "cumulative_score": 30 },
     { "order": 2, "name": "Bob",   "cumulative_score": 15 },
     { "order": 3, "name": "Charlie", "cumulative_score": 45 }
-  ]
+  ],
+  "connected_buzzers": ["Alice", "Bob", "Charlie"]
 }
 ```
 
@@ -305,6 +306,7 @@ Statut `QUESTION_OPEN` ou `QUESTION_BUZZED` — avec `started_at` et `time_limit
     { "order": 2, "name": "Bob",     "cumulative_score": 15 },
     { "order": 3, "name": "Charlie", "cumulative_score": 45 }
   ],
+  "connected_buzzers": ["Alice", "Bob", "Charlie"],
   "started_at": "2026-03-27T14:30:00.000Z",
   "time_limit": 30
 }
