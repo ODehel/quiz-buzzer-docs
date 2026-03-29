@@ -130,7 +130,8 @@ export type OutboundMessage =
   | { type: 'trigger_intermediate_ranking' }
   | { type: 'trigger_system_sound';    sound_id: SystemSoundId; targets?: string[] }
   | { type: 'play_sound';              sound_id: string;        targets?: string[] }
-  | { type: 'auth_refresh';            token: string };
+  | { type: 'auth_refresh';            token: string }
+  | { type: 'request_game_state' };
 
 export type SystemSoundId =
   | 'BUZZ_PRESSED' | 'BUZZ_LOCKED' | 'BUZZ_INVALIDATED'
@@ -190,7 +191,16 @@ readonly canCorrect       = computed(() => {
   return s.status === 'QUESTION_OPEN' && (s.allAnswered || s.timerEnded);
 });
 readonly connectedBuzzers = computed(() => this._state().connectedBuzzers);
+
+// Polling pour mises à jour des buzzers en temps réel
+requestSync(): void { this.ws.send({ type: 'request_game_state' }); }
+startPolling(intervalMs = 3_000): void { ... }  // Envoie request_game_state périodiquement
+stopPolling(): void { ... }                       // Arrête le polling
 ```
+
+> **Polling buzzers** : Le serveur n'envoie pas d'événements `buzzer_connected` individuels aux clients admin.
+> Le lobby (3 s) et le dashboard (5 s) appellent `startPolling()` / `stopPolling()` pour recevoir
+> des `game_state_sync` rafraîchis contenant la liste `connected_buzzers` à jour.
 
 ---
 
