@@ -71,10 +71,10 @@ Voir [VISION.md](VISION.md) pour la description complète du projet et de ses qu
 | # | Critère | Résultat attendu |
 |---|---|---|
 | CA-14 | Le bouton "Démarrer la partie" est toujours visible et cliquable, quelle que soit la readiness | La readiness est informative — elle n'empêche pas le démarrage |
-| CA-15 | Un clic sur "Démarrer la partie" appelle `PATCH /api/v1/games/:id` avec `{ "status": "OPEN" }` | L'ID est lu depuis `GameStateService.state().gameId` |
+| CA-15 | Un clic sur "Démarrer la partie" appelle `POST /api/v1/games/:id/start` | L'ID est lu depuis `GameStateService.state().gameId` |
 | CA-16 | En cas de `200 OK`, Angular attend la réception de `game_state_sync` avec `status: 'OPEN'` avant de naviguer | La transition côté Angular est pilotée par le WebSocket, pas par la réponse REST |
 | CA-17 | À la réception de `game_state_sync` avec `status: 'OPEN'`, navigation vers `/pilot/play` | Déclenchée par un `effect()` sur `GameStateService.status()` dans `LobbyComponent` |
-| CA-18 | En cas d'erreur réseau ou `5xx` lors du PATCH : toast d'erreur "Impossible de démarrer la partie" | Le bouton redevient actif — pas de navigation |
+| CA-18 | En cas d'erreur réseau ou `5xx` lors du POST : toast d'erreur "Impossible de démarrer la partie" | Le bouton redevient actif — pas de navigation |
 
 #### Annulation de la partie
 
@@ -185,10 +185,7 @@ export class LobbyComponent {
 ```typescript
 async start(id: string): Promise<Game> {
   return firstValueFrom(
-    this.http.patch<Game>(
-      `${this.env.serverUrl}/api/v1/games/${id}`,
-      { status: 'OPEN' }
-    )
+    this.http.post<Game>(`${this.baseUrl}/${id}/start`, {})
   );
 }
 ```
@@ -198,7 +195,7 @@ async start(id: string): Promise<Game> {
 | Appel | Endpoint | US serveur | Contexte |
 |---|---|---|---|
 | Nom du quiz | `GET /api/v1/quizzes/:id` | US-008 | Affichage du nom en en-tête |
-| Démarrage | `PATCH /api/v1/games/:id` `{ status: 'OPEN' }` | US-010 | Bouton "Démarrer" |
+| Démarrage | `POST /api/v1/games/:id/start` | US-010 | Bouton "Démarrer" |
 | Suppression | `DELETE /api/v1/games/:id` | US-010 | Bouton "Annuler" |
 
 ### Messages WebSocket traités (via `GameStateService`)
@@ -218,7 +215,7 @@ async start(id: string): Promise<Game> {
 |---|---|
 | Affichage temps réel des buzzers connectés | Limitation du démarrage si buzzers insuffisants |
 | Barre de readiness informative | Attribution forcée buzzers ↔ participants (YAGNI) |
-| Démarrage via `PATCH { status: 'OPEN' }` | Démarrage automatique si tous connectés (YAGNI) |
+| Démarrage via `POST /api/v1/games/:id/start` | Démarrage automatique si tous connectés (YAGNI) |
 | Navigation automatique sur `game_state_sync { status: 'OPEN' }` | Édition des participants depuis le lobby (YAGNI) |
 | Annulation de la partie avec `DELETE` | Annulation depuis l'écran de pilotage |
 | Reconnexion WebSocket transparente | Reconnexion manuelle explicite |
@@ -230,7 +227,7 @@ async start(id: string): Promise<Game> {
 
 ### Navigation déclenchée par le WebSocket, pas par le REST
 
-Le `PATCH { status: 'OPEN' }` est une instruction au serveur — Angular ne navigue **pas** immédiatement après la réponse `200 OK`. La navigation est déclenchée par l'`effect()` réagissant à `GameStateService.status()`, mis à jour par `game_state_sync`. Ce délai garantit que l'état local est synchronisé avec l'état serveur avant que `PlayComponent` ne se monte.
+Le `POST /api/v1/games/:id/start` est une instruction au serveur — Angular ne navigue **pas** immédiatement après la réponse `200 OK`. La navigation est déclenchée par l'`effect()` réagissant à `GameStateService.status()`, mis à jour par `game_state_sync`. Ce délai garantit que l'état local est synchronisé avec l'état serveur avant que `PlayComponent` ne se monte.
 
 ### `effect()` dans le constructeur — pattern Angular 18
 
@@ -251,7 +248,7 @@ L'association entre le N-ième participant et le N-ième buzzer est une conventi
 | [US-ANG-001 — Initialisation](US-ANG-001-init-session.md) | `WebSocketService`, `GameStateService` |
 | [US-ANG-006 — Liste des parties et création](US-ANG-006-liste-parties-creation.md) | Flux précédent |
 | [US-ANG-008 — Pilotage](US-ANG-008-pilotage.md) | Suite immédiate après démarrage |
-| [US-010 — CRUD des parties (serveur)](US-010-game-crud.md) | Endpoint PATCH et DELETE |
+| [US-010 — CRUD des parties (serveur)](US-010-game-crud.md) | Endpoints POST start et DELETE |
 
 ---
 

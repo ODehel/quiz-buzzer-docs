@@ -95,6 +95,17 @@ Voir [VISION.md](../shared/VISION.md) pour la description complète du projet et
 | CA-45 | ID mal formé dans l'URL | `400 INVALID_UUID` |
 | CA-46 | Le `Content-Type` doit être `application/json` | Sinon → `415 UNSUPPORTED_MEDIA_TYPE` |
 
+### Démarrage — `POST /api/v1/games/:id/start`
+
+| # | Critère | Résultat attendu |
+|---|---|---|
+| CA-59 | Un `POST /api/v1/games/:id/start` sur une partie en statut `PENDING` passe le statut à `OPEN` | `200 OK` avec la partie mise à jour (`status: "OPEN"`) |
+| CA-60 | Le body est ignoré — aucun champ attendu | Body vide `{}` ou absent accepté |
+| CA-61 | L'endpoint déclenche le callback `onGameStatusChange("OPEN")` pour notifier la couche WebSocket | `game_state_sync` envoyé aux clients connectés |
+| CA-62 | Si la partie n'est pas en statut `PENDING`, les mêmes règles de transition s'appliquent (CA-25 à CA-29) | `422 INVALID_TRANSITION` si la transition est interdite |
+| CA-63 | ID inexistant | `404 NOT_FOUND` |
+| CA-64 | ID mal formé | `400 INVALID_UUID` |
+
 ### Suppression — `DELETE /api/v1/games/:id`
 
 | # | Critère | Résultat attendu |
@@ -349,6 +360,24 @@ curl -s -w "\n→ HTTP %{http_code}\n" -X PATCH "$BASE_URL/api/v1/games/$GAME_ID
 # Prérequis : partie en statut PENDING
 ```
 
+### Démarrage — `POST /api/v1/games/:id/start`
+
+**CA-59** — Démarrer une partie en statut `PENDING` → `200 OK`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X POST "$BASE_URL/api/v1/games/$GAME_ID/start" \
+  -H "Authorization: Bearer $TOKEN"
+# Prérequis : partie en statut PENDING
+```
+
+**CA-62** — Partie déjà en statut `OPEN` → `422 INVALID_TRANSITION`
+
+```bash
+curl -s -w "\n→ HTTP %{http_code}\n" -X POST "$BASE_URL/api/v1/games/$GAME_ID/start" \
+  -H "Authorization: Bearer $TOKEN"
+# Prérequis : partie en statut OPEN (déjà démarrée)
+```
+
 ### Suppression — `DELETE /api/v1/games/:id`
 
 **CA-47** — Supprimer une partie → `204 No Content`
@@ -523,6 +552,7 @@ Modifier le statut seul :
 | `GET` | `/api/v1/games/:id` | Récupérer une partie | Bearer (admin) | `200 OK` |
 | `PUT` | `/api/v1/games/:id` | Modifier complètement une partie | Bearer (admin) | `200 OK` |
 | `PATCH` | `/api/v1/games/:id` | Modifier partiellement une partie | Bearer (admin) | `200 OK` |
+| `POST` | `/api/v1/games/:id/start` | Démarrer une partie (`PENDING → OPEN`) | Bearer (admin) | `200 OK` |
 | `DELETE` | `/api/v1/games/:id` | Supprimer une partie | Bearer (admin) | `204 No Content` |
 
 ### Headers `Allow` par ressource
@@ -531,6 +561,7 @@ Modifier le statut seul :
 |---|---|
 | `/api/v1/games` | `GET, POST` |
 | `/api/v1/games/:id` | `GET, PUT, PATCH, DELETE` |
+| `/api/v1/games/:id/start` | `POST` |
 
 ---
 
