@@ -4,10 +4,10 @@
 
 | Élément | Choix | Justification |
 |---|---|---|
-| Angular | 18 LTS | Standalone components, Signals stables, pas de NgModules |
+| Angular | 21 LTS | Standalone par défaut, Signal inputs/outputs, pas de NgModules |
 | State management | Angular Signals | État discret par événements, rendu fin, pas de flux continu |
 | WebSocket | RxJS `webSocket` + `retryWhen` | Reconnexion, backoff exponentiel — RxJS excelle ici |
-| HTTP | `HttpClient` + `APP_INITIALIZER` | Auto-login au boot, intercepteur Bearer global |
+| HTTP | `HttpClient` + `provideAppInitializer` | Auto-login au boot, intercepteur Bearer global |
 | Routing | Angular Router, lazy loading par zone | Un bundle par zone fonctionnelle |
 | Drag-and-drop (compositeur quiz) | `@angular/cdk/drag-drop` | CDK officiel, pas de dépendance tierce |
 | Tests | Jest + Angular Testing Library | Cohérence avec le serveur Node.js |
@@ -30,7 +30,9 @@ src/
 │   │   ├── services/
 │   │   │   ├── auth.service.ts        ← Auto-login, token JWT, refresh
 │   │   │   ├── websocket.service.ts   ← Connexion WS, reconnexion RxJS
-│   │   │   └── game-state.service.ts  ← Signals : état courant de la partie
+│   │   │   ├── game-state.service.ts  ← Signals : état courant de la partie
+│   │   │   ├── health.service.ts      ← Version serveur, URL serveur
+│   │   │   └── toast.service.ts       ← Notifications toast partagées
 │   │   ├── interceptors/
 │   │   │   └── auth.interceptor.ts    ← Injection Bearer sur toutes les requêtes
 │   │   ├── guards/
@@ -291,20 +293,20 @@ export const noActiveGameGuard: CanActivateFn = () => {
 ```typescript
 export const appConfig: ApplicationConfig = {
   providers: [
+    provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes, withComponentInputBinding()),
     provideHttpClient(withInterceptors([authInterceptor])),
-    provideAnimations(),
-    {
-      provide: APP_INITIALIZER,
-      useFactory: (auth: AuthService, ws: WebSocketService, gs: GameStateService) =>
-        async () => {
-          await auth.initialize();   // POST /api/v1/token
-          ws.connect();              // Connexion WebSocket + auth
-          await gs.syncInitial();    // GET /api/v1/games (partie active ?)
-        },
-      deps: [AuthService, WebSocketService, GameStateService],
-      multi: true
-    }
+    provideAnimationsAsync(),
+    provideAppInitializer(async () => {
+      const auth = inject(AuthService);
+      const ws = inject(WebSocketService);
+      const gs = inject(GameStateService);
+      await auth.initialize();   // POST /api/v1/token
+      if (auth.isReady()) {
+        ws.connect();              // Connexion WebSocket + auth
+        await gs.syncInitial();    // GET /api/v1/games (partie active ?)
+      }
+    }),
   ]
 };
 ```
@@ -314,7 +316,7 @@ export const appConfig: ApplicationConfig = {
 ## 🔄 Flux d'initialisation complet
 
 ```
-APP_INITIALIZER
+provideAppInitializer
   ├── AuthService.initialize()
   │     └── POST /api/v1/token → token stocké dans signal
   │           → Échec : navigate('/error') — bloquant
@@ -359,8 +361,8 @@ export class PlayComponent {
 }
 ```
 
-Les sous-composants **ne lisent que des signals computed** et **n'injectent pas `WebSocketService` directement**. Ils émettent des actions via `Output()` que `PlayComponent` traite. Le seul endroit qui appelle `ws.send()` dans l'espace pilotage est `PlayComponent`.
+Les sous-composants **ne lisent que des signals computed** et **n'injectent pas `WebSocketService` directement**. Ils émettent des actions via `output()` (signal-based) que `PlayComponent` traite. Le seul endroit qui appelle `ws.send()` dans l'espace pilotage est `PlayComponent`.
 
 ---
 
-**Dernière mise à jour** : 2026-03-28
+**Dernière mise à jour** : 2026-03-30
