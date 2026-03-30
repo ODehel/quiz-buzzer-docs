@@ -4,7 +4,7 @@
 
 | Élément | Choix |
 |---|---|
-| Framework | Angular 18 LTS |
+| Framework | Angular 21 LTS |
 | Langage | TypeScript strict (`strict: true`, `noImplicitAny: true`) |
 | Composants | Standalone components uniquement — aucun NgModule |
 | State management | Angular Signals (`signal`, `computed`, `effect`) |
@@ -86,6 +86,21 @@ readonly isReady  = signal(false);  // writable public : cas rares, justifiés
 // ❌ this.state.set(...)  depuis l'extérieur du service
 ```
 
+### Signal inputs et outputs (Angular 21)
+
+```typescript
+// Inputs — utiliser input() / input.required() au lieu de @Input()
+readonly status = input.required<GameStatus>();         // obligatoire
+readonly page = input(1);                                // avec valeur par défaut
+
+// Outputs — utiliser output() au lieu de @Output() + EventEmitter
+readonly pageChange = output<number>();                  // émet des valeurs
+readonly close = output<void>();                         // émet sans valeur
+
+// Usage dans le template — identique
+// <app-paginator [page]="currentPage()" (pageChange)="onPage($event)" />
+```
+
 ### Observables
 
 ```typescript
@@ -125,23 +140,23 @@ Ordre canonique dans chaque fichier `.component.ts` :
 
 @Component({
   selector: 'app-question-form',       // toujours préfixe app-
-  standalone: true,
   imports: [ /* dépendances directes uniquement */ ],
   templateUrl: './question-form.component.html',   // template externe si > 20 lignes
   // ou template: `...`                            // inline si ≤ 20 lignes
   changeDetection: ChangeDetectionStrategy.OnPush  // TOUJOURS OnPush
 })
+// standalone: true est le défaut depuis Angular 19 — ne pas le spécifier
 export class QuestionFormComponent {
   // A. Injections (inject() fonction, pas le constructeur)
   private readonly gs  = inject(GameStateService);
   private readonly ws  = inject(WebSocketService);
   private readonly router = inject(Router);
 
-  // B. Inputs
-  @Input({ required: true }) questionId!: string;
+  // B. Signal Inputs (remplacent @Input depuis Angular 21)
+  readonly questionId = input.required<string>();
 
-  // C. Outputs
-  @Output() saved = new EventEmitter<void>();
+  // C. Signal Outputs (remplacent @Output + EventEmitter)
+  readonly saved = output<void>();
 
   // D. Signals et computed locaux
   protected readonly isLoading = signal(false);
@@ -325,7 +340,12 @@ describe('QuestionFormComponent — création MCQ', () => {
 
 | Anti-pattern | Alternative |
 |---|---|
-| `NgModule` | Standalone components |
+| `NgModule` | Standalone components (défaut depuis Angular 19) |
+| `standalone: true` explicite | Ne pas spécifier — c'est le défaut |
+| `@Input()` / `@Output()` décorateurs | `input()` / `input.required()` / `output()` signal-based |
+| `EventEmitter` | `output()` depuis `@angular/core` |
+| `APP_INITIALIZER` | `provideAppInitializer()` |
+| `provideAnimations()` | `provideAnimationsAsync()` |
 | `BehaviorSubject` public mutable | `signal` + méthode de mutation dédiée |
 | `any` dans les types | Types stricts ou `unknown` + narrowing |
 | Logique métier dans le template | `computed` dans le composant |
@@ -335,6 +355,7 @@ describe('QuestionFormComponent — création MCQ', () => {
 | Mutation directe d'un objet de signal | `signal.update(s => ({ ...s, change }))` |
 | Plusieurs responsabilités dans un composant | Découper en sous-composants ou services |
 | Hardcoder l'URL du serveur | `environment.serverUrl` |
+| `HttpClientTestingModule` | `provideHttpClient()` + `provideHttpClientTesting()` |
 
 ---
 
@@ -346,4 +367,4 @@ Les US Angular référenceront ce document ainsi :
 
 ---
 
-**Dernière mise à jour** : 2026-03-28
+**Dernière mise à jour** : 2026-03-30
