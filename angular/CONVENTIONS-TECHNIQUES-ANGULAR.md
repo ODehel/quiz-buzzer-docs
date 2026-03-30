@@ -141,8 +141,8 @@ Ordre canonique dans chaque fichier `.component.ts` :
 @Component({
   selector: 'app-question-form',       // toujours préfixe app-
   imports: [ /* dépendances directes uniquement */ ],
-  templateUrl: './question-form.component.html',   // template externe si > 20 lignes
-  // ou template: `...`                            // inline si ≤ 20 lignes
+  templateUrl: './question-form.component.html',   // template TOUJOURS dans un fichier dédié
+  styleUrl: './question-form.component.css',       // styles TOUJOURS dans un fichier dédié
   changeDetection: ChangeDetectionStrategy.OnPush  // TOUJOURS OnPush
 })
 // standalone: true est le défaut depuis Angular 19 — ne pas le spécifier
@@ -176,6 +176,10 @@ export class QuestionFormComponent {
 - `inject()` plutôt que constructeur pour l'injection de dépendances
 - Pas de logique dans le template — les conditions complexes vont dans des `computed`
 - Les composants ne consomment jamais `HttpClient` directement — ils passent par leur service dédié
+- Les composants n'importent jamais `environment` directement — ils passent par leur service dédié
+- Template **toujours** dans un fichier `.component.html` dédié (`templateUrl`, jamais `template:`)
+- Styles **toujours** dans un fichier `.component.css` dédié (`styleUrl`, jamais `styles:`)
+- Notifications toast via `ToastService` injecté (jamais de signal `toastMessage` local)
 
 ---
 
@@ -349,7 +353,11 @@ describe('QuestionFormComponent — création MCQ', () => {
 | `BehaviorSubject` public mutable | `signal` + méthode de mutation dédiée |
 | `any` dans les types | Types stricts ou `unknown` + narrowing |
 | Logique métier dans le template | `computed` dans le composant |
-| `HttpClient` dans un composant | Service dédié |
+| `HttpClient` dans un composant | Service dédié (`HealthService`, `GameService`, etc.) |
+| `import { environment }` dans un composant | Accès via le service dédié (ex: `QuestionService.getMediaUrl()`) |
+| `template:` inline dans le composant | `templateUrl: './name.component.html'` — fichier dédié |
+| `styles: [...]` inline dans le composant | `styleUrl: './name.component.css'` — fichier dédié |
+| Signal `toastMessage` local + `showToast()` | `ToastService.show()` injecté — centralise les notifications |
 | `subscribe()` sans `takeUntilDestroyed()` | `takeUntilDestroyed(this.destroyRef)` sur tous les `subscribe` |
 | `console.log` en prod | Logger service (ou suppression par le build) |
 | Mutation directe d'un objet de signal | `signal.update(s => ({ ...s, change }))` |

@@ -30,7 +30,9 @@ src/
 │   │   ├── services/
 │   │   │   ├── auth.service.ts        ← Auto-login, token JWT, refresh
 │   │   │   ├── websocket.service.ts   ← Connexion WS, reconnexion RxJS
-│   │   │   └── game-state.service.ts  ← Signals : état courant de la partie
+│   │   │   ├── game-state.service.ts  ← Signals : état courant de la partie
+│   │   │   ├── health.service.ts      ← Version serveur, URL serveur
+│   │   │   └── toast.service.ts       ← Notifications toast partagées
 │   │   ├── interceptors/
 │   │   │   └── auth.interceptor.ts    ← Injection Bearer sur toutes les requêtes
 │   │   ├── guards/
