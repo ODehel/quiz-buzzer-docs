@@ -105,6 +105,9 @@ Voir [VISION.md](../shared/VISION.md) pour la description complète du projet et
 | CA-62 | Si la partie n'est pas en statut `PENDING`, les mêmes règles de transition s'appliquent (CA-25 à CA-29) | `422 INVALID_TRANSITION` si la transition est interdite |
 | CA-63 | ID inexistant | `404 NOT_FOUND` |
 | CA-64 | ID mal formé | `400 INVALID_UUID` |
+| CA-65 | Au démarrage de la partie, le serveur assigne les buzzers connectés aux participants par ordre de connexion (`connectedAt` croissant) | Le N-ième buzzer connecté est assigné au participant d'ordre N. La colonne `GPA_BUZZER_SUB` est mise à jour avec le `sub` (UUIDv7) du buzzer assigné |
+| CA-66 | Si moins de buzzers sont connectés que de participants, les participants restants n'ont pas de buzzer assigné | `GPA_BUZZER_SUB` reste `NULL` — ces participants sont traités comme non-connectés pendant la partie |
+| CA-67 | Si plus de buzzers sont connectés que de participants, les buzzers excédentaires ne sont pas assignés | Seuls les N premiers buzzers (par ordre de connexion) sont assignés, où N = nombre de participants |
 
 ### Suppression — `DELETE /api/v1/games/:id`
 
@@ -445,11 +448,13 @@ CREATE TABLE IF NOT EXISTS T_GAME_GAM
 
 CREATE TABLE IF NOT EXISTS T_GAME_PARTICIPANT_GPA
 (
-    GPA_GAME_ID TEXT    NOT NULL REFERENCES T_GAME_GAM (GAM_ID) ON DELETE CASCADE,
-    GPA_NAME    TEXT    NOT NULL,
-    GPA_ORDER   INTEGER NOT NULL CHECK (GPA_ORDER BETWEEN 1 AND 10),
+    GPA_GAME_ID    TEXT    NOT NULL REFERENCES T_GAME_GAM (GAM_ID) ON DELETE CASCADE,
+    GPA_NAME       TEXT    NOT NULL,
+    GPA_ORDER      INTEGER NOT NULL CHECK (GPA_ORDER BETWEEN 1 AND 10),
+    GPA_BUZZER_SUB TEXT    DEFAULT NULL,
     PRIMARY KEY (GPA_GAME_ID, GPA_ORDER),
-    UNIQUE (GPA_GAME_ID, GPA_NAME)
+    UNIQUE (GPA_GAME_ID, GPA_NAME),
+    UNIQUE (GPA_GAME_ID, GPA_BUZZER_SUB)
 );
 ```
 
@@ -605,6 +610,7 @@ Voir le [Catalogue centralisé des codes d'erreur](error-codes.md#1️⃣-codes-
 | Machine à états avec transitions gardées | |
 | Statut `IN_ERROR` réservé au serveur | |
 | **Activation de la garde `QUIZ_IN_USE`** (définie en US-008 CA-31) — implémentation côté application pour vérifier qu'un quiz ne peut pas être supprimé si une partie active (`PENDING` ou `OPEN`) le référence | |
+| **Assignation buzzer → participant** au démarrage de la partie (CA-65 à CA-67) — colonne `GPA_BUZZER_SUB` persistée pour la résolution `sub → participant_order` lors du traitement des réponses et la reprise après crash | |
 | Tests unitaires et d'intégration (couverture ≥ 90%) | |
 
 ---
@@ -703,6 +709,47 @@ Toute opération impliquant `T_GAME_GAM` et `T_GAME_PARTICIPANT_GPA` simultaném
 ### Suppression en cascade
 
 `T_GAME_PARTICIPANT_GPA` déclare `ON DELETE CASCADE` sur `GPA_GAME_ID`. La suppression d'une partie entraîne automatiquement la suppression de tous ses participants, sans action supplémentaire côté application.
+
+### Assignation buzzer → participant au démarrage (`GPA_BUZZER_SUB`)
+
+Lors de la transition `PENDING → OPEN` (CA-65 à CA-67), le serveur doit assigner les buzzers connectés aux participants de la partie. Cette assignation est **persistée en base** dans la colonne `GPA_BUZZER_SUB` de `T_GAME_PARTICIPANT_GPA` et **chargée en mémoire** dans un `Map<sub, participant_order>` pour une résolution rapide lors du traitement des réponses.
+
+#### Algorithme d'assignation
+
+```
+1. Récupérer les buzzers connectés depuis le registre WebSocket (US-009)
+   → Filtrer les entrées avec role === "buzzer"
+   → Trier par connectedAt croissant (premier connecté = premier assigné)
+
+2. Récupérer les participants de la partie depuis T_GAME_PARTICIPANT_GPA
+   → Trier par GPA_ORDER croissant
+
+3. Assigner par position :
+   → buzzers[0].sub → participant avec GPA_ORDER = 1
+   → buzzers[1].sub → participant avec GPA_ORDER = 2
+   → ...
+   → Jusqu'à min(buzzers.length, participants.length)
+
+4. Persister en base :
+   UPDATE T_GAME_PARTICIPANT_GPA
+   SET GPA_BUZZER_SUB = ?
+   WHERE GPA_GAME_ID = ? AND GPA_ORDER = ?
+
+5. Construire le Map en mémoire :
+   participantOrderBySub = Map { sub1 → 1, sub2 → 2, ... }
+```
+
+#### Contrainte d'unicité
+
+La contrainte `UNIQUE (GPA_GAME_ID, GPA_BUZZER_SUB)` empêche qu'un même buzzer soit assigné à deux participants différents dans la même partie. La valeur `NULL` est autorisée (participants sans buzzer assigné).
+
+#### Impact sur `game_state_sync`
+
+Le message `game_state_sync` envoyé après le démarrage (CA-61) inclut la liste `connected_buzzers` qui contient les **usernames** des buzzers actuellement connectés (issus du registre WebSocket), et non les noms des participants. Voir [US-019](US-019-game-recovery.md) pour le format complet.
+
+#### Impact sur la suppression et le remplacement de partie
+
+Lorsqu'une partie est supprimée (`DELETE /api/v1/games/:id`), les assignations sont automatiquement supprimées via `ON DELETE CASCADE`. Le `Map<sub, participant_order>` en mémoire doit être vidé dans le callback `onGameDeleted()`.
 
 ### Nettoyage des ressources en mémoire lors de la suppression d'une partie active
 

@@ -252,21 +252,40 @@ startServer(db)
   1. Connexion SQLite        (existant — US-001)
   2. Migrations              (existant — US-001)
   3. recoverInterruptedGame(db)   ← nouveau — avant toute connexion cliente
+     → inclut la reconstruction du Map<sub, participant_order>
+       depuis GPA_BUZZER_SUB (US-010, CA-65)
   4. Démarrage HTTP + WebSocket   (existant — US-001)
 ```
 
 ### Hook post-authentification
 
-Le module `gameSync.js` expose une fonction `syncGameStateOnConnect(ws, role, username, db)` appelée depuis `authHandler.js` immédiatement après l'envoi de `auth_success` :
+Le module `gameSync.js` expose une fonction `syncGameStateOnConnect(ws, role, sub, username, db)` appelée depuis `authHandler.js` immédiatement après l'envoi de `auth_success` :
 
 ```javascript
 // authHandler.js — après envoi auth_success
-await syncGameStateOnConnect(ws, role, username, db);
+await syncGameStateOnConnect(ws, role, sub, username, db);
 ```
+
+Le paramètre `sub` (UUIDv7 de l'utilisateur, extrait du JWT) est nécessaire pour résoudre le participant assigné au buzzer via `GPA_BUZZER_SUB` dans `T_GAME_PARTICIPANT_GPA`.
 
 `syncGameStateOnConnect` encapsule la logique de décision :
 - Rôle `admin` → cherche une partie active → envoie `game_state_sync` si trouvée
 - Rôle `buzzer` → cherche une partie active + score cumulé du buzzer → envoie `game_resumed` si trouvée
+
+#### Reconstruction du `Map<sub, participant_order>` après reconnexion
+
+Lorsqu'un buzzer se reconnecte après un crash serveur, le `Map<sub, participant_order>` en mémoire a été perdu. Il doit être **reconstruit depuis la base de données** à partir de la colonne `GPA_BUZZER_SUB` (définie dans [US-010](US-010-game-crud.md#assignation-buzzer--participant-au-démarrage-gpa_buzzer_sub)) :
+
+```sql
+SELECT GPA_BUZZER_SUB, GPA_ORDER
+FROM T_GAME_PARTICIPANT_GPA
+WHERE GPA_GAME_ID = ?
+  AND GPA_BUZZER_SUB IS NOT NULL;
+```
+
+Cette reconstruction doit être effectuée dans `gameSync.js` lors de l'envoi de `game_resumed` à un buzzer, ou idéalement lors de `recoverInterruptedGame()` au démarrage pour que le `Map` soit prêt avant toute connexion cliente.
+
+> ⚠️ **Sans cette reconstruction**, les réponses des buzzers reconnectés après un crash seront rejetées avec la raison `UNKNOWN_PARTICIPANT` (voir [US-011 — Logging structuré](US-011-mcq-question-workflow.md#-logging-structuré)).
 
 Cette séparation respecte le **SRP** : `authHandler.js` gère l'authentification, `gameSync.js` gère la synchronisation de l'état de jeu.
 
@@ -288,7 +307,7 @@ Statut `OPEN`, `QUESTION_TITLE` ou `QUESTION_CLOSED` :
     { "order": 2, "name": "Bob",   "cumulative_score": 15 },
     { "order": 3, "name": "Charlie", "cumulative_score": 45 }
   ],
-  "connected_buzzers": ["Alice", "Bob", "Charlie"]
+  "connected_buzzers": ["quiz_buzzer_01", "quiz_buzzer_02", "quiz_buzzer_03"]
 }
 ```
 
@@ -306,7 +325,7 @@ Statut `QUESTION_OPEN` ou `QUESTION_BUZZED` — avec `started_at` et `time_limit
     { "order": 2, "name": "Bob",     "cumulative_score": 15 },
     { "order": 3, "name": "Charlie", "cumulative_score": 45 }
   ],
-  "connected_buzzers": ["Alice", "Bob", "Charlie"],
+  "connected_buzzers": ["quiz_buzzer_01", "quiz_buzzer_02", "quiz_buzzer_03"],
   "started_at": "2026-03-27T14:30:00.000Z",
   "time_limit": 30
 }
