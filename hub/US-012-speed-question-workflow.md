@@ -526,4 +526,4 @@ Aucune migration n'est requise pour étendre la contrainte `CHECK`. Le CHECK a �
 
 ### Réutilisation du registre de connexions (US-009)
 
-Le registre `Map<sub, { ws, role, username, connectedAt }>` est utilisé pour identifier l'émetteur des messages `buzz`, `validate_answer`, `invalidate_answer`, diffuser les messages ciblés (`buzz_accepted`, `buzz_locked`, `buzz_invalidated`, `buzz_unlocked`, `question_result`) et résoudre le `participant_order` à partir du `username` pour la persistance. Aucune logique de registre n'est dupliquée dans cette US (DRY).
+Le registre `Map<sub, { ws, role, username, connectedAt }>` est utilisé pour identifier l'émetteur des messages `buzz`, `validate_answer`, `invalidate_answer`, diffuser les messages ciblés (`buzz_accepted`, `buzz_locked`, `buzz_invalidated`, `buzz_unlocked`, `question_result`) et résoudre le `participant_order` à partir du `sub` via le `Map<sub, participant_order>` construit au démarrage de la partie (voir [US-010, CA-65 à CA-67](US-010-game-crud.md#assignation-buzzer--participant-au-démarrage-gpa_buzzer_sub)). Aucune logique de registre n'est dupliquée dans cette US (DRY).

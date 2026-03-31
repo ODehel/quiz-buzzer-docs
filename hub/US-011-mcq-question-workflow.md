@@ -409,6 +409,21 @@ src/
 }
 ```
 
+**Réponse ignorée (buzzer non assigné à un participant — CA-22) :**
+
+```json
+{
+  "timestamp": "2026-03-17T14:30:05.000Z",
+  "level": "WARN",
+  "event": "GAME_ANSWER_IGNORED",
+  "reason": "UNKNOWN_PARTICIPANT",
+  "participant_order": null,
+  "sub": "019cfd8d-d717-72c7-9352-ef9936c4c5ec"
+}
+```
+
+> Ce log indique que le buzzer est authentifié mais son `sub` n'a pas été assigné à un participant lors du démarrage de la partie (voir [US-010 — Assignation buzzer → participant](US-010-game-crud.md#assignation-buzzer--participant-au-démarrage-gpa_buzzer_sub)). Causes possibles : le buzzer s'est connecté **après** le démarrage de la partie, ou le `Map<sub, participant_order>` n'a pas été initialisé correctement.
+
 **Scores persistés :**
 
 ```json
@@ -483,12 +498,35 @@ src/
 > - **Cas expiration** : Chrono expire → serveur envoie `timer_end` (enregistre les manquants) → maître envoie `trigger_correction` → transition
 > - **Attendre `timer_end` ne suffit pas** : Le serveur n'envoie jamais la transition automatiquement, même après `timer_end`. Le maître doit toujours prendre la décision consciente d'envoyer `trigger_correction`.
 
-### Réutilisation de l'US-009
+### Réutilisation de l'US-009 et résolution `sub → participant_order`
 
 Le registre des connexions WebSocket (`Map<sub, { ws, role, username, connectedAt }>`) défini dans l'US-009 est utilisé directement pour :
 - Identifier l'émetteur de chaque message (rôle `admin` ou `buzzer`)
 - Diffuser les messages aux buzzers participants
 - Envoyer les résultats individuellement à chaque buzzer
+
+#### Résolution `sub → participant_order` lors du traitement des réponses
+
+Lorsque le serveur reçoit un message `answer` ou `buzz` d'un buzzer, il doit résoudre le `sub` JWT de l'émetteur en un `participant_order` pour identifier le participant dans la partie. Cette résolution utilise le **`Map<sub, participant_order>`** (nommé `participantOrderBySub`) construit lors du démarrage de la partie (US-010, CA-65 à CA-67).
+
+**Flux de résolution :**
+
+```
+Message answer/buzz reçu via WebSocket
+  → 1. Identifier le sub de l'émetteur depuis le registre WebSocket (US-009)
+  → 2. Vérifier que le rôle est "buzzer" (sinon → ignorer, log WARN)
+  → 3. Chercher le sub dans participantOrderBySub
+     → Si trouvé → participant_order résolu, continuer le traitement
+     → Si non trouvé → UNKNOWN_PARTICIPANT, ignorer silencieusement, log WARN
+  → 4. Utiliser participant_order pour enregistrer la réponse et notifier Angular
+```
+
+**Source du `Map<sub, participant_order>` :**
+
+- **Construction initiale** : au démarrage de la partie (`PENDING → OPEN`), à partir des buzzers connectés assignés aux participants par ordre de connexion. L'assignation est persistée dans `T_GAME_PARTICIPANT_GPA.GPA_BUZZER_SUB` (US-010, CA-65).
+- **Reconstruction après crash** : au redémarrage du serveur, le `Map` est reconstruit depuis la base de données via `SELECT GPA_BUZZER_SUB, GPA_ORDER FROM T_GAME_PARTICIPANT_GPA WHERE GPA_GAME_ID = ? AND GPA_BUZZER_SUB IS NOT NULL` (voir [US-019](US-019-game-recovery.md)).
+
+> ⚠️ **Sans ce `Map`**, le serveur ne peut pas résoudre `sub → participant_order` et toutes les réponses sont rejetées avec la raison `UNKNOWN_PARTICIPANT` (voir CA-22). Ce `Map` doit être initialisé **avant** que la première question ne soit déclenchée.
 
 ---
 
