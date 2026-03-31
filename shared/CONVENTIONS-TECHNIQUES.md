@@ -8,10 +8,10 @@
 
 | Élément | Choix |
 |---|---|
-| Runtime | Node.js 24 LTS (dernière version stable disponible) |
-| Langage | JavaScript (ES Modules) |
+| Runtime | Node.js 24.14.1 LTS (dernière version stable disponible) |
+| Langage | TypeScript natif (Node.js type stripping, ES Modules) |
 | Base de données | SQLite |
-| Tests | Jest (dernière version stable disponible) |
+| Tests | Jest (dernière version stable disponible) + @swc/jest |
 | Identifiants | UUIDv7 généré côté Node.js |
 | Horodatage | ISO 8601 UTC (millisecondes), généré côté Node.js |
 | Principes d'architecture | YAGNI, KISS, DRY, SOLID |
@@ -94,10 +94,17 @@ La couverture globale du code de chaque US doit être **≥ 90%**, mesurée par 
 | Fonctions (*functions*) | ≥ 90% |
 | Instructions (*statements*) | ≥ 90% |
 
-Configuration Jest à inclure dans `jest.config.js` :
+Configuration Jest à inclure dans `jest.config.ts` :
 
-```js
+```ts
 export default {
+  transform: {
+    "^.+\\.ts$": ["@swc/jest", {
+      jsc: { parser: { syntax: "typescript" }, target: "es2024" },
+      module: { type: "es6" },
+    }],
+  },
+  extensionsToTreatAsEsm: [".ts"],
   coverageThreshold: {
     global: {
       lines: 90,
@@ -114,17 +121,17 @@ export default {
 ```
 src/
   routes/
-    themeRoute.js
+    themeRoute.ts
   routes/__tests__/
-    themeRoute.test.js   ← tests d'intégration CA-1 à CA-37
+    themeRoute.test.ts   ← tests d'intégration CA-1 à CA-37
   utils/
-    normalize.js
+    normalize.ts
   utils/__tests__/
-    normalize.test.js    ← tests unitaires
+    normalize.test.ts    ← tests unitaires
 ```
 
 - Les fichiers de tests sont placés dans un répertoire `__tests__/` au même niveau que le fichier testé.
-- Le nom du fichier de test reprend le nom du fichier source avec le suffixe `.test.js`.
+- Le nom du fichier de test reprend le nom du fichier source avec le suffixe `.test.ts`.
 - Chaque `describe` block correspond à une sous-section des critères d'acceptance.
 - Chaque `it` / `test` référence explicitement le numéro CA concerné.
 

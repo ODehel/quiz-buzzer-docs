@@ -9,7 +9,7 @@ Le projet **Quiz Buzzer** se décompose en quatre applications :
 | **Buzzers** | PlatformIO / ESP32-S3 | Périphériques physiques de jeu |
 | **App mobile** | Android / NFC | Configuration WiFi des buzzers |
 | **App maître de jeu** | Angular | Interface de gestion des parties |
-| **Serveur (hub)** | Node.js / JavaScript | Communication WebSocket entre l'app Angular et les buzzers, gestion du workflow des parties |
+| **Serveur (hub)** | Node.js 24 LTS / TypeScript natif | Communication WebSocket entre l'app Angular et les buzzers, gestion du workflow des parties |
 
 ---
 
