@@ -23,12 +23,13 @@
   CA-3   Status PENDING → affichage nominal simulé ici
   CA-4   Nom du quiz issu de QuizService.getById(quizId) au montage
   CA-5   Nombre de participants : GameStateService.state().participants.length
-  CA-6   Barre readiness VERTE si connectedBuzzers.length >= participants.length
-         ORANGE si insuffisant (simulé ici : 3/4 → orange)
-  CA-7   Sous-titre : "N buzzers connectés sur M attendus"
+  CA-6   Barre readiness VERTE si tous les participants ont un buzzer assigné
+         ORANGE si insuffisant (simulé ici : 3/4 assignés → orange)
+  CA-7   Sous-titre : "N buzzers assignés sur M attendus"
   CA-8   Mise à jour temps réel sans polling (signal)
-  CA-9   Association participant ↔ buzzer (N-ième participant = N-ième buzzer)
-  CA-10  Participant sans buzzer → "Non connecté" en gris
+  CA-9   Association manuelle participant ↔ buzzer via dropdown <select>
+         Le pilote choisit quel buzzer assigner à quel participant
+  CA-10  Participant sans buzzer assigné → "Non assigné" en gris
   CA-11  Liste buzzers avec username
   CA-12  Slots libres affichés grisés
   CA-13  Mise à jour temps réel via GameStateService.connectedBuzzers()
@@ -45,8 +46,10 @@
   gs.state().quizId             → quizName (enrichi par QuizService.getById)
   gs.state().participants       → liste des participants
   gs.connectedBuzzers()         → signal<string[]> temps réel
-  isReady                       → computed (connectedBuzzers.length >= participants.length)
-  participantsWithBuzzer        → computed (association N-ième participant ↔ buzzer)
+  assignments                   → signal<Record<number, string>> (participantOrder → buzzerUsername)
+  assignedCount                 → computed (nombre de buzzers assignés et connectés)
+  isReady                       → computed (assignedCount >= participants.length)
+  participantsWithBuzzer        → computed (association manuelle via assignments)
   isStarting                    → signal<boolean>
   isDeleting                    → signal<boolean>
 
@@ -212,6 +215,29 @@
   .panel-header { display: flex; align-items: center; justify-content: space-between; padding: 13px 16px; border-bottom: 1px solid var(--border); }
   .panel-title { font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); }
 
+  /* ── Sélecteur buzzer (dans participants) [CA-9] ── */
+  .buzzer-select {
+    appearance: none;
+    background: var(--surface2);
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 24px 4px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='%236b7280'%3E%3Cpath d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    min-width: 140px;
+    transition: border-color .15s, background .15s;
+  }
+  .buzzer-select:hover { border-color: var(--accent); }
+  .buzzer-select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(79,142,247,.2); }
+  .buzzer-select.assigned { background: var(--accent-dim); color: #90b8ff; border-color: #2a4a8a; }
+  .buzzer-select option { background: var(--surface); color: var(--text); }
+
   /* ── Lignes participants [CA-9, CA-10] ── */
   .participant-row {
     display: flex; align-items: center; gap: 12px;
@@ -365,35 +391,35 @@
     </div>
 
     <!-- Barre de readiness [CA-6, CA-7, CA-8] -->
-    <!-- Simulée : 3 buzzers connectés sur 4 attendus → orange (insuffisant) -->
+    <!-- Simulée : 3 buzzers assignés sur 4 attendus → orange (insuffisant) -->
     <div class="readiness-bar-wrap insufficient">
       <div class="readiness-header">
         <span class="readiness-title">Readiness</span>
-        <!-- [CA-7] Sous-titre -->
-        <span class="readiness-count insufficient">3 / 4 buzzers connectés</span>
+        <!-- [CA-7] Sous-titre : nombre de buzzers manuellement assignés -->
+        <span class="readiness-count insufficient">3 / 4 buzzers assignés</span>
       </div>
       <!-- [CA-6] Barre orange : 3/4 = 75% -->
       <div class="bar-track">
         <div class="bar-fill insufficient" style="width:75%"></div>
       </div>
       <div class="readiness-sub">
-        <!-- [CA-8] Mis à jour en temps réel via GameStateService.connectedBuzzers() signal -->
-        <strong>quiz_buzzer_04</strong> n'est pas encore connecté.
-        La partie peut démarrer sans lui.
+        <!-- [CA-8] Mis à jour en temps réel via assignments signal -->
+        <strong>Diana</strong> n'a pas encore de buzzer assigné.
+        La partie peut démarrer sans elle.
       </div>
     </div>
 
     <!--
-    Simulation avec tous les buzzers connectés (readiness verte) — décommenter :
+    Simulation avec tous les buzzers assignés (readiness verte) — décommenter :
     <div class="readiness-bar-wrap ready">
       <div class="readiness-header">
         <span class="readiness-title">Readiness</span>
-        <span class="readiness-count ready">4 / 4 buzzers connectés ✓</span>
+        <span class="readiness-count ready">4 / 4 buzzers assignés</span>
       </div>
       <div class="bar-track">
         <div class="bar-fill ready" style="width:100%"></div>
       </div>
-      <div class="readiness-sub">Tous les joueurs sont prêts. Vous pouvez démarrer !</div>
+      <div class="readiness-sub">Tous les joueurs ont un buzzer assigné. Vous pouvez démarrer !</div>
     </div>
     -->
 
@@ -401,50 +427,70 @@
     <div class="lobby-grid">
 
       <!-- Panneau participants [CA-9, CA-10] -->
-      <!-- participantsWithBuzzer = computed() → association N-ième participant ↔ N-ième buzzer -->
+      <!-- participantsWithBuzzer = computed() → association manuelle via dropdown -->
       <div class="panel">
         <div class="panel-header">
           <span class="panel-title">Participants</span>
           <span style="font-size:11px;color:var(--muted)">4 joueurs enregistrés</span>
         </div>
 
-        <!-- Alice → buzzer_01 ✓ [CA-9] -->
+        <!-- Alice → buzzer_01 assigné manuellement [CA-9] -->
         <div class="participant-row">
           <span class="p-order">1</span>
           <span class="p-name">Alice</span>
+          <!-- [CA-9] Dropdown pour choisir le buzzer -->
+          <select class="buzzer-select assigned">
+            <option value="">— Choisir un buzzer —</option>
+            <option value="quiz_buzzer_01" selected>quiz_buzzer_01</option>
+            <option value="quiz_buzzer_04">quiz_buzzer_04</option>
+          </select>
           <div class="buzzer-tag connected">
             <div class="buzzer-tag-dot"></div>
             quiz_buzzer_01
           </div>
         </div>
 
-        <!-- Bob → buzzer_02 ✓ [CA-9] -->
+        <!-- Bob → buzzer_03 assigné manuellement (ordre choisi par le pilote) [CA-9] -->
         <div class="participant-row">
           <span class="p-order">2</span>
           <span class="p-name">Bob</span>
-          <div class="buzzer-tag connected">
-            <div class="buzzer-tag-dot"></div>
-            quiz_buzzer_02
-          </div>
-        </div>
-
-        <!-- Charlie → buzzer_03 ✓ [CA-9] -->
-        <div class="participant-row">
-          <span class="p-order">3</span>
-          <span class="p-name">Charlie</span>
+          <select class="buzzer-select assigned">
+            <option value="">— Choisir un buzzer —</option>
+            <option value="quiz_buzzer_03" selected>quiz_buzzer_03</option>
+            <option value="quiz_buzzer_04">quiz_buzzer_04</option>
+          </select>
           <div class="buzzer-tag connected">
             <div class="buzzer-tag-dot"></div>
             quiz_buzzer_03
           </div>
         </div>
 
-        <!-- Diana → pas de buzzer [CA-10] "Non connecté" en gris -->
+        <!-- Charlie → buzzer_02 assigné manuellement [CA-9] -->
+        <div class="participant-row">
+          <span class="p-order">3</span>
+          <span class="p-name">Charlie</span>
+          <select class="buzzer-select assigned">
+            <option value="">— Choisir un buzzer —</option>
+            <option value="quiz_buzzer_02" selected>quiz_buzzer_02</option>
+            <option value="quiz_buzzer_04">quiz_buzzer_04</option>
+          </select>
+          <div class="buzzer-tag connected">
+            <div class="buzzer-tag-dot"></div>
+            quiz_buzzer_02
+          </div>
+        </div>
+
+        <!-- Diana → pas de buzzer assigné [CA-10] "Non assigné" en gris -->
         <div class="participant-row">
           <span class="p-order">4</span>
           <span class="p-name">Diana</span>
+          <select class="buzzer-select">
+            <option value="" selected>— Choisir un buzzer —</option>
+            <option value="quiz_buzzer_04">quiz_buzzer_04</option>
+          </select>
           <div class="buzzer-tag offline">
             <div class="buzzer-tag-dot"></div>
-            Non connecté
+            Non assigné
           </div>
         </div>
 
