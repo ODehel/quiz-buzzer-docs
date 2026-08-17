@@ -188,6 +188,8 @@ Voir les [Conventions techniques](../shared/CONVENTIONS-TECHNIQUES.md) pour la s
 | `4002` | `WS_CLOSE_TOKEN_EXPIRED` | "Token expired." | Token JWT expiré |
 | `4003` | `WS_CLOSE_AUTH_TIMEOUT` | "Authentication timeout." | Pas de message d'authentification dans les 60 secondes |
 | `4004` | `WS_CLOSE_SESSION_REPLACED` | "Session replaced." | Même utilisateur connecté depuis un autre client |
+| `4005` | `WS_CLOSE_SERVER_FULL` | "Server is full." | Le registre a atteint sa capacité maximale (10 buzzers) |
+| `4006` | `WS_CLOSE_RATE_LIMITED` | "Rate limit exceeded." | L'IP a dépassé 15 tentatives de connexion par minute |
 | `1011` | — | "Internal server error." | Erreur serveur inattendue |
 
 ---
@@ -347,7 +349,7 @@ Map<sub (UUIDv7), { ws, role, username, connectedAt }>
 | Registre des connexions en mémoire (`Map`) | Persistance des sessions en base |
 | Timeout d'authentification (60 secondes) | Reconnexion automatique côté client |
 | Logging structuré JSON (4 événements) | Déploiement / CI-CD |
-| Codes de fermeture WebSocket personnalisés (4001–4004) | |
+| Codes de fermeture WebSocket personnalisés (4001–4006) | |
 | Rate limiting des connexions (15 par minute par IP) | Rate limiting au niveau du reverse proxy |
 | Tests unitaires et d'intégration (couverture ≥ 90%) | |
 
