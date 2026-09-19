@@ -35,9 +35,9 @@ Voir [VISION.md](../shared/VISION.md) pour la description complète du projet et
 | CA-7 | Le champ `theme_id` doit référencer un thème existant | Sinon → `400 INVALID_THEME` |
 | CA-8 | Le champ `theme_id` doit être un UUID valide | Sinon → `400 INVALID_UUID` |
 | CA-9 | Pour une question MCQ, `choices` est obligatoire : tableau d'exactement 4 chaînes non vides (1–40 caractères chacune), toutes distinctes (insensible à la casse) | Sinon → `400 VALIDATION_ERROR` |
-| CA-10 | Pour une question MCQ, `correct_answer` est obligatoire et doit correspondre exactement (insensible à la casse) à l'un des 4 `choices` | Sinon → `400 VALIDATION_ERROR` |
+| CA-10 | Pour une question MCQ, `correct_answer` est obligatoire ; il est trimmé avant validation, doit correspondre exactement (insensible à la casse) à l'un des 4 `choices`, et la valeur trimmée est celle persistée | Sinon → `400 VALIDATION_ERROR` |
 | CA-11 | Pour une question SPEED, `choices` doit être absent du body | Présent → `400 VALIDATION_ERROR` |
-| CA-12 | Pour une question SPEED, `correct_answer` est obligatoire (1–40 caractères) | Sinon → `400 VALIDATION_ERROR` |
+| CA-12 | Pour une question SPEED, `correct_answer` est obligatoire ; il est trimmé avant validation et doit faire 1–40 caractères après trim, et la valeur trimmée est celle persistée | `"paris "` → `"paris"` (persisté) ; `"   "` → `""` → `400 VALIDATION_ERROR` |
 | CA-13 | Le champ `level` doit être un entier entre 1 et 5 | Sinon → `400 VALIDATION_ERROR` |
 | CA-14 | Le champ `time_limit` doit être un entier entre 5 et 60 (en secondes) | Sinon → `400 VALIDATION_ERROR` |
 | CA-15 | Le champ `points` doit être un entier entre 1 et 50 | Sinon → `400 VALIDATION_ERROR` |
