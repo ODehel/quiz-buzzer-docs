@@ -11,7 +11,7 @@
     PlatformIO environment built on a firmware repository (pio run -e <FirmwareEnv>). Default: esp32.
 .NOTES
     Exit codes (first failure wins, in this order):
-      0 ok | 10 dirty tree | 11 unexpected branch | 12 type-check | 13 tests | 14 build
+      0 ok | 10 dirty tree | 11 unexpected branch | 12 type-check | 13 tests | 14 build | 15 tool missing
     A handoff gap is reported but does not change the exit code.
 #>
 param(
@@ -37,9 +37,17 @@ function Write-Block([string]$text) {
 }
 
 # Runs a native command, prints the tail of its output, returns its exit code.
+# A missing executable is never run: it is reported RED and recorded as failure 15.
 function Invoke-Step([string]$title, [string]$exe, [string[]]$arguments) {
     Write-Output "### $title"
     Write-Output ('`' + $exe + ' ' + ($arguments -join ' ') + '`')
+    if (-not (Get-Command $exe -ErrorAction SilentlyContinue)) {
+        Write-Output "Result: **RED** (tool not found: $exe)"
+        Write-Output ''
+        Set-Failure 15
+        $script:StepCode = 15
+        return
+    }
     $output = (& $exe @arguments 2>&1 | Out-String)
     $code = $LASTEXITCODE
     $tail = ($output -split "`r?`n" | Where-Object { $_ -ne '' -and $_ -notmatch '^\{"level"' } | Select-Object -Last 15) -join "`n"
