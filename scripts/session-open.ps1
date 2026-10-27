@@ -7,13 +7,16 @@
     Modifies nothing in the repository.
 .PARAMETER ExpectedBranch
     Branch the session must open on. Default: main.
+.PARAMETER FirmwareEnv
+    PlatformIO environment built on a firmware repository (pio run -e <FirmwareEnv>). Default: esp32.
 .NOTES
     Exit codes (first failure wins, in this order):
       0 ok | 10 dirty tree | 11 unexpected branch | 12 type-check | 13 tests | 14 build
     A handoff gap is reported but does not change the exit code.
 #>
 param(
-    [string]$ExpectedBranch = 'main'
+    [string]$ExpectedBranch = 'main',
+    [string]$FirmwareEnv = 'esp32'
 )
 
 $ErrorActionPreference = 'Continue'
@@ -83,7 +86,7 @@ if ($kind -eq 'node') {
 elseif ($kind -eq 'firmware') {
     Invoke-Step 'Tests (native)' 'pio' @('test', '-e', 'native')
     if ($script:StepCode -ne 0) { Set-Failure 13 }
-    Invoke-Step 'Build' 'pio' @('run')
+    Invoke-Step "Build ($FirmwareEnv)" 'pio' @('run', '-e', $FirmwareEnv)
     if ($script:StepCode -ne 0) { Set-Failure 14 }
 }
 else {
