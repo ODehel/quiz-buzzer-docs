@@ -5,6 +5,11 @@
     Prints a markdown report on stdout: git state, type-check/tests/build (by repo type),
     DEBTS.md and DECISIONS.md counts, and the comparison with the latest handoff.
     Modifies nothing in the repository.
+    Type-check of a node repository:
+      - with angular.json (Angular): ngc -p tsconfig.app.json --noEmit, then ngc -p tsconfig.spec.json --noEmit
+        (templates are checked; the root tsconfig.json is a "solution" file that tsc cannot use);
+      - otherwise: tsc --noEmit, plus a guard that is RED ("covers 0 project files") when
+        tsc --noEmit --listFilesOnly lists no file outside node_modules.
 .PARAMETER ExpectedBranch
     Branch the session must open on. Default: main.
 .PARAMETER FirmwareEnv
@@ -86,8 +91,28 @@ Write-Block ((git log -5 --format='%h %s (%ar)') | Out-String)
 
 Write-Output '## Checks'
 if ($kind -eq 'node') {
-    Invoke-Step 'Type-check' 'npx.cmd' @('tsc', '--noEmit')
-    if ($script:StepCode -ne 0) { Set-Failure 12 }
+    if (Test-Path 'angular.json') {
+        Invoke-Step 'Type-check (app, templates included)' 'npx.cmd' @('ngc', '-p', 'tsconfig.app.json', '--noEmit')
+        if ($script:StepCode -ne 0) { Set-Failure 12 }
+        Invoke-Step 'Type-check (spec, templates included)' 'npx.cmd' @('ngc', '-p', 'tsconfig.spec.json', '--noEmit')
+        if ($script:StepCode -ne 0) { Set-Failure 12 }
+    }
+    else {
+        Invoke-Step 'Type-check' 'npx.cmd' @('tsc', '--noEmit')
+        if ($script:StepCode -ne 0) { Set-Failure 12 }
+        # A "solution" tsconfig makes tsc green while it checks nothing: require real project files.
+        if (Get-Command 'npx.cmd' -ErrorAction SilentlyContinue) {
+            Write-Output '### Type-check coverage'
+            Write-Output '`npx.cmd tsc --noEmit --listFilesOnly`'
+            $covered = @(& npx.cmd tsc --noEmit --listFilesOnly 2>$null |
+                Where-Object { $_ -match '\.(ts|tsx|mts|cts)$' -and $_ -notmatch 'node_modules' })
+            if ($covered.Count -eq 0) {
+                Write-Output 'Result: **RED** (covers 0 project files)'
+                Set-Failure 12
+            } else { Write-Output "Result: OK ($($covered.Count) project files)" }
+            Write-Output ''
+        }
+    }
     Invoke-Step 'Tests' 'npm.cmd' @('test')
     if ($script:StepCode -ne 0) { Set-Failure 13 }
 }
