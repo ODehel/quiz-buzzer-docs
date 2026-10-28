@@ -5,6 +5,9 @@
     Prints a markdown report on stdout: git state, type-check/tests/build (by repo type),
     DEBTS.md and DECISIONS.md counts, and the comparison with the latest handoff.
     Modifies nothing in the repository.
+    Console output is decoded as UTF-8. When a test or build step succeeds, only its summary lines are
+    printed (the tail of the output is kept for failures and when no summary line is found).
+    ANSI colour codes are stripped from the captured output.
     Type-check of a node repository:
       - with angular.json (Angular): ngc -p tsconfig.app.json --noEmit, then ngc -p tsconfig.spec.json --noEmit
         (templates are checked; the root tsconfig.json is a "solution" file that tsc cannot use);
@@ -31,6 +34,10 @@ if (-not $repoRoot) { Write-Output 'Not inside a git repository.'; exit 1 }
 $repoRoot = (Resolve-Path $repoRoot).Path
 Set-Location $repoRoot
 
+# Native tools (node, pio) write UTF-8: decode it as such instead of the OEM code page (mojibake).
+$previousEncoding = $null
+try { $previousEncoding = [Console]::OutputEncoding; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }
+
 function Set-Failure([int]$code) {
     if ($script:ExitCode -eq 0) { $script:ExitCode = $code }
 }
@@ -41,9 +48,10 @@ function Write-Block([string]$text) {
     Write-Output '```'
 }
 
-# Runs a native command, prints the tail of its output, returns its exit code.
+# Runs a native command and prints the tail of its output; on success with a summaryPattern, only the
+# matching lines (falling back to the tail when none match). Sets $script:StepCode.
 # A missing executable is never run: it is reported RED and recorded as failure 15.
-function Invoke-Step([string]$title, [string]$exe, [string[]]$arguments) {
+function Invoke-Step([string]$title, [string]$exe, [string[]]$arguments, [string]$summaryPattern = '') {
     Write-Output "### $title"
     Write-Output ('`' + $exe + ' ' + ($arguments -join ' ') + '`')
     if (-not (Get-Command $exe -ErrorAction SilentlyContinue)) {
@@ -55,8 +63,15 @@ function Invoke-Step([string]$title, [string]$exe, [string[]]$arguments) {
     }
     $output = (& $exe @arguments 2>&1 | Out-String)
     $code = $LASTEXITCODE
-    $tail = ($output -split "`r?`n" | Where-Object { $_ -ne '' -and $_ -notmatch '^\{"level"' } | Select-Object -Last 15) -join "`n"
-    Write-Block $tail
+    # Colour codes (vitest, pio) would hide the summary lines from the patterns: strip them first.
+    $lines = @($output -split "`r?`n" | ForEach-Object { $_ -replace '\x1b\[[0-9;]*[A-Za-z]', '' } |
+        Where-Object { $_ -ne '' -and $_ -notmatch '^\{"level"' })
+    $shown = @($lines | Select-Object -Last 15)
+    if ($code -eq 0 -and $summaryPattern) {
+        $summary = @($lines | Where-Object { $_ -match $summaryPattern })
+        if ($summary.Count -gt 0) { $shown = $summary }
+    }
+    Write-Block ($shown -join "`n")
     if ($code -eq 0) { Write-Output 'Result: OK' } else { Write-Output "Result: **RED** (exit $code)" }
     Write-Output ''
     $script:StepCode = $code
@@ -113,13 +128,13 @@ if ($kind -eq 'node') {
             Write-Output ''
         }
     }
-    Invoke-Step 'Tests' 'npm.cmd' @('test')
+    Invoke-Step 'Tests' 'npm.cmd' @('test') '^\s*(Test Files|Tests|Duration)\s'
     if ($script:StepCode -ne 0) { Set-Failure 13 }
 }
 elseif ($kind -eq 'firmware') {
-    Invoke-Step 'Tests (native)' 'pio' @('test', '-e', 'native')
+    Invoke-Step 'Tests (native)' 'pio' @('test', '-e', 'native') 'test cases:'
     if ($script:StepCode -ne 0) { Set-Failure 13 }
-    Invoke-Step "Build ($FirmwareEnv)" 'pio' @('run', '-e', $FirmwareEnv)
+    Invoke-Step "Build ($FirmwareEnv)" 'pio' @('run', '-e', $FirmwareEnv) '^(RAM|Flash):|\[SUCCESS\]'
     if ($script:StepCode -ne 0) { Set-Failure 14 }
 }
 else {
@@ -173,4 +188,5 @@ else {
     }
 }
 
+if ($previousEncoding) { try { [Console]::OutputEncoding = $previousEncoding } catch { } }
 exit $script:ExitCode
