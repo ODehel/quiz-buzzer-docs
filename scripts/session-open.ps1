@@ -3,7 +3,8 @@
     Read-only opening check for a Buzz'O'Live session. Run it from the root of any of the 4 repos.
 .DESCRIPTION
     Prints a markdown report on stdout: git state, type-check/tests/build (by repo type),
-    DEBTS.md and DECISIONS.md counts, and the comparison with the latest handoff.
+    DEBTS.md and DECISIONS.md counts, and the comparison with the latest handoff of this repository
+    (files named yyyy-MM-dd-HHmm-<repository folder name>.md in quiz-buzzer-docs/docs/sessions).
     Modifies nothing in the repository.
     Console output is decoded as UTF-8. When a test or build step succeeds, only its summary lines are
     printed (the tail of the output is kept for failures and when no summary line is found).
@@ -158,12 +159,14 @@ Write-Output '## Handoff'
 $sessionsDir = Join-Path (Split-Path $repoRoot -Parent) 'quiz-buzzer-docs/docs/sessions'
 $handoff = $null
 if (Test-Path $sessionsDir) {
+    # session-close.ps1 names each handoff yyyy-MM-dd-HHmm-<Repo>.md: keep only this repository's.
+    $handoffPattern = '^\d{4}-\d{2}-\d{2}-\d{4}-' + [regex]::Escape($repoName) + '\.md$'
     $handoff = Get-ChildItem $sessionsDir -Filter '*.md' |
-        Where-Object { $_.Name -ne 'TEMPLATE.md' } |
+        Where-Object { $_.Name -match $handoffPattern } |
         Sort-Object Name | Select-Object -Last 1
 }
 if (-not $handoff) {
-    Write-Output 'No handoff: first opening.'
+    Write-Output "No handoff for ``$repoName``: first opening of this repository."
 }
 else {
     Write-Output "- Latest handoff: ``$($handoff.Name)``"
